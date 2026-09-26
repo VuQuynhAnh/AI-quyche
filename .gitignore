@@ -1,0 +1,24 @@
+# --- Dependencies (cài lại bằng npm install, không cần đẩy lên git) ---
+**/node_modules/
+
+# --- Biến môi trường (chứa mật khẩu DB, JWT secret, Gemini API key — TUYỆT ĐỐI không commit) ---
+**/.env
+**/.env.local
+**/.env.*.local
+
+# --- Build output của frontend ---
+frontend/dist/
+frontend/build/
+
+# --- File quy chế do người dùng upload qua ứng dụng (dữ liệu runtime, không phải source code) ---
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# --- Log ---
+*.log
+npm-debug.log*
+
+# --- File rác của hệ điều hành / editor ---
+.DS_Store
+Thumbs.db
+.vscode/

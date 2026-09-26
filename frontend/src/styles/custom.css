@@ -1,0 +1,1087 @@
+/* CSS tuỳ chỉnh TỐI THIỂU — chỉ những gì Bootstrap không có sẵn.
+   Toàn bộ layout/màu sắc/spacing khác dùng thẳng class Bootstrap trong JSX. */
+
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --brand-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+
+  /* Bảng màu cho biểu đồ (trang Dashboard) — theo phương pháp "4 việc của màu
+     sắc": PHÂN LOẠI (categorical, --series-*) cho các nhóm không theo thang
+     tốt/xấu, và TRẠNG THÁI (status, --status-*) cho các thang có ý nghĩa
+     tốt -> xấu rõ ràng (VD: văn bản xử lý xong / đang xử lý / lỗi). Không tự
+     chọn màu tuỳ ý — đây là 1 bảng màu đã được kiểm tra qua công cụ tự động
+     (đảm bảo phân biệt được với người mù màu, đủ tương phản...), xem thêm ở
+     README mục "Biểu đồ trang Dashboard". */
+  --series-1: #2a78d6; /* xanh dương */
+  --series-2: #eb6834; /* cam */
+  --series-3: #1baf7a; /* xanh ngọc */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-critical: #d03b3b;
+  --chart-surface: #ffffff;
+}
+
+/* Bootstrap không có sẵn tiện ích "min-width: 0" (chỉ có min-vw-100/min-vh-100
+   theo % viewport) — cần class này để phần tử con trong flex row co lại đúng
+   thay vì bị đẩy tràn ra ngoài bởi min-width: auto mặc định của trình duyệt. */
+.min-w-0 {
+  min-width: 0;
+}
+
+/* Nền gradient nhẹ cho trang đăng nhập/đăng ký — thay cho nền trắng trơn */
+.auth-page {
+  min-height: 100dvh;
+  background: radial-gradient(circle at 15% -10%, #dbe7ff 0%, transparent 55%),
+    radial-gradient(circle at 100% 110%, #eaf1ff 0%, transparent 45%), #f7f9fc;
+}
+
+.auth-logo {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  box-shadow: 0 8px 20px -6px rgba(29, 78, 216, 0.45);
+}
+
+/* Icon tròn nhỏ đại diện cho brand — dùng ở header trang chat/quản trị */
+.brand-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+/* Thanh tab dưới cùng — CHỈ dùng cho điện thoại/máy tính bảng (< lg, 992px).
+   Bootstrap không có sẵn kiểu "bottom tab bar" của app di động. Ở màn hình
+   máy tính (>= lg), trang quản trị dùng hẳn 1 sidebar riêng (.admin-sidebar
+   bên dưới) thay vì "ép" thanh này chuyển thành cột dọc như thiết kế trước. */
+.bottom-tabs {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1030; /* trên navbar Bootstrap (1030) */
+  padding-bottom: var(--safe-bottom);
+  background: #fff;
+}
+
+.bottom-tabs .nav-link {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.bottom-tabs .nav-link.active {
+  color: var(--bs-primary);
+  font-weight: 600;
+}
+
+.with-bottom-tabs {
+  padding-bottom: calc(64px + var(--safe-bottom));
+}
+
+@media (min-width: 992px) {
+  .with-bottom-tabs {
+    padding-bottom: 0;
+  }
+}
+
+/* ---------- Trang quản trị: layout riêng cho máy tính (>= lg, 992px) ---------- */
+
+.admin-shell {
+  min-height: 100dvh;
+  background-color: #f5f7fb;
+}
+
+/* Sidebar cố định bên trái — chỉ hiện ở màn hình máy tính (xem d-none d-lg-flex
+   trong AdminLayout.jsx). Chiều cao bám theo toàn bộ viewport, tự có thanh
+   cuộn riêng nếu danh sách mục điều hướng dài hơn màn hình. */
+.admin-sidebar {
+  width: 248px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #111827 0%, #1e293b 100%);
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+}
+
+.admin-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 0.6rem;
+  color: rgba(255, 255, 255, 0.75);
+  text-decoration: none;
+  font-size: 0.92rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.admin-nav-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.admin-nav-link.active {
+  background: var(--brand-gradient);
+  color: #fff;
+  font-weight: 600;
+}
+
+.admin-sidebar-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Nội dung chính — giới hạn chiều rộng tối đa trên màn hình rất rộng để chữ
+   và bảng biểu không bị kéo dãn hết cỡ, giống các trang quản trị/nhắn tin
+   tham khảo (Slack, Gmail...). */
+.admin-page-wrap {
+  max-width: 1240px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+/* ---------- Khung admin cao đúng 100dvh, chỉ ".admin-page-wrap" tự cuộn -----
+   Trước đây từng thử "trừ 1 số px cố định" (VD: calc(100dvh - 214px)) để tính
+   chiều cao còn lại cho trang "Hội thoại", nhưng cách đó dễ SAI mỗi khi phần
+   chrome phía trên (topbar, chú giải trạng thái...) đổi chiều cao — khiến
+   khung chat hụt thấp hơn màn hình thật, để lại khoảng trắng thừa bên dưới.
+   Cách đúng và bền hơn: cho ".admin-shell" cao cố định = 100dvh, rồi để
+   flexbox TỰ TÍNH phần còn lại qua "flex: 1 1 auto" ở mỗi tầng — không cần
+   đoán/trừ px nào cả, dù nội dung phía trên có đổi cao thấp ra sao. Chỉ áp
+   dụng từ màn hình máy tính (>= lg) — điện thoại vẫn cuộn cả trang như cũ. */
+@media (min-width: 992px) {
+  .admin-shell {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .admin-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .admin-page-wrap {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0;
+  }
+}
+
+/* ---------- Trang "Hội thoại" (Logs.jsx): bố cục danh sách + chi tiết ----------
+   Ở màn hình máy tính (>= lg), 2 cột hiện song song, mỗi cột tự cuộn riêng —
+   giống hộp thư/app nhắn tin (Gmail, WhatsApp Web...). Ở màn hình nhỏ hơn,
+   giữ nguyên xếp chồng như thiết kế cũ (không cần CSS thêm, mặc định của
+   flex-column đã đúng). */
+@media (min-width: 992px) {
+  /* ".logs-page-wrap" nhận đúng phần chiều cao còn lại của ".admin-page-wrap"
+     (100% — ".admin-page-wrap" giờ đã có chiều cao XÁC ĐỊNH nhờ khối phía
+     trên), rồi chia tiếp cho chú giải trạng thái (cao tự nhiên) + ".logs-page"
+     (flex: 1 1 auto — chiếm hết phần còn lại). 2 cột con chỉ cần "height:
+     100%" của ".logs-page" là đủ, không còn phải đoán số px nào nữa. */
+  .logs-page-wrap {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .logs-page {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .logs-list-col {
+    width: 360px;
+    flex-shrink: 0;
+    height: 100%;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .logs-detail-col {
+    height: 100%;
+  }
+
+  .logs-detail-col .card {
+    height: 100%;
+  }
+
+  .logs-messages {
+    overflow-y: auto;
+    min-height: 0;
+  }
+}
+
+.logs-empty-state {
+  height: 100%;
+  min-height: 320px;
+  border: 1px dashed #dee2e6;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+/* Chú giải trạng thái hội thoại (StatusLegend trong Logs.jsx) — thiết kế lại
+   thành các "chip" viền mảnh nền nhạt (thay vì dùng nguyên khối badge Bootstrap
+   đặc màu, chật chội) — mỗi chip có 1 chấm tròn màu riêng cho từng trạng thái,
+   tên trạng thái, số lượng trong 1 khung tròn nhỏ, và 1 icon "i" RIÊNG để mở
+   Tooltip (component tự thiết kế ở dưới) giải thích tiêu chí của trạng thái —
+   xem STATUS_BADGE[key].desc. */
+.status-legend-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.status-legend-label {
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.status-legend-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px 5px 10px;
+  border-radius: 999px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  font-size: 0.82rem;
+  color: #212529;
+  line-height: 1;
+}
+
+.status-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-chip-normal .status-chip-dot {
+  background: #6c757d;
+}
+
+.status-chip-flagged .status-chip-dot {
+  background: #ffc107;
+}
+
+.status-chip-resolved .status-chip-dot {
+  background: #28a745;
+}
+
+.status-chip-text {
+  font-weight: 500;
+}
+
+.status-chip-count {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 999px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+/* Nút icon "i" — riêng biệt với phần tên/số lượng, để Tooltip chỉ neo vào
+   đúng đây (rê chuột vào chữ hoặc số lượng sẽ KHÔNG hiện tooltip, tránh cảm
+   giác "cả viên thuốc đều là nút bấm" khi thật ra chỉ icon này có hành vi). */
+.status-chip-info {
+  border: none;
+  background: transparent;
+  color: #adb5bd;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  padding: 0;
+  cursor: help;
+  flex-shrink: 0;
+}
+
+.status-chip-info:hover,
+.status-chip-info:focus-visible {
+  color: #495057;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* ---------- Component Tooltip tự thiết kế (Tooltip trong Logs.jsx) ----------
+   Bong bóng chữ nền tối, có mũi nhọn chỉ lên phía trigger, hiện/ẩn hoàn toàn
+   bằng CSS (":hover"/":focus-within" trên wrapper — không cần JS tính toạ độ
+   như popover kebab, vì trigger chỉ ở phần chú giải đầu trang, không nằm
+   trong khung nào bị "overflow: hidden/auto" cắt mất). Neo bong bóng LỆCH VỀ
+   BÊN TRÁI (thay vì căn giữa trigger) để chip đầu tiên (sát lề trái trang)
+   không bị tràn ra ngoài màn hình. */
+.ui-tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.ui-tooltip-bubble {
+  position: absolute;
+  top: calc(100% + 9px);
+  left: 0;
+  min-width: 220px;
+  max-width: min(280px, 85vw);
+  background: #212529;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.45;
+  padding: 8px 10px;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.25);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 30;
+  text-align: left;
+  white-space: normal;
+}
+
+.ui-tooltip-bubble::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 14px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid #212529;
+}
+
+.ui-tooltip-wrap:hover .ui-tooltip-bubble,
+.ui-tooltip-wrap:focus-within .ui-tooltip-bubble {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* Biến thể "căn giữa" của Tooltip (Tooltip center=true, dùng ở chip trạng
+   thái đoạn chat trong Chat.jsx) — dùng khi trigger là 1 mình, không nằm
+   trong 1 dãy nhiều chip sát lề trái như StatusLegend, nên căn giữa bong
+   bóng theo trigger cho cân đối thay vì lệch trái. Đặt SAU các rule
+   ".ui-tooltip-wrap" ở trên để cùng độ ưu tiên (specificity) nhưng thắng nhờ
+   đứng sau trong file. */
+.ui-tooltip-wrap-center .ui-tooltip-bubble {
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.ui-tooltip-wrap-center .ui-tooltip-bubble::before {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ui-tooltip-wrap-center:hover .ui-tooltip-bubble,
+.ui-tooltip-wrap-center:focus-within .ui-tooltip-bubble {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ---------- Toast + hộp thoại xác nhận (NotificationContext) ----------
+   Thay cho window.alert()/window.confirm() gốc của trình duyệt — không đồng
+   bộ giao diện giữa các trình duyệt/OS, không style được, và confirm() còn
+   chặn cứng cả tab. 2 thứ này dùng CHUNG cho toàn app (bọc ở main.jsx), nên
+   z-index đặt CAO HƠN mọi popover/modal khác trong app (.msg-context-menu
+   1080, .doc-preview-backdrop 1090) để luôn nổi lên trên, kể cả khi 1 modal
+   khác đang mở lúc xác nhận. */
+.toast-stack {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(360px, calc(100vw - 32px));
+}
+
+.app-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 0.6rem;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18), 0 1px 2px rgba(15, 23, 42, 0.08);
+  font-size: 0.86rem;
+  animation: app-toast-in 0.2s ease;
+}
+
+@keyframes app-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-toast-success {
+  border-left: 4px solid #28a745;
+}
+
+.app-toast-success .app-toast-icon {
+  color: #28a745;
+}
+
+.app-toast-error {
+  border-left: 4px solid #dc3545;
+}
+
+.app-toast-error .app-toast-icon {
+  color: #dc3545;
+}
+
+.app-toast-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.app-toast-message {
+  flex-grow: 1;
+  color: #212529;
+  line-height: 1.4;
+}
+
+.app-toast-close {
+  border: none;
+  background: transparent;
+  color: #adb5bd;
+  flex-shrink: 0;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.app-toast-close:hover,
+.app-toast-close:focus-visible {
+  color: #495057;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Hộp thoại xác nhận — thay window.confirm(). Cùng khung Portal + lớp phủ nền
+   với các modal khác trong app (.doc-preview-backdrop) nhưng hẹp hơn (400px)
+   vì chỉ chứa 1 câu hỏi + 2 nút, và z-index cao hơn TẤT CẢ (1120) vì xác nhận
+   luôn là việc cần xử lý trước, kể cả khi đang mở modal khác. */
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1120;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.confirm-dialog-modal {
+  background: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.25);
+  width: min(400px, 100%);
+  padding: 20px;
+}
+
+.confirm-dialog-message {
+  margin: 0 0 16px;
+  color: #212529;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Trang "Văn bản": form tải lên trở thành cột cố định bên trái ở màn hình
+   máy tính (thay vì nằm ngang hết chiều rộng rồi mới tới danh sách bên dưới
+   như trên điện thoại), giúp tận dụng không gian màn hình rộng. */
+@media (min-width: 992px) {
+  .documents-upload-col {
+    width: 340px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 88px;
+  }
+}
+
+/* Khung chat: chiếm toàn bộ chiều cao màn hình, dùng dvh để đúng trên mobile browser */
+.chat-container {
+  height: 100dvh;
+  background-color: #eef2f8;
+}
+
+/* Thanh tiêu đề chat: gradient thương hiệu thay vì nền trắng đơn điệu */
+.chat-header {
+  background: var(--brand-gradient);
+  color: #fff;
+}
+
+.chat-header .text-muted {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.chat-messages {
+  overflow-y: auto;
+  /* Logo công ty làm hoạ tiết nền mờ, LẶP LẠI khắp khung chat (giống "hình
+     nền" của các app nhắn tin) — xem public/logo-watermark.svg (độ mờ đã
+     "nướng" sẵn trong file SVG bằng fill-opacity). Nhờ lặp lại, hoạ tiết luôn
+     hiện ra ở khoảng trống giữa các bong bóng chat dù có bao nhiêu tin nhắn.
+     background-attachment mặc định ("scroll") giữ hoạ tiết đứng yên so với
+     khung chứa trong lúc nội dung bên trong cuộn qua nó. */
+  background-image: url("/logo-watermark.svg");
+  background-repeat: repeat;
+  background-size: 110px 110px;
+}
+
+.chat-bubble {
+  max-width: 85%;
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+/* Phần NỘI DUNG câu trả lời hiện ĐẦY ĐỦ, không giới hạn chiều cao — trước đây
+   giới hạn ~10 dòng rồi cuộn riêng bên trong bong bóng, nhưng như vậy người
+   dùng phải cuộn thêm 1 lần nữa NGAY TRONG 1 tin nhắn (ngoài việc cuộn cả
+   khung chat), gây khó đọc. Giờ để bong bóng co giãn theo đúng độ dài nội
+   dung; việc cuộn xem các tin nhắn khác vẫn do khung ".chat-messages" đảm
+   nhiệm như thường. */
+.chat-bubble-content {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.chat-bubble.user {
+  border-bottom-right-radius: 0.25rem;
+}
+
+.chat-bubble.assistant {
+  border-bottom-left-radius: 0.25rem;
+}
+
+/* Nền RIÊNG cho tin nhắn của chatbot (AI) ở trang admin/Logs.jsx — trước đây
+   dùng "bg-light" (xám rất nhạt), gần như không phân biệt được với "bg-white"
+   của tin nhắn nhân viên khi đặt cạnh nhau, nhất là khi cả 2 đều "phía bên
+   kia" nhìn từ admin. Tint xanh nhạt theo đúng màu brand (--brand-gradient)
+   để 3 vai trò trong 1 đoạn chat (nhân viên/AI/admin) đều có màu nền dễ phân
+   biệt bằng mắt ngay cả khi lướt nhanh. */
+.chat-bubble.ai-reply-bubble {
+  background: #eaf1ff;
+  border-color: #cfe0ff;
+}
+
+/* Giờ gửi — hiện nhỏ, mờ ở cuối mỗi bong bóng chat (dưới nội dung/nguồn trích
+   dẫn nếu có). Dùng chung màu chữ đã truyền vào qua class "text-muted"/
+   "text-white-50" ở JSX (tuỳ tin nhắn của "mình" hay "phía bên kia") nên ở
+   đây chỉ cần chỉnh cỡ chữ + khoảng cách, không đặt màu riêng. */
+.chat-bubble-time {
+  font-size: 0.7rem;
+  line-height: 1;
+  margin-top: 4px;
+}
+
+/* 2 nút đánh giá "Hữu ích"/"Không hữu ích" dưới câu trả lời của chatbot —
+   dạng pill CÓ CHỮ (không chỉ icon) để không bị hiểu lầm thành nút "like/
+   dislike" chung của mạng xã hội. Trung tính (viền mờ) khi chưa chọn, chuyển
+   màu rõ (xanh/đỏ) khi ĐANG được chọn, để nhân viên luôn thấy lại được đánh
+   giá mình đã chọn khi quay lại xem đoạn chat. */
+.msg-feedback-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #fff;
+  color: #6c757d;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.msg-feedback-btn:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: #212529;
+}
+
+.msg-feedback-btn.active-up {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #16a34a;
+}
+
+.msg-feedback-btn.active-down {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #dc2626;
+}
+
+/* Avatar tròn nhỏ trước tin nhắn của chatbot/admin — bên nhân viên (căn phải)
+   không cần avatar, giống quy ước thường thấy ở các app nhắn tin. */
+.msg-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.msg-avatar.assistant {
+  background: var(--brand-gradient);
+}
+
+.msg-avatar.admin {
+  background: #22c55e;
+}
+
+/* Avatar tin nhắn của NHÂN VIÊN — chỉ dùng ở trang admin (Logs.jsx), nơi
+   nhân viên là "phía bên kia" (căn trái, có avatar), khác với trang chat của
+   chính nhân viên (Chat.jsx) — ở đó tin của họ là "của mình" nên không có
+   avatar. Màu trung tính để không lẫn với avatar AI (gradient) hay admin
+   (xanh lá). */
+.msg-avatar.user {
+  background: #6c757d;
+}
+
+/* Nút "Cần admin hỗ trợ" — 1 pill NHỎ, tự co theo nội dung, căn phải phía
+   trên ô nhập, thay cho nút cảnh báo to bản chiếm hẳn 1 hàng ngang với chữ
+   dài như thiết kế trước ("Câu hỏi khó / trả lời chưa thoả đáng — đánh dấu
+   cần admin hỗ trợ") — gọn hơn nhiều mà ý nghĩa đầy đủ vẫn còn ở tooltip
+   (title) khi rê chuột vào. */
+.flag-help-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #f1c66b;
+  background: #fff9ec;
+  color: #915f0d;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.flag-help-btn:hover,
+.flag-help-btn:focus-visible {
+  background: #fdf0d5;
+  border-color: #e3ac3f;
+}
+
+.flag-help-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.chat-input-bar textarea {
+  resize: none;
+  max-height: 120px;
+  padding-bottom: var(--safe-bottom);
+}
+
+/* Nút "..." mở popover tuỳ chọn tin nhắn (sửa & hỏi lại / xoá) — chỉ hiện rõ
+   khi rê chuột vào dòng tin nhắn (.msg-row), giống Messenger/Zalo, thay vì
+   luôn hiện 1 icon "✕" khô khan như trước. Trên thiết bị cảm ứng (không có
+   hover thật) thì luôn hiện mờ sẵn để vẫn bấm được. */
+.msg-menu-trigger {
+  border: none;
+  background: transparent;
+  color: #6c757d;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.msg-row:hover .msg-menu-trigger,
+.msg-menu-trigger.is-open {
+  opacity: 1;
+}
+
+.msg-menu-trigger:hover,
+.msg-menu-trigger:focus-visible {
+  background: rgba(0, 0, 0, 0.08);
+  color: #212529;
+}
+
+@media (hover: none) {
+  .msg-menu-trigger {
+    opacity: 0.55;
+  }
+}
+
+/* Nút "..." mở popover tuỳ chọn 1 quy chế trên trang admin/Documents.jsx —
+   CÙNG kiểu icon tròn, trong suốt, chỉ hiện khi rê chuột vào thẻ (.doc-card)
+   như .msg-menu-trigger ở trên, để 2 nơi đồng nhất giao diện. */
+.doc-menu-trigger {
+  border: none;
+  background: transparent;
+  color: #6c757d;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.doc-card:hover .doc-menu-trigger,
+.doc-menu-trigger.is-open {
+  opacity: 1;
+}
+
+.doc-menu-trigger:hover,
+.doc-menu-trigger:focus-visible {
+  background: rgba(0, 0, 0, 0.08);
+  color: #212529;
+}
+
+@media (hover: none) {
+  .doc-menu-trigger {
+    opacity: 0.55;
+  }
+}
+
+/* Popover tuỳ chọn tin nhắn — vị trí "fixed" được TÍNH BẰNG JS lúc mở (xem
+   Chat.jsx#openMessageMenu) và render qua Portal thẳng ra <body>, để không
+   bao giờ bị overflow: auto của .chat-messages cắt mất, dù cuộn tới đâu.
+   Có max-height + tự cuộn riêng để phòng trường hợp 1 tin nhắn có RẤT NHIỀU
+   nguồn trích dẫn — khi đó popover không bao giờ tràn ra ngoài màn hình dù
+   ước lượng chiều cao lúc mở (openMessageMenu) không hoàn toàn chính xác. */
+.msg-context-menu {
+  position: fixed;
+  z-index: 1080;
+  width: 220px;
+  max-height: min(420px, 70vh);
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18), 0 1px 2px rgba(15, 23, 42, 0.06);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.msg-context-menu-divider {
+  height: 1px;
+  background: #eee;
+  margin: 4px 6px;
+}
+
+.msg-context-menu-label {
+  padding: 4px 10px 2px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #adb5bd;
+}
+
+.msg-context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  color: #212529;
+}
+
+/* Icon SVG là flex item mặc định CŨNG co lại (flex-shrink: 1) như mọi phần tử
+   flex khác — với mục "Nguồn trích dẫn" có tiêu đề tài liệu dài, điều này làm
+   icon bị BÓP NHỎ đi trước khi phần chữ kịp bị cắt bằng "text-truncate" (chỉ
+   .text-truncate mới có min-width: 0 để nhường chỗ). Cố định icon không bao
+   giờ co lại, giống cách .msg-avatar đã làm ở nơi khác. */
+.msg-context-menu-item svg {
+  flex-shrink: 0;
+}
+
+.msg-context-menu-item:hover,
+.msg-context-menu-item:focus-visible {
+  background: #f1f3f5;
+}
+
+.msg-context-menu-item.text-danger:hover,
+.msg-context-menu-item.text-danger:focus-visible {
+  background: #fdeeee;
+}
+
+.msg-context-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Nút "..." ở thanh tiêu đề trang chat — thay cho 2 nút "Xoá đoạn chat" /
+   "Đăng xuất" riêng lẻ trước đây, gộp chung vào 1 popover cho gọn, giống các
+   app nhắn tin (menu tuỳ chọn cuộc trò chuyện luôn ở góc trên bên phải). */
+.header-menu-trigger {
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease;
+}
+
+.header-menu-trigger:hover,
+.header-menu-trigger:focus-visible,
+.header-menu-trigger.is-open {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Popover của nút trên — dùng chung style với .msg-context-menu (nền trắng,
+   bo góc, đổ bóng, các mục bên trong) nhưng đè lại "position" thành absolute
+   vì vị trí nút này CỐ ĐỊNH trong bố cục (không cần tính toạ độ bằng JS/Portal
+   như popover tin nhắn, và cũng không bị khung cuộn nào che khuất). */
+.header-menu-dropdown {
+  position: absolute !important;
+  top: calc(100% + 8px);
+  right: 0;
+  left: auto;
+}
+
+/* ---------- Biểu đồ trang Dashboard (components/charts/) ---------- */
+
+.chart-card {
+  background: var(--chart-surface);
+  border: 1px solid #eceef1;
+  border-radius: 0.75rem;
+  padding: 16px 18px;
+  height: 100%;
+}
+
+.chart-card-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.chart-card-caption {
+  color: #6c757d;
+  font-size: 0.8rem;
+  margin-top: 2px;
+  margin-bottom: 14px;
+}
+
+/* Biểu đồ cột xếp chồng (part-to-whole) — cao 22px (trong giới hạn <= 24px
+   theo quy tắc chung cho độ dày 1 thanh), 2 đầu bo tròn như 1 viên thuốc. Mỗi
+   ô màu có border-phải màu NỀN (không phải đen) để tạo khoảng cách 2px giữa
+   các phần — xem giải thích trong StackedBarChart.jsx. */
+.stacked-bar {
+  display: flex;
+  height: 22px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #eceef1; /* hiện ra ở phần "khuyết" nếu tổng < 100% (không xảy ra ở đây vì luôn vẽ đủ, nhưng an toàn) */
+}
+
+.stacked-bar-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2px;
+  transition: opacity 0.15s ease;
+}
+
+.stacked-bar-segment:hover {
+  opacity: 0.85;
+}
+
+.stacked-bar-segment-label {
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 14px;
+  font-size: 0.82rem;
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chart-legend-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* Biểu đồ cột ngang xếp hạng (RankedBarChart) — nhãn bên trái CỐ ĐỊNH chiều
+   rộng (đủ chỗ cho câu hỏi tương đối dài), thanh giữa co giãn, số liệu bên
+   phải căn theo cột (tabular-nums) vì đây LÀ 1 cột số cần thẳng hàng — khác
+   với 1 con số đứng riêng lẻ (hero figure) thì không cần. */
+.ranked-bar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ranked-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ranked-bar-label {
+  flex: 0 0 42%;
+  max-width: 42%;
+  font-size: 0.82rem;
+  color: #343a40;
+}
+
+.ranked-bar-track {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: #f1f3f5;
+  border-radius: 4px;
+  height: 18px;
+  overflow: hidden;
+}
+
+.ranked-bar-fill {
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  min-width: 4px;
+}
+
+.ranked-bar-value {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  color: #495057;
+  min-width: 1.5em;
+  text-align: right;
+}
+
+/* "Xem dạng bảng" — bản tương đương dạng bảng cho mỗi biểu đồ, đóng vai trò
+   "lối thoát" khi không phân biệt được màu sắc (hoặc chỉ đơn giản là muốn
+   xem số liệu chính xác dạng bảng thay vì ước lượng qua độ dài thanh). */
+.chart-table-toggle {
+  margin-top: 12px;
+}
+
+.chart-table-toggle summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: #0d6efd;
+  user-select: none;
+}
+
+.chart-table-toggle table {
+  font-size: 0.82rem;
+}
+
+/* Modal "xem trước" nội dung văn bản (Documents.jsx, trang Admin) — lớp phủ
+   nền mờ + khung nội dung căn giữa, render qua Portal thẳng vào <body> nên
+   không bị ảnh hưởng bởi overflow/bố cục của trang danh sách văn bản phía
+   sau. z-index cao hơn .msg-context-menu (1080) vì modal phải nổi trên MỌI
+   thứ khác trên trang, kể cả popover khác nếu có. */
+.doc-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1090;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.doc-preview-modal {
+  background: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.25);
+  width: min(720px, 100%);
+  max-height: min(80vh, 720px);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-preview-body {
+  overflow-y: auto;
+  flex-grow: 1;
+}
+
+/* Nội dung văn bản là text thuần trích xuất từ chunk (không phải HTML định
+   dạng gốc) — dùng <pre> + white-space: pre-wrap để giữ nguyên xuống dòng
+   trong file .txt/.docx gốc mà vẫn tự động xuống dòng khi câu quá dài, thay
+   vì tràn ngang ra khỏi khung modal như <pre> mặc định. */
+.doc-preview-content {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin: 0;
+}
