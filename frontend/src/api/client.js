@@ -1,5 +1,12 @@
 // Wrapper nhỏ quanh fetch() để tự động gắn JWT token và xử lý lỗi chung.
-const BASE_URL = "/api";
+//
+// - Khi chạy dev (npm run dev): VITE_API_URL không đặt -> BASE_URL = "/api",
+//   được vite.config.js proxy sang http://localhost:4000.
+// - Khi build production (npm run build) và deploy lên Vercel/Netlify:
+//   frontend và backend nằm ở 2 domain khác nhau nên không còn proxy dev nữa
+//   -> cần đặt biến môi trường VITE_API_URL (VD: https://ai-quyche.onrender.com)
+//   lúc build, để gọi thẳng tới backend đã deploy.
+const BASE_URL = `${import.meta.env.VITE_API_URL || ""}/api`;
 
 function getToken() {
   return localStorage.getItem("token");
