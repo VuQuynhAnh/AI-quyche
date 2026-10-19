@@ -1,12 +1,25 @@
-# Trợ lý AI Quy chế & Văn bản Nội bộ Doanh nghiệp
+# SmartClocking — Chấm công, Tính lương & Trợ lý AI Quy chế
 
-Dự án demo/giảng dạy: một trợ lý AI (dạng chatbot) giúp nhân viên tra cứu quy chế,
-nội quy, chính sách nội bộ công ty. Dùng kỹ thuật **RAG (Retrieval-Augmented
-Generation)**: hệ thống tìm các đoạn văn bản nội bộ liên quan nhất tới câu hỏi,
-rồi đưa cho mô hình AI (Google Gemini) để sinh câu trả lời có trích dẫn nguồn —
-giúp AI không "bịa" thông tin ngoài văn bản công ty.
+Dự án demo/giảng dạy gồm 2 phần:
+
+1. **Chấm công & tính lương** cho chuỗi gian hàng: nhân viên quét mã QR dán tại
+   quầy → đăng nhập → bấm CHECK-IN / CHECK-OUT (kèm vị trí GPS); admin quản lý
+   gian hàng & ca, nhân viên, bảng chấm công, bảng lương theo tháng (xuất CSV).
+   Xem mục [Chấm công & Tính lương](#chấm-công--tính-lương).
+2. **Trợ lý AI (chatbot)** giúp nhân viên tra cứu quy chế, nội quy, chính sách
+   nội bộ — và hỏi về lương / số lần đi muộn của chính mình. Dùng kỹ thuật **RAG
+   (Retrieval-Augmented Generation)**: hệ thống tìm các đoạn văn bản nội bộ liên
+   quan nhất tới câu hỏi, rồi đưa cho mô hình AI (Google Gemini) để sinh câu trả
+   lời có trích dẫn nguồn — giúp AI không "bịa" thông tin ngoài văn bản công ty.
+   Phía nhân viên, chat là **cửa sổ nổi** trong trang chấm công; phía admin là
+   nhóm menu "Trợ lý AI".
 
 ## Kiến trúc
+
+> Sơ đồ dưới đây tập trung vào phần Trợ lý AI. Phần chấm công dùng thêm các
+> route `/s/:stallId`, `/work`, `/admin/attendance|employees|stalls|payroll`
+> (frontend) và `/api/attendance/*`, `/api/hr/*` (backend), dữ liệu nằm hoàn
+> toàn trong PostgreSQL — xem mục [Chấm công & Tính lương](#chấm-công--tính-lương).
 
 Dự án dùng **2 loại cơ sở dữ liệu** (polyglot persistence) — mỗi loại cho đúng
 việc nó mạnh nhất, xem lý do chi tiết ở mục "So sánh PostgreSQL vs MongoDB" bên dưới:
@@ -87,9 +100,15 @@ cp .env.example .env
 # luôn nếu chạy Docker/MongoDB local ở trên)
 
 npm install
-npm run seed     # tạo bảng Postgres + 2 tài khoản demo (xem bên dưới)
+npm run seed     # tạo bảng + nạp dữ liệu mẫu (tài khoản, gian hàng, chấm công, văn bản)
 npm run dev      # chạy tại http://localhost:4000
+npm test         # chạy test tính lương / hỏi đáp dữ liệu cá nhân
 ```
+
+> ⚠ `npm run seed` **XOÁ SẠCH toàn bộ dữ liệu** (tài khoản, gian hàng, chấm
+> công, bảng lương, văn bản, hội thoại) rồi nạp lại dữ liệu mẫu — chỉ dùng cho
+> máy dev/demo. Với CSDL đang chạy thật, dùng `npm run migrate` để cập nhật cấu
+> trúc bảng mà **giữ nguyên dữ liệu** (xem thêm [CHAM-CONG.md](CHAM-CONG.md)).
 
 Nếu quên bật MongoDB, backend vẫn khởi động bình thường (đăng nhập, quản lý văn
 bản, danh sách người dùng vẫn dùng được vì các phần đó chỉ cần PostgreSQL) —
@@ -100,15 +119,17 @@ bị "treo" chờ kết nối, cho tới khi MongoDB sẵn sàng và backend đ�
 
 Tài khoản demo sau khi `npm run seed`:
 
-| Vai trò   | Email               | Mật khẩu     |
-|-----------|---------------------|--------------|
-| admin     | admin@congty.vn     | Admin@123    |
-| employee  | nhanvien@congty.vn  | NhanVien@123 |
+| Vai trò   | Email                                                                  | Mật khẩu     |
+|-----------|------------------------------------------------------------------------|--------------|
+| admin     | admin@congty.vn                                                        | Admin@123    |
+| employee  | nhanvien@congty.vn, lan@, hung@, mai@, tuan@congty.vn                  | NhanVien@123 |
 
-Sau khi backend chạy, đăng nhập bằng tài khoản admin, vào **Trang quản trị → Văn
-bản**, upload các file mẫu có sẵn trong `backend/sample-data/` để có dữ liệu demo
-ngay mà không cần chuẩn bị văn bản thật — xem chi tiết từng file (và file nào
-cần tick "Tài liệu nhạy cảm" khi upload) trong `backend/sample-data/README.md`.
+Seed nạp sẵn 2 gian hàng có toạ độ, lịch sử chấm công tháng trước + tháng này
+(đủ tình huống: đúng giờ, đi muộn, về sớm, nghỉ, ngoài phạm vi GPS, quên
+check-out, admin chỉnh giờ), bảng lương tháng trước đã chốt, và các văn bản mẫu
+trong `backend/sample-data/` (xem chi tiết từng file trong
+`backend/sample-data/README.md`). Admin đăng nhập sẽ vào thẳng
+`/admin/attendance`, nhân viên vào `/work`.
 
 ### 3. Frontend
 
@@ -120,6 +141,63 @@ npm run dev      # chạy tại http://localhost:5173, tự proxy /api sang back
 
 Mở `http://localhost:5173` trên trình duyệt (hoặc DevTools chế độ mobile để xem
 giao diện responsive).
+
+Khi build production (Vercel/Netlify), tạo `frontend/.env` từ
+`frontend/.env.example` và đặt `VITE_API_URL` = địa chỉ backend đã deploy
+(không có `/api` ở cuối). Chạy dev thì để trống. Lưu ý: check-in cần GPS nên
+trang phải chạy qua **HTTPS** (hoặc `localhost`).
+
+## Chấm công & Tính lương
+
+### Cách dùng
+
+- **Admin → Gian hàng & ca** (`/admin/stalls`): tạo gian hàng (giờ vào/tan ca,
+  tiền phạt mỗi phút, vị trí tuỳ chọn) → bấm **Mã QR** để in dán tại quầy. QR
+  trỏ tới `/s/:stallId`.
+- **Admin → Nhân viên** (`/admin/employees`): tạo tài khoản, gán gian hàng, đặt
+  lương giờ.
+- **Admin → Chấm công** (`/admin/attendance`): bảng theo tháng; bấm vào 1 ô ngày
+  → "Chỉnh sửa" để sửa giờ vào/ra (chỉ tháng hiện tại).
+- **Admin → Bảng lương** (`/admin/payroll`): lương từng nhân viên theo tháng,
+  xem chi tiết, xuất CSV.
+- **Nhân viên**: quét QR → đăng nhập → bấm CHECK-IN / CHECK-OUT (cần bật GPS)
+  tại `/work`; xem lịch sử tại `/work/history`.
+
+### Quy tắc tính
+
+- Lương ngày = lương giờ × số giờ làm **trong khung ca** − (phút muộn + phút về
+  sớm) × tiền phạt/phút. Đến sớm/về muộn không được tính thêm.
+- Muộn/sớm làm tròn xuống phút. Lương thực nhận cả tháng không âm.
+- Ngày/tháng tính theo giờ Việt Nam. Từ 00:00 ngày 1 tháng sau, tháng cũ **khoá
+  cứng** (API từ chối sửa).
+- Tháng đã qua được **chốt** (bảng `payroll_months`): đổi lương giờ / giờ ca /
+  tiền phạt sau đó không làm đổi lương cũ. Lương giờ có lịch sử (`employee_rates`).
+- Lịch sử chấm công **không sửa/xoá được** (`attendance_events` có trigger chặn
+  UPDATE). Admin "Chỉnh sửa" 1 ngày sẽ ghi bản ghi mới vào `attendance_edits`:
+  giờ gốc được giữ (hiện mờ), giờ mới ghi "Đã thay đổi bởi admin".
+- Chỉ lưu vị trí GPS, không lưu IP. Vị trí ngoài bán kính gian hàng chỉ gắn cờ
+  cho admin, không chặn chấm công.
+
+### AI trả lời về lương / đi muộn
+
+Câu hỏi có tự xưng ("lương tháng này của tôi", "tháng 9 em đi muộn mấy lần")
+được trả lời từ số liệu hệ thống tự tính (`personalData.service.js`); Gemini chỉ
+diễn đạt lại. Gemini lỗi thì trả số liệu thô. Câu hỏi chính sách chung vẫn đi
+đường RAG tra tài liệu như mô tả bên dưới.
+
+### API
+
+| Route | Ai gọi | Việc gì |
+|-------|--------|---------|
+| `GET /api/attendance/stall/:id` | nhân viên | Thông tin gian hàng khi quét QR |
+| `GET /api/attendance/me/today` | nhân viên | Trạng thái chấm công hôm nay |
+| `POST /api/attendance/check` | nhân viên | Check-in / check-out (kèm GPS) |
+| `GET /api/attendance/me/month`, `/me/day` | nhân viên | Lịch sử tháng / chi tiết ngày |
+| `GET/POST/PATCH/DELETE /api/hr/stalls[/:id]` | admin | Quản lý gian hàng & ca |
+| `GET/POST/PATCH /api/hr/employees[/:id]` | admin | Quản lý nhân viên, lương giờ |
+| `GET /api/hr/attendance/overview`, `/day` | admin | Bảng chấm công tháng / chi tiết ngày |
+| `POST /api/hr/attendance/day-edit` | admin | Chỉnh giờ vào/ra 1 ngày |
+| `GET /api/hr/payroll`, `/payroll/:userId`, `/payroll/export` | admin | Bảng lương, chi tiết, xuất CSV |
 
 ## Giải thích luồng RAG (phần lõi để dạy học viên)
 
@@ -259,7 +337,7 @@ hội thoại để biết admin đã trả lời — hệ thống chưa có th�
   KHÔNG được gộp; muốn chính xác hơn cần thêm bước phân cụm theo embedding
   (semantic clustering), một hướng mở rộng hay cho học viên tìm hiểu thêm.
 
-## Biểu đồ trang Dashboard (`/admin`)
+## Biểu đồ trang Dashboard (`/admin/ai`)
 
 Trang Tổng quan có 1 hàng số liệu (KPI) + **4 biểu đồ**, mỗi biểu đồ trả lời
 đúng 1 câu hỏi admin hay cần biết:
@@ -387,7 +465,9 @@ backend/
   src/
     config/       kết nối PostgreSQL, MongoDB, cấu hình Gemini
     db/           schema.sql (PostgreSQL: users, documents [+ is_sensitive],
-                  document_chunks), seed.js
+                  document_chunks, stalls, employee_rates, attendance_events,
+                  attendance_edits, payroll_months), seed.js (reset + dữ liệu
+                  mẫu), migrate.js (cập nhật cấu trúc, giữ dữ liệu)
     models/       schema MongoDB — 2 collection RIÊNG (không lồng nhau):
                   conversation.model.js (1 đoạn chat/nhân viên, trạng thái
                   normal/flagged/resolved, isDeleted khi nhân viên xoá) và
@@ -414,7 +494,14 @@ backend/
                              văn bản/hội thoại, lý do escalate), top câu hỏi,
                              xem (phân trang, kể cả tin/đoạn đã xoá) & trả lời
                              trực tiếp bất kỳ đoạn chat nào (chỉ admin)
-    services/     logic nghiệp vụ: rag.service.js (RAG + xử lý tài liệu nhạy
+      attendance.routes.js   chấm công phía nhân viên (quét QR, check-in/out,
+                             lịch sử)
+      hr.routes.js           gian hàng, nhân viên, bảng chấm công, chỉnh giờ,
+                             bảng lương (chỉ admin)
+    services/     attendance.service.js, payroll.service.js (tính muộn/sớm,
+                  lương ngày/tháng, chốt tháng), personalData.service.js (AI trả
+                  lời câu hỏi về lương/đi muộn của chính nhân viên);
+                  logic nghiệp vụ: rag.service.js (RAG + xử lý tài liệu nhạy
                   cảm), summary.service.js (tóm tắt hội thoại flagged bằng
                   Gemini), chatThread.service.js (tạo/lấy đoạn chat đang hoạt
                   động, phân trang tin nhắn, xoá mềm, sinh tóm tắt nền — dùng
@@ -426,6 +513,7 @@ backend/
                   đường dẫn lưu ở cột documents.storage_path
   sample-data/    6 văn bản mẫu để demo nhanh (5 quy chế thường + 1 tài liệu
                   nhạy cảm) — xem sample-data/README.md
+  test/           payroll.test.js, personalData.test.js (`npm test`)
 frontend/
   src/
     api/          client gọi API (fetch + JWT)
@@ -435,7 +523,15 @@ frontend/
       charts/     StackedBarChart.jsx, RankedBarChart.jsx — 2 component biểu đồ
                   dùng chung cho trang Dashboard, xem mục "Biểu đồ trang
                   Dashboard" phía trên
+      hr/         DayDetail.jsx, Modal.jsx, MonthNav.jsx — dùng chung cho các
+                  trang chấm công/lương
+      ChatPopup.jsx  cửa sổ chat nổi trong trang nhân viên (bọc Chat.jsx)
+    utils/        format.js (định dạng tiền/giờ), geo.js (lấy vị trí GPS)
     pages/
+      employee/                      StallLanding.jsx (trang quét QR),
+                                     EmployeeLayout.jsx, CheckIn.jsx, History.jsx
+      admin/Attendance.jsx, Employees.jsx, Stalls.jsx, Payroll.jsx
+                                     các trang chấm công & lương của admin
       Login.jsx, Register.jsx        trang client (đăng nhập/đăng ký)
       client/Chat.jsx                trang client: 1 đoạn chat liên tục, tự
                                      tải thêm tin nhắn cũ khi kéo lên; rê chuột
