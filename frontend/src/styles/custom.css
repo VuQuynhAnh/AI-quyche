@@ -1085,3 +1085,309 @@
   line-height: 1.6;
   margin: 0;
 }
+
+/* ============================================================
+   NÂNG CẤP CHẤM CÔNG & LƯƠNG
+   ============================================================ */
+
+/* ---------- Cửa sổ chat nổi (ChatPopup.jsx) ----------
+   z-index 1060: nổi trên thanh tab dưới (1030) nhưng THẤP hơn popover tin
+   nhắn (1080), modal (1090), toast/xác nhận (1100+) để các thành phần đó vẫn
+   hiện được bên trong/ngoài popup. Điện thoại: chiếm trọn màn hình; máy tính:
+   khung 380x600 góc phải dưới. */
+.chat-fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(76px + var(--safe-bottom));
+  z-index: 1040;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 18px;
+  color: #fff;
+  background: var(--brand-gradient);
+  box-shadow: 0 6px 18px rgba(29, 78, 216, 0.4);
+  font-weight: 600;
+}
+
+.chat-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 1060;
+  background: #eef2f8;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.chat-embedded {
+  height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+@media (min-width: 768px) {
+  .chat-fab {
+    bottom: 24px;
+    right: 24px;
+  }
+  .chat-popup {
+    inset: auto 24px 24px auto;
+    width: 380px;
+    height: min(620px, calc(100dvh - 48px));
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(15, 23, 42, 0.3);
+    padding-top: 0;
+  }
+}
+
+/* ---------- Giao diện nhân viên (điện thoại) ---------- */
+.emp-shell {
+  min-height: 100dvh;
+  background: #f5f7fb;
+}
+
+.emp-topbar {
+  background: var(--brand-gradient);
+  color: #fff;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+}
+
+.emp-content {
+  max-width: 560px;
+  margin: 0 auto;
+  padding-bottom: calc(150px + var(--safe-bottom));
+}
+
+.emp-clock {
+  font-size: 2.6rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.check-btn {
+  width: 168px;
+  height: 168px;
+  border-radius: 50%;
+  border: none;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 700;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.25);
+  transition: transform 0.1s ease, opacity 0.15s ease;
+}
+.check-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.check-btn:disabled {
+  opacity: 0.6;
+}
+.check-btn.in {
+  background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+}
+.check-btn.out {
+  background: linear-gradient(135deg, #f97316 0%, #c2410c 100%);
+}
+
+/* ---------- Lịch chấm công tháng ---------- */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.cal-dow {
+  text-align: center;
+  font-size: 0.72rem;
+  color: #6c757d;
+  padding-bottom: 2px;
+}
+.cal-cell {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  border: 1px solid #e5e9f0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 3px 4px;
+  font-size: 0.78rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #1f2937;
+}
+.cal-cell.empty {
+  border: none;
+  background: transparent;
+}
+.cal-cell.today {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px #2563eb inset;
+}
+.cal-cell .cal-hours {
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+.cal-cell.ok {
+  background: #e7f7ec;
+  border-color: #b7e4c4;
+}
+.cal-cell.warn {
+  background: #fff5db;
+  border-color: #f3d98b;
+}
+.cal-cell.bad {
+  background: #fde8e8;
+  border-color: #f2b8b8;
+}
+.cal-cell.working {
+  background: #e8f0fe;
+  border-color: #b9cdf7;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 4px;
+  vertical-align: middle;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+/* Bottom sheet chi tiết ngày — trượt từ dưới lên trên điện thoại */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1090;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.sheet {
+  background: #fff;
+  width: min(560px, 100%);
+  max-height: 80dvh;
+  overflow-y: auto;
+  border-radius: 16px 16px 0 0;
+  padding: 16px 16px calc(16px + var(--safe-bottom));
+}
+@media (min-width: 768px) {
+  .sheet-backdrop {
+    align-items: center;
+  }
+  .sheet {
+    border-radius: 16px;
+  }
+}
+
+.event-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eef0f4;
+}
+.event-row:last-child {
+  border-bottom: none;
+}
+.event-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 3px 8px;
+  color: #fff;
+  min-width: 52px;
+  text-align: center;
+}
+.event-badge.in {
+  background: #16a34a;
+}
+.event-badge.out {
+  background: #ea580c;
+}
+.event-badge.voided {
+  background: #9ca3af;
+}
+
+/* ---------- Bảng tổng quan chấm công của admin ---------- */
+.att-table {
+  font-size: 0.8rem;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.att-table th,
+.att-table td {
+  text-align: center;
+  padding: 4px 2px;
+  min-width: 34px;
+  border-bottom: 1px solid #eef0f4;
+}
+.att-table .att-name {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #fff;
+  text-align: left;
+  min-width: 160px;
+  padding-left: 12px;
+  border-right: 1px solid #eef0f4;
+}
+.att-table thead th {
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.att-table thead th.att-name {
+  z-index: 4;
+}
+.att-cell {
+  cursor: pointer;
+  border-radius: 6px;
+}
+.att-cell:hover {
+  outline: 2px solid #93c5fd;
+}
+.att-cell.ok {
+  background: #e7f7ec;
+}
+.att-cell.warn {
+  background: #fff5db;
+}
+.att-cell.bad {
+  background: #fde8e8;
+}
+.att-cell.working {
+  background: #e8f0fe;
+}
+.att-cell.weekend-empty {
+  background: #f8fafc;
+}
+
+/* Nhóm tiêu đề trong sidebar admin */
+.admin-nav-group {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  padding: 12px 12px 4px;
+}
+
+/* Thanh tab dưới (admin trên điện thoại) có nhiều mục: cho cuộn ngang */
+.bottom-tabs.scrollable {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+.bottom-tabs.scrollable .nav-link {
+  white-space: nowrap;
+  flex: 0 0 auto;
+  padding-left: 14px;
+  padding-right: 14px;
+}

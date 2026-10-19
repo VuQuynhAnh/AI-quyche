@@ -33,7 +33,7 @@ export default function Register() {
     try {
       await api.post("/auth/register", { fullName, email, password, role: "employee" });
       await login(email, password);
-      navigate("/chat", { replace: true });
+      navigate("/work", { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {

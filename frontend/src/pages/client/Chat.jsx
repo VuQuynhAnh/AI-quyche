@@ -165,7 +165,12 @@ function formatMessageTime(iso) {
   return sameDay ? time : `${d.toLocaleDateString("vi-VN")} ${time}`;
 }
 
-export default function Chat() {
+// Khung chat dùng chung cho 2 nơi:
+//  - Trang đầy đủ /chat (embedded = false): toàn màn hình.
+//  - Cửa sổ nổi (popup) trên giao diện nhân viên (embedded = true, xem
+//    components/ChatPopup.jsx): có nút "Mở rộng" và "Đóng", bỏ nút đăng xuất.
+// Logic hội thoại giữ NGUYÊN, chỉ khác phần tiêu đề + chiều cao khung.
+export function ChatPanel({ embedded = false, onClose, onExpand }) {
   const { user, logout } = useAuth();
   // confirm(...)/notifySuccess(...) thay cho window.confirm() ở 2 thao tác
   // xoá (tin nhắn/đoạn chat) — xem context/NotificationContext.jsx. Lỗi tải
@@ -506,16 +511,39 @@ export default function Chat() {
   const statusBadge = status ? STATUS_BADGE[status] : null;
 
   return (
-    <div className="chat-container d-flex flex-column">
+    <div className={`chat-container d-flex flex-column ${embedded ? "chat-embedded" : ""}`}>
       <div className="chat-header d-flex justify-content-between align-items-center px-3 py-2">
-        <div className="d-flex align-items-center gap-2">
+        <div className="d-flex align-items-center gap-2 min-w-0">
+          {!embedded && user?.role === "employee" && (
+            <button
+              type="button"
+              className="header-menu-trigger"
+              title="Quay lại chấm công"
+              aria-label="Quay lại chấm công"
+              onClick={() => navigate("/work")}
+            >
+              ‹
+            </button>
+          )}
           <img src="/logo.svg" alt="" className="brand-icon" />
-          <div>
-            <div className="fw-bold">Trợ lý Quy chế Nội bộ</div>
-            <div className="text-muted small">Xin chào, {user?.fullName}</div>
+          <div className="min-w-0">
+            <div className="fw-bold text-truncate">Trợ lý AI</div>
+            <div className="text-muted small text-truncate">
+              {embedded ? "Hỏi về lương, đi muộn, quy chế" : `Xin chào, ${user?.fullName}`}
+            </div>
           </div>
         </div>
-        <div className="position-relative">
+        <div className="position-relative d-flex align-items-center gap-1">
+          {embedded && onExpand && (
+            <button type="button" className="header-menu-trigger" title="Mở toàn màn hình" aria-label="Mở toàn màn hình" onClick={onExpand}>
+              ⤢
+            </button>
+          )}
+          {embedded && onClose && (
+            <button type="button" className="header-menu-trigger" title="Đóng" aria-label="Đóng" onClick={onClose}>
+              ✕
+            </button>
+          )}
           <button
             type="button"
             className={`header-menu-trigger ${headerMenuOpen ? "is-open" : ""}`}
@@ -536,10 +564,12 @@ export default function Chat() {
                 <TrashIcon />
                 Xoá đoạn chat
               </button>
-              <button type="button" className="msg-context-menu-item" onClick={handleLogout}>
-                <LogoutIcon />
-                Đăng xuất
-              </button>
+              {!embedded && (
+                <button type="button" className="msg-context-menu-item" onClick={handleLogout}>
+                  <LogoutIcon />
+                  Đăng xuất
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -761,4 +791,9 @@ export default function Chat() {
         )}
     </div>
   );
+}
+
+// Trang /chat đầy đủ
+export default function Chat() {
+  return <ChatPanel />;
 }

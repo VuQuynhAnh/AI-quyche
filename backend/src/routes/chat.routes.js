@@ -72,7 +72,7 @@ router.post(
       content: question,
     });
 
-    const { answer, sources, escalate } = await answerQuestion(question);
+    const { answer, sources, escalate } = await answerQuestion(question, req.user);
 
     const assistantMessage = await Message.create({
       conversationId: conversation._id,

@@ -141,6 +141,19 @@ router.delete(
       return res.status(400).json({ error: "Không thể xoá — hệ thống cần giữ lại ít nhất 1 quản trị viên." });
     }
 
+    // Xoá user sẽ kéo theo (ON DELETE CASCADE) toàn bộ chấm công + bảng lương
+    // đã chốt của người đó — không để mất dữ liệu lương vì 1 cú bấm "Xoá".
+    const hasHr = await query(
+      `SELECT (EXISTS (SELECT 1 FROM attendance_events WHERE user_id = $1)
+            OR EXISTS (SELECT 1 FROM payroll_months WHERE user_id = $1)) AS used`,
+      [req.params.id]
+    );
+    if (hasHr.rows[0].used) {
+      return res.status(409).json({
+        error: "Người này đã có dữ liệu chấm công/lương — hãy vô hiệu hoá trong mục Nhân viên thay vì xoá.",
+      });
+    }
+
     await query("DELETE FROM users WHERE id = $1", [req.params.id]);
     res.status(204).end();
   })

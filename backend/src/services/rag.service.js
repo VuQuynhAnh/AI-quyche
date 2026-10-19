@@ -10,6 +10,12 @@
 import { query } from "../config/db.js";
 import { embedText, toPgVector } from "./embedding.service.js";
 import { chatModel } from "../config/gemini.js";
+import {
+  isPersonalDataQuestion,
+  loadPersonalFacts,
+  fallbackAnswer,
+  sourceFooter,
+} from "./personalData.service.js";
 
 const TOP_K = 5;
 
@@ -71,6 +77,39 @@ async function retrieveRelevantChunks(questionEmbedding) {
   return result.rows;
 }
 
+// Gọi Gemini sinh câu trả lời, tự thử lại khi quá tải tạm thời (503). Ném Error
+// với thông báo tiếng Việt dễ hiểu nếu vẫn thất bại.
+async function generateWithRetry(prompt) {
+  let lastErr = null;
+  for (let attempt = 1; attempt <= MAX_GEMINI_RETRIES; attempt++) {
+    try {
+      const result = await chatModel.generateContent(prompt);
+      return result.response.text();
+    } catch (err) {
+      lastErr = err;
+      if (isTransientGeminiError(err) && attempt < MAX_GEMINI_RETRIES) {
+        console.warn(
+          `[rag.service] Gemini chat API quá tải (lần ${attempt}/${MAX_GEMINI_RETRIES}), thử lại sau ${GEMINI_RETRY_DELAY_MS * attempt}ms...`
+        );
+        await sleep(GEMINI_RETRY_DELAY_MS * attempt); // backoff tăng dần
+      } else {
+        break;
+      }
+    }
+  }
+
+  console.error("[rag.service] Gọi Gemini chat API thất bại:", lastErr.message);
+  if (isTransientGeminiError(lastErr)) {
+    throw new Error(
+      "Gemini đang quá tải tạm thời (lỗi 503 - high demand), đã tự thử lại vài lần nhưng chưa được. " +
+        "Đây không phải lỗi cấu hình — vui lòng đợi khoảng 1-2 phút rồi hỏi lại."
+    );
+  }
+  throw new Error(
+    "Không gọi được Gemini API để sinh câu trả lời. Kiểm tra lại GEMINI_API_KEY trong file .env."
+  );
+}
+
 function buildPrompt(question, chunks) {
   const context = chunks
     .map(
@@ -94,13 +133,75 @@ CÂU HỎI CỦA NHÂN VIÊN:
 ${question}`;
 }
 
+// Câu hỏi về dữ liệu CÁ NHÂN (lương, đi muộn, về sớm...). Số liệu do code tính
+// từ hệ thống chấm công của CHÍNH người hỏi (userId lấy từ JWT) — Gemini chỉ
+// diễn đạt lại. Nếu câu hỏi có thể đụng cả quy chế (VD "đi muộn 3 lần có bị
+// phạt theo quy chế không?") thì kèm thêm tài liệu THƯỜNG (không nhạy cảm).
+async function answerPersonalQuestion(question, user) {
+  const facts = await loadPersonalFacts(user.id, question);
+
+  let chunks = [];
+  try {
+    chunks = await retrieveRelevantChunks(await embedText(question));
+  } catch (err) {
+    // Không có tài liệu/embedding lỗi thì vẫn trả lời được phần số liệu
+    console.warn("[rag.service] Bỏ qua tra cứu quy chế cho câu hỏi cá nhân:", err.message);
+  }
+
+  const policy = chunks.length
+    ? chunks.map((c, i) => `[Nguồn ${i + 1} - "${c.document_title}"]\n${c.content}`).join("\n\n---\n\n")
+    : "(không có)";
+
+  const prompt = `Bạn là trợ lý chấm công nội bộ, trả lời nhân viên bằng tiếng Việt, ngắn gọn, thân thiện.
+
+QUY TẮC BẮT BUỘC:
+- Mọi con số (tiền, phút, giờ, số ngày) CHỈ lấy từ "DỮ LIỆU CHẤM CÔNG" bên dưới và phải giữ NGUYÊN, không tự tính lại, không làm tròn, không suy đoán.
+- Nếu dữ liệu ghi "TẠM TÍNH", nói rõ đây là số tạm tính.
+- Nếu không có dữ liệu cho kỳ được hỏi, nói rõ là chưa có dữ liệu chấm công.
+- Nếu câu hỏi liên quan quy định/chính sách, chỉ dùng "TÀI LIỆU THAM KHẢO"; không có thì nói không tìm thấy quy định. Khi dùng tài liệu, cuối câu liệt kê "Nguồn: <tên tài liệu>".
+- Chỉ nói về dữ liệu của chính người đang hỏi. Không bịa thêm thông tin nào khác.
+
+DỮ LIỆU CHẤM CÔNG:
+${facts.text}
+
+TÀI LIỆU THAM KHẢO:
+${policy}
+
+CÂU HỎI CỦA NHÂN VIÊN:
+${question}`;
+
+  let answer;
+  try {
+    answer = (await generateWithRetry(prompt)) + sourceFooter(facts);
+  } catch (err) {
+    // AI lỗi/quá tải/hết quota: trả thẳng số liệu thô thay vì báo lỗi
+    console.warn("[rag.service] Gemini lỗi, dùng câu trả lời dự phòng:", err.message);
+    answer = fallbackAnswer(facts);
+  }
+
+  const sources = [
+    ...new Map(
+      chunks.map((c) => [c.document_id, { documentId: c.document_id, title: c.document_title }])
+    ).values(),
+  ];
+  return { answer, sources: answer.includes("Nguồn:") ? sources : [], escalate: false };
+}
+
 // Kết quả trả về gồm:
 //  - answer      : nội dung trả lời (text)
 //  - sources     : danh sách tài liệu đã dùng để trả lời (rỗng nếu escalate)
 //  - escalate    : true nếu câu hỏi cần chuyển cho admin xử lý trực tiếp
 //                  (do khớp tài liệu nhạy cảm) — chat.routes.js sẽ dùng cờ này
 //                  để tự động gắn trạng thái "flagged" cho hội thoại.
-export async function answerQuestion(question) {
+export async function answerQuestion(question, user) {
+  // Câu hỏi về lương/đi muộn/công của CHÍNH nhân viên -> đi đường dữ liệu chấm
+  // công, đặt TRƯỚC bước kiểm tra tài liệu nhạy cảm (nếu không, "lương của tôi"
+  // sẽ bị nhầm với hợp đồng lương cá nhân và chuyển cho admin). Admin không có
+  // dữ liệu chấm công nên vẫn đi đường RAG như cũ.
+  if (user?.role === "employee" && isPersonalDataQuestion(question)) {
+    return answerPersonalQuestion(question, user);
+  }
+
   const questionEmbedding = await embedText(question);
 
   // Bước 1: kiểm tra câu hỏi có đụng tới tài liệu nhạy cảm không — kiểm tra
@@ -130,39 +231,7 @@ export async function answerQuestion(question) {
   }
 
   const prompt = buildPrompt(question, chunks);
-  let answer;
-  let lastErr = null;
-  for (let attempt = 1; attempt <= MAX_GEMINI_RETRIES; attempt++) {
-    try {
-      const result = await chatModel.generateContent(prompt);
-      answer = result.response.text();
-      lastErr = null;
-      break;
-    } catch (err) {
-      lastErr = err;
-      if (isTransientGeminiError(err) && attempt < MAX_GEMINI_RETRIES) {
-        console.warn(
-          `[rag.service] Gemini chat API quá tải (lần ${attempt}/${MAX_GEMINI_RETRIES}), thử lại sau ${GEMINI_RETRY_DELAY_MS * attempt}ms...`
-        );
-        await sleep(GEMINI_RETRY_DELAY_MS * attempt); // backoff tăng dần
-      } else {
-        break;
-      }
-    }
-  }
-
-  if (lastErr) {
-    console.error("[rag.service] Gọi Gemini chat API thất bại:", lastErr.message);
-    if (isTransientGeminiError(lastErr)) {
-      throw new Error(
-        "Gemini đang quá tải tạm thời (lỗi 503 - high demand), đã tự thử lại vài lần nhưng chưa được. " +
-          "Đây không phải lỗi cấu hình — vui lòng đợi khoảng 1-2 phút rồi hỏi lại."
-      );
-    }
-    throw new Error(
-      "Không gọi được Gemini API để sinh câu trả lời. Kiểm tra lại GEMINI_API_KEY trong file .env."
-    );
-  }
+  const answer = await generateWithRetry(prompt);
 
   const sources = [
     ...new Map(

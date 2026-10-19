@@ -10,19 +10,36 @@ import { useAuth } from "../../context/AuthContext.jsx";
 //     trị/nhắn tin trên desktop (Gmail, Slack, Messenger...). Đây là màn hình
 //     được ưu tiên đầu tư thiết kế nhất theo yêu cầu, nhưng mobile vẫn dùng
 //     tốt bình thường.
-const NAV_ITEMS = [
-  { to: "/admin", end: true, label: "Tổng quan", icon: DashboardIcon },
-  { to: "/admin/logs", label: "Hội thoại", icon: ChatIcon },
-  { to: "/admin/documents", label: "Quy chế", icon: DocumentIcon },
-  { to: "/admin/users", label: "Người dùng", icon: UsersIcon },
+// Menu chia 3 nhóm: "Chấm công & lương" là phần chính (màn mặc định khi vào
+// /admin), "Trợ lý AI" giữ nguyên toàn bộ tính năng cũ (tổng quan, hội thoại,
+// quy chế), "Hệ thống" là quản lý tài khoản đăng nhập.
+const NAV_GROUPS = [
+  {
+    title: "Chấm công & lương",
+    items: [
+      { to: "/admin/attendance", label: "Chấm công", icon: ClockIcon },
+      { to: "/admin/employees", label: "Nhân viên", icon: UsersIcon },
+      { to: "/admin/stalls", label: "Gian hàng & ca", icon: StoreIcon },
+      { to: "/admin/payroll", label: "Bảng lương", icon: MoneyIcon },
+    ],
+  },
+  {
+    title: "Trợ lý AI",
+    items: [
+      { to: "/admin/ai", label: "Tổng quan AI", icon: DashboardIcon },
+      { to: "/admin/logs", label: "Hội thoại", icon: ChatIcon },
+      { to: "/admin/documents", label: "Quy chế", icon: DocumentIcon },
+    ],
+  },
+  {
+    title: "Hệ thống",
+    items: [{ to: "/admin/users", label: "Tài khoản", icon: UsersIcon }],
+  },
 ];
 
-const PAGE_TITLES = {
-  "/admin": "Tổng quan",
-  "/admin/documents": "Quy chế",
-  "/admin/logs": "Hội thoại",
-  "/admin/users": "Người dùng",
-};
+const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
+
+const PAGE_TITLES = Object.fromEntries(NAV_ITEMS.map((i) => [i.to, i.label]));
 
 export default function AdminLayout() {
   const { user, logout } = useAuth();
@@ -45,17 +62,21 @@ export default function AdminLayout() {
           <div className="fw-bold text-white">Trang quản trị</div>
         </div>
 
-        <nav className="d-flex flex-column gap-1 px-2 flex-grow-1">
-          {NAV_ITEMS.map(({ to, end, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) => `admin-nav-link ${isActive ? "active" : ""}`}
-            >
-              <Icon />
-              <span>{label}</span>
-            </NavLink>
+        <nav className="d-flex flex-column gap-1 px-2 flex-grow-1 overflow-auto">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.title} className="d-flex flex-column gap-1">
+              <div className="admin-nav-group">{group.title}</div>
+              {group.items.map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) => `admin-nav-link ${isActive ? "active" : ""}`}
+                >
+                  <Icon />
+                  <span>{label}</span>
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
 
@@ -91,9 +112,9 @@ export default function AdminLayout() {
       </div>
 
       {/* Thanh tab dưới cùng — CHỈ hiện ở điện thoại/máy tính bảng (< lg) */}
-      <nav className="bottom-tabs d-flex d-lg-none flex-row border-top">
-        {NAV_ITEMS.map(({ to, end, label }) => (
-          <NavLink key={to} to={to} end={end} className="nav-link text-center flex-fill">
+      <nav className="bottom-tabs scrollable d-flex d-lg-none flex-row border-top">
+        {NAV_ITEMS.map(({ to, label }) => (
+          <NavLink key={to} to={to} className="nav-link text-center flex-fill">
             {label}
           </NavLink>
         ))}
@@ -141,6 +162,35 @@ function UsersIcon() {
       <circle cx="9" cy="7" r="4" />
       <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
+function StoreIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 9l1.5-5h15L21 9" />
+      <path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0" />
+      <path d="M5 12v8h14v-8" />
+    </svg>
+  );
+}
+
+function MoneyIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2.5" />
+      <path d="M6 12h.01M18 12h.01" />
     </svg>
   );
 }

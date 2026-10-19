@@ -1,7 +1,7 @@
 // Trang đăng nhập — dùng chung cho cả admin và nhân viên; sau khi đăng nhập,
-// điều hướng theo "role" trả về từ backend (admin -> /admin, employee -> /chat).
+// điều hướng theo "role" trả về từ backend (admin -> /admin, employee -> /work).
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Login() {
@@ -18,7 +18,7 @@ export default function Login() {
     setLoading(true);
     try {
       const user = await login(email, password);
-      navigate(user.role === "admin" ? "/admin" : "/chat", { replace: true });
+      navigate(user.role === "admin" ? "/admin" : "/work", { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -31,7 +31,7 @@ export default function Login() {
       <div className="card border-0 shadow-sm mx-auto" style={{ maxWidth: 400, width: "100%" }}>
         <div className="card-body p-4">
           <img src="/logo.svg" alt="" className="auth-logo mb-3" />
-          <h1 className="h4 mb-1">Trợ lý AI Quy chế Nội bộ</h1>
+          <h1 className="h4 mb-1">Chấm công & Trợ lý AI</h1>
           <p className="text-muted mb-4">Đăng nhập để tiếp tục</p>
 
           <form onSubmit={handleSubmit}>
@@ -67,7 +67,7 @@ export default function Login() {
           </form>
 
           <p className="text-center text-muted small mt-3 mb-0">
-            Chưa có tài khoản? <Link to="/register">Đăng ký</Link>
+            Tài khoản do quản trị viên cấp cho bạn.
           </p>
 
           <p className="text-muted small mt-3 mb-0">

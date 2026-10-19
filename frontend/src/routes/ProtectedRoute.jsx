@@ -8,8 +8,8 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   if (!user) return <Navigate to="/login" replace />;
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    // Nhân viên cố vào /admin -> đưa về trang chat; admin cố vào trang khác -> tuỳ chỉnh thêm nếu cần
-    return <Navigate to={user.role === "admin" ? "/admin" : "/chat"} replace />;
+    // Sai quyền -> đưa về trang chủ của đúng vai trò (admin: /admin, nhân viên: /work)
+    return <Navigate to={user.role === "admin" ? "/admin" : "/work"} replace />;
   }
 
   return children;

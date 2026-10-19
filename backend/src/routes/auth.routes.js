@@ -53,6 +53,9 @@ router.post("/login", asyncHandler(async (req, res) => {
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
     return res.status(401).json({ error: "Email hoặc mật khẩu không đúng." });
   }
+  if (user.is_active === false) {
+    return res.status(403).json({ error: "Tài khoản đã bị vô hiệu hoá. Liên hệ quản trị viên." });
+  }
 
   const token = signToken({ id: user.id, email: user.email, role: user.role, fullName: user.full_name });
 
