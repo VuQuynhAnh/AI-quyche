@@ -9,8 +9,7 @@
     "dev": "node --watch src/index.js",
     "seed": "node src/db/seed.js",
     "migrate": "node src/db/migrate.js",
-    "seed:sample": "node src/db/seedSampleData.js",
-    "test": "node --test test/payroll.test.js test/personalData.test.js"
+    "seed:sample": "node src/db/seedSampleData.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

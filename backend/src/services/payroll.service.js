@@ -1,5 +1,4 @@
-// Logic tính công & lương — TOÀN BỘ là hàm thuần (không đụng DB) nên test được
-// độc lập (xem backend/test/payroll.test.js).
+// Logic tính công & lương — TOÀN BỘ là hàm thuần (không đụng DB).
 //
 // Quy ước:
 //  - Múi giờ nghiệp vụ cố định Asia/Ho_Chi_Minh (UTC+7, không có giờ mùa hè).

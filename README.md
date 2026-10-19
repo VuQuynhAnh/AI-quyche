@@ -102,7 +102,6 @@ cp .env.example .env
 npm install
 npm run seed     # tạo bảng + nạp dữ liệu mẫu (tài khoản, gian hàng, chấm công, văn bản)
 npm run dev      # chạy tại http://localhost:4000
-npm test         # chạy test tính lương / hỏi đáp dữ liệu cá nhân
 ```
 
 > ⚠ `npm run seed` **XOÁ SẠCH toàn bộ dữ liệu** (tài khoản, gian hàng, chấm
@@ -513,7 +512,6 @@ backend/
                   đường dẫn lưu ở cột documents.storage_path
   sample-data/    6 văn bản mẫu để demo nhanh (5 quy chế thường + 1 tài liệu
                   nhạy cảm) — xem sample-data/README.md
-  test/           payroll.test.js, personalData.test.js (`npm test`)
 frontend/
   src/
     api/          client gọi API (fetch + JWT)

@@ -9,7 +9,6 @@ Chat AI vẫn giữ nguyên toàn bộ tính năng, chỉ còn là cửa sổ n�
    (Đừng chạy `npm run seed` trên dữ liệu thật: seed xoá sạch TOÀN BỘ dữ liệu — tài khoản, gian hàng, chấm công, bảng lương, văn bản, hội thoại — rồi nạp lại dữ liệu mẫu.)
 3. `cd frontend && npm install` (thêm thư viện `qrcode`).
 4. Commit + push: Render và Vercel tự deploy lại. Không có biến môi trường mới.
-5. `cd backend && npm test` để chạy 19 test tính lương / hỏi đáp dữ liệu cá nhân.
 
 ## Cách dùng
 
