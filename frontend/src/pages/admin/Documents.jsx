@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../../api/client.js";
 import { useNotification } from "../../context/NotificationContext.jsx";
+import { DOCUMENT_PROCESSING_STATUS } from "../../constants/enums.js";
 
 const STATUS_LABEL = {
-  ready: { text: "Sẵn sàng", cls: "bg-success" },
-  processing: { text: "Đang xử lý", cls: "bg-warning text-dark" },
-  failed: { text: "Lỗi", cls: "bg-danger" },
+  [DOCUMENT_PROCESSING_STATUS.READY]: { text: "Sẵn sàng", cls: "bg-success" },
+  [DOCUMENT_PROCESSING_STATUS.PROCESSING]: { text: "Đang xử lý", cls: "bg-warning text-dark" },
+  [DOCUMENT_PROCESSING_STATUS.FAILED]: { text: "Lỗi", cls: "bg-danger" },
 };
 
 // Icon SVG đơn giản (không dùng emoji), cùng phong cách đường nét mảnh với
@@ -151,7 +152,7 @@ export default function Documents() {
     const openUp = rect.bottom + estimatedHeight + 8 > window.innerHeight;
     setDocMenu({
       id: doc.id,
-      status: doc.status,
+      status: doc.processingStatus,
       left: Math.min(Math.max(rect.right - menuWidth, 8), window.innerWidth - menuWidth - 8),
       top: openUp ? rect.top - 8 : rect.bottom + 8,
       openUp,
@@ -260,7 +261,7 @@ export default function Documents() {
 
       <div className="row row-cols-1 row-cols-xl-2 g-2">
         {documents.map((doc) => {
-          const status = STATUS_LABEL[doc.status] || STATUS_LABEL.processing;
+          const status = STATUS_LABEL[doc.processingStatus] || STATUS_LABEL[DOCUMENT_PROCESSING_STATUS.PROCESSING];
           return (
             <div key={doc.id} className="col">
               {/* Class "doc-card" (thêm bên cạnh "card") chỉ để CSS biết khi
@@ -271,10 +272,10 @@ export default function Documents() {
                   <div className="text-truncate">
                     <div className="fw-semibold text-truncate">{doc.title}</div>
                     <div className="text-muted small">
-                      {doc.category || "Chưa phân loại"} · {doc.chunk_count} đoạn
+                      {doc.category || "Chưa phân loại"} · {doc.chunkCount} đoạn
                     </div>
                     <span className={`badge mt-1 ${status.cls}`}>{status.text}</span>
-                    {doc.is_sensitive && <span className="badge mt-1 ms-1 bg-dark">Nhạy cảm</span>}
+                    {doc.isSensitive && <span className="badge mt-1 ms-1 bg-dark">Nhạy cảm</span>}
                   </div>
                   <button
                     type="button"
@@ -312,9 +313,9 @@ export default function Documents() {
             <button
               type="button"
               className="msg-context-menu-item"
-              disabled={docMenu.status !== "ready"}
+              disabled={docMenu.status !== DOCUMENT_PROCESSING_STATUS.READY}
               title={
-                docMenu.status === "ready"
+                docMenu.status === DOCUMENT_PROCESSING_STATUS.READY
                   ? "Xem nhanh nội dung quy chế, không cần tải về"
                   : "Quy chế chưa xử lý xong, chưa có nội dung để xem"
               }

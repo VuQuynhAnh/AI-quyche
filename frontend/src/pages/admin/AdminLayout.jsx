@@ -17,10 +17,10 @@ const NAV_GROUPS = [
   {
     title: "Chấm công & lương",
     items: [
-      { to: "/admin/attendance", label: "Chấm công", icon: ClockIcon },
+      { to: "/admin/clockings", label: "Chấm công", icon: ClockIcon },
       { to: "/admin/employees", label: "Nhân viên", icon: UsersIcon },
-      { to: "/admin/stalls", label: "Gian hàng & ca", icon: StoreIcon },
-      { to: "/admin/payroll", label: "Bảng lương", icon: MoneyIcon },
+      { to: "/admin/paysheets", label: "Bảng lương", icon: MoneyIcon },
+      { to: "/admin/setting", label: "Thiết lập cửa hàng", icon: StoreIcon },
     ],
   },
   {
@@ -33,7 +33,7 @@ const NAV_GROUPS = [
   },
   {
     title: "Hệ thống",
-    items: [{ to: "/admin/users", label: "Tài khoản", icon: UsersIcon }],
+    items: [{ to: "/admin/accounts", label: "Tài khoản", icon: UsersIcon }],
   },
 ];
 

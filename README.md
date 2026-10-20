@@ -1,69 +1,98 @@
 # SmartClocking — Chấm công, Tính lương & Trợ lý AI Quy chế
 
-Dự án demo/giảng dạy gồm 2 phần:
+Dự án demo/giảng dạy cho **chuỗi nhiều cửa hàng**, gồm 2 phần:
 
-1. **Chấm công & tính lương** cho chuỗi gian hàng: nhân viên quét mã QR dán tại
-   quầy → đăng nhập → bấm CHECK-IN / CHECK-OUT (kèm vị trí GPS); admin quản lý
-   gian hàng & ca, nhân viên, bảng chấm công, bảng lương theo tháng (xuất CSV).
-   Xem mục [Chấm công & Tính lương](#chấm-công--tính-lương).
+1. **Chấm công & tính lương**: nhân viên quét mã QR dán tại cửa hàng → đăng
+   nhập → bấm CHECK-IN / CHECK-OUT (kèm vị trí GPS); admin cửa hàng quản lý
+   thiết lập ca, nhân viên, bảng công và **bảng lương tháng** (tạo → tính lại →
+   chốt / huỷ, xuất CSV). Xem mục [Chấm công & Tính lương](#chấm-công--tính-lương).
 2. **Trợ lý AI (chatbot)** giúp nhân viên tra cứu quy chế, nội quy, chính sách
-   nội bộ — và hỏi về lương / số lần đi muộn của chính mình. Dùng kỹ thuật **RAG
-   (Retrieval-Augmented Generation)**: hệ thống tìm các đoạn văn bản nội bộ liên
-   quan nhất tới câu hỏi, rồi đưa cho mô hình AI (Google Gemini) để sinh câu trả
-   lời có trích dẫn nguồn — giúp AI không "bịa" thông tin ngoài văn bản công ty.
+   của cửa hàng — và hỏi về lương / số lần đi muộn của chính mình. Dùng kỹ thuật
+   **RAG (Retrieval-Augmented Generation)**: hệ thống tìm các đoạn văn bản nội
+   bộ liên quan nhất tới câu hỏi, rồi đưa cho mô hình AI (Google Gemini) để sinh
+   câu trả lời có trích dẫn nguồn — giúp AI không "bịa" thông tin ngoài văn bản.
    Phía nhân viên, chat là **cửa sổ nổi** trong trang chấm công; phía admin là
    nhóm menu "Trợ lý AI".
 
+## Vai trò & phân quyền
+
+| Role (`constants/enums.js`) | Thuộc cửa hàng | Làm được gì | Trang chủ |
+|---|---|---|---|
+| `superadmin` | không | Tạo cửa hàng (kèm admin đầu tiên + thiết lập mặc định), tạm ngưng/mở lại cửa hàng, tạo superadmin khác. **Không** quản lý admin/nhân viên của cửa hàng. | `/superadmin` |
+| `admin` | có (1 cửa hàng) | Quản lý cửa hàng của mình: thiết lập, nhân viên, chấm công, bảng lương, quy chế, hội thoại, tài khoản (tự nâng/hạ admin ↔ user). | `/admin` |
+| `user` | có (1 cửa hàng) | Nhân viên: chấm công, xem lịch sử & lương, chat AI. | `/work` |
+
+- Không có đăng ký công khai: tài khoản do superadmin (admin đầu tiên của cửa
+  hàng) hoặc admin cửa hàng tạo.
+- Mọi dữ liệu (nhân viên, chấm công, bảng lương, văn bản, hội thoại) **tách
+  riêng theo cửa hàng**: admin/user chỉ thấy dữ liệu cửa hàng mình (`storeId`
+  lấy từ JWT, không nhận từ client).
+- Bảo vệ cửa hàng không tự khoá mình: không tự đổi quyền / tự xoá chính mình,
+  cửa hàng luôn còn ít nhất 1 admin đang hoạt động.
+- Mọi giá trị cố định (role, trạng thái...) dùng hằng số trong
+  `backend/src/constants/enums.js` (bản sao: `frontend/src/constants/enums.js`).
+  Kiểu ENUM của PostgreSQL được **sinh từ chính file này** khi chạy `db:reset`.
+
 ## Kiến trúc
 
-> Sơ đồ dưới đây tập trung vào phần Trợ lý AI. Phần chấm công dùng thêm các
-> route `/s/:stallId`, `/work`, `/admin/attendance|employees|stalls|payroll`
-> (frontend) và `/api/attendance/*`, `/api/hr/*` (backend), dữ liệu nằm hoàn
-> toàn trong PostgreSQL — xem mục [Chấm công & Tính lương](#chấm-công--tính-lương).
-
 Dự án dùng **2 loại cơ sở dữ liệu** (polyglot persistence) — mỗi loại cho đúng
-việc nó mạnh nhất, xem lý do chi tiết ở mục "So sánh PostgreSQL vs MongoDB" bên dưới:
+việc nó mạnh nhất, xem lý do ở mục "So sánh PostgreSQL vs MongoDB" bên dưới:
 
 ```
-Trình duyệt (React + Bootstrap, mobile-first)
-   ├── /login, /register  → nhân viên đăng nhập / tự đăng ký (CHỈ 2 việc này +
-   │                         hỏi đáp — phía client không có chức năng nào khác)
-   ├── /chat              → nhân viên: 1 đoạn chat LIÊN TỤC duy nhất (giống
-   │                         Messenger/Zalo) — mở lên là thấy tin nhắn cũ ngay,
-   │                         kéo lên để tải thêm; có thể xoá 1 tin nhắn hoặc cả
-   │                         đoạn chat; tự đánh dấu "câu hỏi cần admin trả lời"
-   └── /admin             → quản trị viên: upload văn bản, danh sách người
-        │                    dùng, thống kê, xem & trả lời trực tiếp hội thoại
+Trình duyệt (React + Bootstrap)
+   ├── /superadmin      → superadmin: cửa hàng, tài khoản superadmin
+   ├── /admin/*         → admin cửa hàng: chấm công, nhân viên, bảng lương,
+   │                      thiết lập, trợ lý AI (tổng quan, hội thoại, quy chế),
+   │                      tài khoản
+   ├── /s/:storeId      → trang quét QR tại cửa hàng (công khai)
+   ├── /work, /work/history → nhân viên: chấm công, lịch sử + lương (mobile)
+   └── /chat            → chat AI toàn màn hình (admin + nhân viên)
         │  (gọi API qua JWT)
         ▼
-Backend Node.js (Express)
-   ├── auth        : đăng ký / đăng nhập, sinh JWT, phân quyền admin/employee
-   ├── documents   : upload PDF/DOCX/TXT (+ cờ "tài liệu nhạy cảm") → trích
-   │                 xuất text → tách chunk → tạo embedding (Gemini) → lưu
-   │                 PostgreSQL (pgvector)
-   ├── chat        : nhận câu hỏi → tạo embedding → nếu khớp TÀI LIỆU NHẠY CẢM
-   │                 thì từ chối trả lời + tự chuyển admin; ngược lại tìm chunk
-   │                 gần nghĩa nhất trong tài liệu thường (cosine similarity,
-   │                 PostgreSQL) → hỏi Gemini kèm ngữ cảnh → trả lời → lưu vào
-   │                 đoạn chat (MongoDB) đang hoạt động của nhân viên đó. Nhân
-   │                 viên cũng có thể tự đánh dấu hội thoại "cần admin trả lời"
-   │                 bất kỳ lúc nào, hoặc xoá tin nhắn/đoạn chat (xoá mềm).
-   └── admin       : danh sách user (Postgres), thống kê + câu hỏi hay gặp
-                     (Mongo), xem/trả lời trực tiếp bất kỳ đoạn chat nào — kể
-                     cả đoạn chat nhân viên đã xoá mềm (Mongo)
+Backend Node.js (Express) — routes → services → repositories (xem
+"Kiến trúc phân tầng")
+   /api/auth, /api/superadmin, /api/hr, /api/clocking, /api/admin,
+   /api/documents, /api/doc-files, /api/chat
         │                              │
         ▼                              ▼
 PostgreSQL + pgvector            MongoDB
-(users, documents,               (2 collection riêng — xem mục "Mô hình 1 nhân
- document_chunks/embeddings)      viên = 1 đoạn chat" bên dưới:
-                                   - conversations: 1 document/nhân viên đang
-                                     hoạt động, có "status": normal/flagged/
-                                     resolved, và isDeleted khi nhân viên xoá
-                                   - messages: từng tin nhắn (role user/
-                                     assistant/admin), tách riêng để phân
-                                     trang hiệu quả — KHÔNG lồng trong
-                                     conversation)
+(store, setting, account,        (conversations, messages — có storeId)
+ employee, clocking,
+ clocking_history, paysheet,
+ paysheet_detail, document,
+ document_detail + embedding)
 ```
+
+## Thiết kế database (PostgreSQL)
+
+Tên bảng số ít, theo nghiệp vụ; bảng con dạng `<cha>_detail` / `<cha>_history`;
+tên cột không viết tắt (`check_in_radius_meters`, `early_leave_minutes`...).
+Chi tiết từng cột: `backend/src/db/schema.sql`.
+
+```
+account (superadmin, store_id = NULL)
+   │ tạo
+   ▼
+store (cửa hàng)
+ ├─1─1─ setting            giờ ca, tiền phạt/phút, toạ độ + bán kính chấm công
+ ├─1─N─ account            role admin / user
+ │        └─1─1─ employee  SĐT, chức danh, lương giờ (1 mức duy nhất)
+ │                 ├─1─N─ clocking ─1─N─ clocking_history
+ │                 └─1─N─ paysheet_detail
+ ├─1─N─ paysheet ─1─N─ paysheet_detail
+ └─1─N─ document ─1─N─ document_detail (đoạn văn bản + vector embedding)
+```
+
+| Bảng | Ý nghĩa |
+|---|---|
+| `store` / `setting` | Cửa hàng và thiết lập 1–1 của nó |
+| `account` | Tài khoản đăng nhập (`role` kiểu ENUM `account_role`) |
+| `employee` | Hồ sơ nhân viên của mọi tài khoản thuộc cửa hàng (đổi role không mất dữ liệu) |
+| `clocking` | Chấm công theo **ngày** (`work_date` giờ VN): giờ vào/ra, phút làm, muộn, về sớm. Unique (`employee_id`, `work_date`). Giờ ca được chụp lại lúc tạo dòng |
+| `clocking_history` | Từng lần bấm + các lần admin sửa. **Bất biến** (trigger chỉ cho đổi `valid` → `voided`) |
+| `paysheet` | Bảng lương tháng của cửa hàng (`draft` / `finalized` / `cancelled`). Unique index: mỗi cửa hàng chỉ 1 bảng **chưa huỷ** mỗi tháng |
+| `paysheet_detail` | Lương từng nhân viên, lưu cả **mức lương đã dùng** và chi tiết từng ngày |
+| `document` / `document_detail` | Văn bản quy chế của cửa hàng và các đoạn đã tách + embedding (pgvector) |
 
 ## Yêu cầu hệ thống
 
@@ -100,35 +129,39 @@ cp .env.example .env
 # luôn nếu chạy Docker/MongoDB local ở trên)
 
 npm install
-npm run seed     # tạo bảng + nạp dữ liệu mẫu (tài khoản, gian hàng, chấm công, văn bản)
+npm run db:reset # XOÁ SẠCH rồi tạo lại database + nạp dữ liệu mẫu
 npm run dev      # chạy tại http://localhost:4000
 ```
 
-> ⚠ `npm run seed` **XOÁ SẠCH toàn bộ dữ liệu** (tài khoản, gian hàng, chấm
-> công, bảng lương, văn bản, hội thoại) rồi nạp lại dữ liệu mẫu — chỉ dùng cho
-> máy dev/demo. Với CSDL đang chạy thật, dùng `npm run migrate` để cập nhật cấu
-> trúc bảng mà **giữ nguyên dữ liệu** (xem thêm [CHAM-CONG.md](CHAM-CONG.md)).
+> ⚠ `npm run db:reset` **xoá sạch toàn bộ** bảng, file upload và hội thoại rồi
+> tạo lại từ đầu (`db/drop.sql` → sinh ENUM từ `constants/enums.js` →
+> `db/schema.sql` → dữ liệu mẫu). Dự án đang trong giai đoạn phát triển nên
+> chưa có migration giữ dữ liệu — sửa schema xong chỉ cần chạy lại lệnh này.
+> Không kết nối được MongoDB thì bước xoá hội thoại được bỏ qua (có cảnh báo).
 
-Nếu quên bật MongoDB, backend vẫn khởi động bình thường (đăng nhập, quản lý văn
-bản, danh sách người dùng vẫn dùng được vì các phần đó chỉ cần PostgreSQL) —
-riêng các API liên quan tới hội thoại (`/chat/*`, `/admin/stats*`,
-`/admin/conversations*`) sẽ trả lỗi **503** ngay lập tức kèm thông báo rõ ràng
-(`requireMongo` middleware, `backend/src/middleware/requireMongo.js`) thay vì
-bị "treo" chờ kết nối, cho tới khi MongoDB sẵn sàng và backend được khởi động lại.
+Nếu quên bật MongoDB, backend vẫn khởi động bình thường (chấm công, lương, văn
+bản vẫn dùng được vì chỉ cần PostgreSQL) — riêng các API hội thoại (`/chat/*`,
+`/admin/stats*`, `/admin/conversations*`) trả lỗi **503** ngay kèm thông báo rõ
+ràng (`middleware/requireMongo.js`) thay vì bị "treo" chờ kết nối.
 
-Tài khoản demo sau khi `npm run seed`:
+Tài khoản mẫu sau khi `npm run db:reset` (màn đăng nhập có sẵn danh sách này,
+bấm để điền nhanh — ẩn khi deploy bằng `VITE_HIDE_DEMO_ACCOUNTS=true`):
 
-| Vai trò   | Email                                                                  | Mật khẩu     |
-|-----------|------------------------------------------------------------------------|--------------|
-| admin     | admin@congty.vn                                                        | Admin@123    |
-| employee  | nhanvien@congty.vn, lan@, hung@, mai@, tuan@congty.vn                  | NhanVien@123 |
+| Vai trò | Email | Mật khẩu |
+|---|---|---|
+| superadmin | superadmin@smartclocking.vn | Super@123 |
+| admin — Cửa hàng Hoàn Kiếm | admin.hoankiem@smartclocking.vn | Admin@123 |
+| user — Cửa hàng Hoàn Kiếm | nhanvien@, lan@, hung@smartclocking.vn | NhanVien@123 |
+| admin — Cửa hàng Cầu Giấy | admin.caugiay@smartclocking.vn | Admin@123 |
+| user — Cửa hàng Cầu Giấy | mai@, tuan@smartclocking.vn | NhanVien@123 |
 
-Seed nạp sẵn 2 gian hàng có toạ độ, lịch sử chấm công tháng trước + tháng này
-(đủ tình huống: đúng giờ, đi muộn, về sớm, nghỉ, ngoài phạm vi GPS, quên
-check-out, admin chỉnh giờ), bảng lương tháng trước đã chốt, và các văn bản mẫu
-trong `backend/sample-data/` (xem chi tiết từng file trong
-`backend/sample-data/README.md`). Admin đăng nhập sẽ vào thẳng
-`/admin/attendance`, nhân viên vào `/work`.
+Dữ liệu mẫu được nạp **qua chính các service** của ứng dụng (tạo cửa hàng, nhân
+viên, sửa giờ, tạo/huỷ/chốt bảng lương), gồm: chấm công tháng trước + tháng này
+(đúng giờ, đi muộn, về sớm, nghỉ, ngoài phạm vi GPS, quên check-out, admin chỉnh
+giờ, vài người đã check-in hôm nay); bảng lương tháng trước của Hoàn Kiếm **đã
+chốt** (kèm 1 bảng đã huỷ, sau đó tăng lương Lan — bảng đã chốt không đổi), của
+Cầu Giấy **nháp cần tính lại**; 6 văn bản mẫu (`backend/sample-data/`) cho mỗi
+cửa hàng.
 
 ### 3. Frontend
 
@@ -150,62 +183,86 @@ trang phải chạy qua **HTTPS** (hoặc `localhost`).
 
 ### Cách dùng
 
-- **Admin → Gian hàng & ca** (`/admin/stalls`): tạo gian hàng (giờ vào/tan ca,
-  tiền phạt mỗi phút, vị trí tuỳ chọn) → bấm **Mã QR** để in dán tại quầy. QR
-  trỏ tới `/s/:stallId`.
-- **Admin → Nhân viên** (`/admin/employees`): tạo tài khoản, gán gian hàng, đặt
-  lương giờ.
-- **Admin → Chấm công** (`/admin/attendance`): bảng theo tháng; bấm vào 1 ô ngày
-  → "Chỉnh sửa" để sửa giờ vào/ra (chỉ tháng hiện tại).
-- **Admin → Bảng lương** (`/admin/payroll`): lương từng nhân viên theo tháng,
-  xem chi tiết, xuất CSV.
+- **Superadmin** (`/superadmin`): tạo cửa hàng kèm tài khoản admin đầu tiên.
+- **Admin → Thiết lập cửa hàng** (`/admin/setting`): giờ vào/tan ca, tiền phạt
+  mỗi phút, vị trí + bán kính (tuỳ chọn); in **mã QR** dán tại quầy (trỏ tới
+  `/s/:storeId`).
+- **Admin → Nhân viên** (`/admin/employees`): tạo tài khoản nhân viên, đặt lương giờ.
+- **Admin → Chấm công** (`/admin/clockings`): bảng công theo tháng; bấm 1 ô ngày
+  → "Chỉnh sửa" để sửa giờ vào/ra (tháng chưa chốt lương).
+- **Admin → Bảng lương** (`/admin/paysheets`): tạo / tính lại / chốt / huỷ bảng
+  lương tháng, xem chi tiết từng ngày, xuất CSV.
 - **Nhân viên**: quét QR → đăng nhập → bấm CHECK-IN / CHECK-OUT (cần bật GPS)
-  tại `/work`; xem lịch sử tại `/work/history`.
+  tại `/work`; xem lịch sử + lương tại `/work/history`.
+
+### Vòng đời bảng lương
+
+```
+Tạo bảng lương ──▶ draft ──(Tính lại)──▶ draft ──(Chốt)──▶ finalized
+                     │                                         │
+                     └──────────(Huỷ)──▶ cancelled ◀──(Huỷ)────┘
+```
+
+- Mỗi cửa hàng chỉ có **1 bảng lương chưa huỷ mỗi tháng** (unique index trong
+  DB). Huỷ xong thì tạo được bảng mới; bảng đã huỷ vẫn giữ lại để tra cứu.
+- `draft`: tính theo chấm công + lương giờ + tiền phạt tại lần tính gần nhất.
+  Có sửa công / đổi lương / đổi thiết lập sau đó → hiện cảnh báo "cần tính lại".
+- `finalized`: chỉ chốt được tháng đã kết thúc. Số liệu đóng băng (lưu cả mức
+  lương đã dùng), **chấm công tháng đó bị khoá**. Muốn sửa thì huỷ bảng rồi lập lại.
+- Tháng chưa có bảng lương: nhân viên thấy lương **tạm tính** (tính trực tiếp
+  với lương giờ hiện tại); có bảng thì thấy số của bảng (nháp / đã chốt).
 
 ### Quy tắc tính
 
+- Mỗi nhân viên **1 mức lương giờ**. Đổi lương chỉ ảnh hưởng các bảng lương
+  chưa chốt.
 - Lương ngày = lương giờ × số giờ làm **trong khung ca** − (phút muộn + phút về
-  sớm) × tiền phạt/phút. Đến sớm/về muộn không được tính thêm.
-- Muộn/sớm làm tròn xuống phút. Lương thực nhận cả tháng không âm.
-- Ngày/tháng tính theo giờ Việt Nam. Từ 00:00 ngày 1 tháng sau, tháng cũ **khoá
-  cứng** (API từ chối sửa).
-- Tháng đã qua được **chốt** (bảng `payroll_months`): đổi lương giờ / giờ ca /
-  tiền phạt sau đó không làm đổi lương cũ. Lương giờ có lịch sử (`employee_rates`).
-- Lịch sử chấm công **không sửa/xoá được** (`attendance_events` có trigger chặn
-  UPDATE). Admin "Chỉnh sửa" 1 ngày sẽ ghi bản ghi mới vào `attendance_edits`:
-  giờ gốc được giữ (hiện mờ), giờ mới ghi "Đã thay đổi bởi admin".
-- Chỉ lưu vị trí GPS, không lưu IP. Vị trí ngoài bán kính gian hàng chỉ gắn cờ
-  cho admin, không chặn chấm công.
+  sớm) × tiền phạt/phút. Đến sớm/về muộn không được tính thêm. Muộn/sớm làm tròn
+  xuống phút. Lương thực nhận cả tháng không âm.
+- Ngày/tháng tính theo giờ Việt Nam. Giờ ca được chụp vào từng ngày chấm công,
+  nên đổi giờ ca không làm sai các ngày đã qua.
+- Lịch sử chấm công **không sửa/xoá được** (`clocking_history` có trigger).
+  Admin "Chỉnh sửa" 1 ngày = huỷ lần cũ + thêm lần mới (`source = admin`) trỏ
+  về lần cũ; giờ gốc vẫn hiện (gạch ngang) trong chi tiết ngày.
+- Chỉ lưu vị trí GPS, không lưu IP. Vị trí ngoài bán kính chỉ gắn cờ cho admin,
+  không chặn chấm công.
 
 ### AI trả lời về lương / đi muộn
 
 Câu hỏi có tự xưng ("lương tháng này của tôi", "tháng 9 em đi muộn mấy lần")
-được trả lời từ số liệu hệ thống tự tính (`personalData.service.js`); Gemini chỉ
-diễn đạt lại. Gemini lỗi thì trả số liệu thô. Câu hỏi chính sách chung vẫn đi
-đường RAG tra tài liệu như mô tả bên dưới.
+được trả lời từ số liệu hệ thống tự tính (`salaryInquiry.service.js`, cùng
+nguồn với màn Lịch sử: bảng lương nếu có, không thì tạm tính); Gemini chỉ diễn
+đạt lại. Gemini lỗi thì trả số liệu thô. Câu hỏi chính sách chung vẫn đi đường
+RAG tra văn bản **của cửa hàng** như mô tả bên dưới.
 
 ### API
 
 | Route | Ai gọi | Việc gì |
 |-------|--------|---------|
-| `GET /api/attendance/stall/:id` | nhân viên | Thông tin gian hàng khi quét QR |
-| `GET /api/attendance/me/today` | nhân viên | Trạng thái chấm công hôm nay |
-| `POST /api/attendance/check` | nhân viên | Check-in / check-out (kèm GPS) |
-| `GET /api/attendance/me/month`, `/me/day` | nhân viên | Lịch sử tháng / chi tiết ngày |
-| `GET/POST/PATCH/DELETE /api/hr/stalls[/:id]` | admin | Quản lý gian hàng & ca |
-| `GET/POST/PATCH /api/hr/employees[/:id]` | admin | Quản lý nhân viên, lương giờ |
-| `GET /api/hr/attendance/overview`, `/day` | admin | Bảng chấm công tháng / chi tiết ngày |
-| `POST /api/hr/attendance/day-edit` | admin | Chỉnh giờ vào/ra 1 ngày |
-| `GET /api/hr/payroll`, `/payroll/:userId`, `/payroll/export` | admin | Bảng lương, chi tiết, xuất CSV |
+| `POST /api/auth/login` | mọi người | Đăng nhập, trả JWT (`id, role, storeId`) |
+| `GET/POST/PATCH /api/superadmin/stores[/:id]` | superadmin | Cửa hàng (tạo kèm admin đầu tiên) |
+| `GET/POST /api/superadmin/accounts` | superadmin | Tài khoản superadmin |
+| `GET/PATCH /api/hr/setting` | admin | Thiết lập cửa hàng |
+| `GET/POST/PATCH /api/hr/employees[/:id]` | admin | Nhân viên, lương giờ |
+| `GET /api/hr/clockings/overview`, `/day` | admin | Bảng công tháng / chi tiết ngày |
+| `POST /api/hr/clockings/day-edit` | admin | Sửa giờ vào/ra 1 ngày |
+| `GET /api/hr/paysheets?month=` | admin | Bảng lương của tháng + các bảng đã huỷ |
+| `POST /api/hr/paysheets` | admin | Tạo bảng lương (`{ payMonth }`) |
+| `POST /api/hr/paysheets/:id/recalculate` · `/finalize` · `/cancel` | admin | Tính lại / chốt / huỷ |
+| `GET /api/hr/paysheets/:id/export` | admin | Xuất CSV |
+| `GET/POST /api/admin/accounts`, `PATCH /:id/role`, `DELETE /:id` | admin | Tài khoản của cửa hàng |
+| `GET /api/clocking/store/:id` | công khai | Thông tin cửa hàng khi quét QR |
+| `GET /api/clocking/me/today` · `POST /check` | user | Trạng thái hôm nay / check-in, check-out |
+| `GET /api/clocking/me/month`, `/me/day` | user | Lịch sử + lương tháng / chi tiết ngày |
 
 ## Giải thích luồng RAG (phần lõi để dạy học viên)
 
-1. **Nạp văn bản** (`backend/src/services/document.service.js`): file được
-   trích xuất text thô (`textExtract.service.js`), tách thành các đoạn ~900 ký
-   tự có chồng lấn (`chunk.service.js`), mỗi đoạn được chuyển thành 1 vector
-   768 chiều bằng model `text-embedding-004` (`embedding.service.js`), rồi lưu
-   vào bảng `document_chunks` cùng vector đó.
-2. **Trả lời câu hỏi** (`backend/src/services/rag.service.js`): câu hỏi cũng
+1. **Nạp văn bản** (`backend/src/services/regulationDocument.service.js`): file được
+   trích xuất text thô (`utils/textExtractor.js`), tách thành các đoạn ~900 ký
+   tự có chồng lấn (`utils/textChunker.js`), mỗi đoạn được chuyển thành 1 vector
+   768 chiều bằng model `text-embedding-004` (`providers/ai.provider.js`), rồi lưu
+   vào bảng `document_detail` cùng vector đó.
+2. **Trả lời câu hỏi** (`backend/src/services/assistant.service.js`): câu hỏi cũng
    được chuyển thành vector; PostgreSQL/pgvector tìm 5 đoạn có vector gần nhất
    (`ORDER BY embedding <=> $1`, khoảng cách cosine); các đoạn này được ghép
    thành "ngữ cảnh" và đưa vào prompt yêu cầu Gemini chỉ trả lời dựa trên ngữ
@@ -221,7 +278,7 @@ nhân viên (VD: hồ sơ lương thưởng cá nhân, quyết định kỷ lu�
 hàng...). Khi admin upload văn bản, có thể tick chọn **"Tài liệu nhạy cảm"**
 (cột `is_sensitive` trong bảng `documents`). Tài liệu này vẫn được trích xuất,
 tách chunk và tạo embedding như bình thường (để admin có thể tìm kiếm nội bộ
-sau này), nhưng luồng RAG (`backend/src/services/rag.service.js`) xử lý khác
+sau này), nhưng luồng RAG (`backend/src/services/assistant.service.js`) xử lý khác
 hẳn:
 
 1. Trước khi tìm câu trả lời, hệ thống kiểm tra xem embedding của câu hỏi có
@@ -254,7 +311,7 @@ mỗi lần đọc phải tải nguyên mảng dù chỉ cần vài tin nhắn g
 
 **Phân trang kiểu "tải thêm khi kéo lên" (infinite scroll ngược):**
 `GET /chat/thread` luôn trả về trang MỚI NHẤT (tối đa 20 tin nhắn, xem
-`chatThread.service.js#paginateMessages`). Khi nhân viên kéo lên gần đầu khung
+`chat.service.js#paginateMessages`). Khi nhân viên kéo lên gần đầu khung
 chat, phía client gọi lại `GET /chat/thread?before=<createdAt của tin cũ nhất
 đang hiển thị>` để lấy thêm 20 tin cũ hơn, nối vào đầu danh sách — không tải
 lại toàn bộ lịch sử mỗi lần. Trang quản trị (`admin/Logs.jsx`) dùng lại đúng cơ
@@ -309,8 +366,8 @@ nhân viên xoá trong lúc chờ (nếu đã xoá, admin sẽ thấy cảnh bá
 
 Ngay khi 1 hội thoại chuyển sang `flagged` (dù tự động hay do nhân viên tự đánh
 dấu), backend gọi NGẦM (không `await`, không làm chậm response trả lời nhân
-viên — xem `chatThread.service.js#generateConversationSummaryAsync`) tới cùng
-Gemini model đang dùng để chat (`summary.service.js#summarizeConversation`) để
+viên — xem `chat.service.js#generateSummaryInBackground`) tới cùng
+Gemini model đang dùng để chat (`conversationSummary.service.js#summarize`) để
 sinh 1-2 câu tóm tắt nội dung, lưu vào `conversation.summary`. Đây là lựa chọn
 đơn giản hoá có chủ đích cho bản demo: tóm tắt chỉ sinh **1 lần** tại thời điểm
 gắn cờ (dựa trên tối đa 40 tin nhắn gần nhất), không tự cập nhật lại nếu có
@@ -322,19 +379,6 @@ trang quản trị vẫn hoạt động bình thường, chỉ là không có d�
 hội thoại để biết admin đã trả lời — hệ thống chưa có thông báo real-time
 (có thể bổ sung bằng WebSocket/Server-Sent Events, hoặc đơn giản hơn là polling
 định kỳ + hiển thị badge "có tin nhắn mới").
-
-## Trang quản trị: Người dùng & Thống kê câu hỏi
-
-- **Người dùng** (`/admin/users`): danh sách toàn bộ tài khoản (admin + nhân
-  viên) lấy trực tiếp từ bảng `users` bên PostgreSQL, và đầy đủ thao tác quản
-  lý ngay trên giao diện — xem mục "Quản lý tài khoản admin" ngay bên dưới để
-  hiểu rõ cách hoạt động và các lớp bảo vệ đi kèm.
-- **Câu hỏi được hỏi nhiều nhất** (dashboard, gọi `GET /admin/stats/top-questions`):
-  gộp nhóm các câu hỏi (vai trò `user` trong MongoDB) theo nội dung trùng khớp
-  chính xác (đã chuẩn hoá viết thường/bỏ khoảng trắng thừa) rồi đếm số lần xuất
-  hiện. Đây là cách làm đơn giản — 2 câu hỏi cùng ý nhưng diễn đạt khác nhau sẽ
-  KHÔNG được gộp; muốn chính xác hơn cần thêm bước phân cụm theo embedding
-  (semantic clustering), một hướng mở rộng hay cho học viên tìm hiểu thêm.
 
 ## Biểu đồ trang Dashboard (`/admin/ai`)
 
@@ -378,51 +422,15 @@ thống — màu sắc không chọn tuỳ hứng mà theo "công việc" của 
   (biểu đồ 1-3) và `RankedBarChart.jsx` (biểu đồ 4) — cả 2 đều nhận dữ liệu
   qua props nên có thể dùng lại ở bất kỳ trang nào khác cần biểu đồ tương tự.
 
-## Quản lý tài khoản admin (`/admin/users`)
+## Giới hạn đã biết của JWT
 
-Trước đây, tài khoản `admin` chỉ có thể được tạo qua script `npm run seed`
-hoặc sửa trực tiếp trong PostgreSQL — không có cách nào làm việc này từ giao
-diện. Trang **Trang quản trị → Người dùng** giờ hỗ trợ đầy đủ: tạo tài khoản
-mới (chọn được vai trò ngay lúc tạo), thăng/hạ quyền 1 tài khoản đã có, và xoá
-tài khoản — toàn bộ qua 3 route mới trong `admin.routes.js`:
-
-| Route | Việc gì | Ghi chú |
-|-------|---------|---------|
-| `POST /admin/users` | Tạo tài khoản mới, admin chọn `role` (`admin`/`employee`) | Validate email trùng (409), mật khẩu ≥ 6 ký tự |
-| `PATCH /admin/users/:id/role` | Đổi vai trò 1 tài khoản đã có | Xem 2 lớp bảo vệ bên dưới |
-| `DELETE /admin/users/:id` | Xoá hẳn 1 tài khoản | Xem 2 lớp bảo vệ bên dưới |
-
-**Vá luôn 1 lỗ hổng liên quan:** route đăng ký công khai `POST /auth/register`
-(`auth.routes.js`) trước đây đọc thẳng trường `role` từ body — phía giao diện
-(`Register.jsx`) không có ô chọn vai trò nên không lộ ra, nhưng bất kỳ ai gọi
-thẳng API (Postman, curl...) đều có thể tự gửi `role: "admin"` và tạo cho mình
-tài khoản quản trị mà không cần qua ai duyệt. Route này giờ **luôn** tạo tài
-khoản với `role = 'employee'`, bất kể body gửi lên có trường `role` hay không.
-Tài khoản admin từ nay chỉ có thể được tạo bởi 1 admin khác (qua `POST
-/admin/users`, route chỉ admin gọi được nhờ middleware `requireRole("admin")`),
-hoặc tài khoản admin **đầu tiên** qua `npm run seed`.
-
-**2 lớp bảo vệ trên `PATCH /users/:id/role` và `DELETE /users/:id`:**
-
-1. **Không thể tự thao tác lên chính tài khoản đang đăng nhập** — so `req.params.id`
-   với `req.user.id` (id lấy từ JWT), chặn trước khi chạm DB. Tránh trường hợp
-   admin tự hạ quyền hoặc tự xoá tài khoản của mình rồi bị khoá ngay lập tức.
-2. **Luôn giữ lại tối thiểu 1 admin** — trước khi hạ quyền hoặc xoá 1 tài
-   khoản `admin`, hệ thống đếm `SELECT COUNT(*) FROM users WHERE role = 'admin'`
-   (hàm `countAdmins()`); nếu kết quả `<= 1` thì từ chối. Lớp bảo vệ (1) đã
-   chặn trường hợp dễ thấy nhất (tự hạ chính mình khi chỉ có 1 admin), nhưng
-   (2) vẫn cần thiết cho trường hợp có ≥ 2 admin: admin A lần lượt hạ quyền
-   từng admin khác — nếu không có lớp này, hệ thống có thể rơi vào trạng thái
-   0 admin, không ai còn vào được trang quản trị để sửa lại.
-
-**Giới hạn đã biết (kiến trúc chung của toàn hệ thống, không riêng tính năng
-này):** JWT không lưu trạng thái (stateless) — middleware `requireRole` chỉ
-đọc `role` từ token, không tra lại DB mỗi request. Nếu 1 admin bị hạ quyền
-trong lúc token cũ của họ chưa hết hạn, token đó về lý thuyết vẫn dùng được
-tới khi hết hạn hoặc họ đăng nhập lại. Muốn khắc phục triệt để cần cơ chế thu
-hồi token (token blacklist/revocation) — hệ thống hiện chưa có, và đây là 1
-hướng mở rộng tốt cho học viên tìm hiểu thêm (JWT ngắn hạn + refresh token,
-hoặc lưu 1 "phiên bản token" trong DB để so sánh).
+JWT không lưu trạng thái (stateless) — middleware `requireRole` chỉ đọc
+`role`/`storeId` từ token, không tra lại DB mỗi request. Nếu 1 tài khoản bị hạ
+quyền, nghỉ việc hoặc cửa hàng bị tạm ngưng trong lúc token cũ chưa hết hạn,
+token đó về lý thuyết vẫn dùng được tới khi hết hạn hoặc đăng nhập lại (riêng
+chấm công có kiểm tra lại trạng thái tài khoản + cửa hàng). Muốn khắc phục triệt
+để cần cơ chế thu hồi token (JWT ngắn hạn + refresh token, hoặc lưu "phiên bản
+token" trong DB) — 1 hướng mở rộng tốt cho học viên.
 
 ## So sánh PostgreSQL vs MongoDB — vì sao dùng cả hai?
 
@@ -457,64 +465,108 @@ nhau — thay vì ép toàn bộ hệ thống chạy trên 1 loại CSDL duy nh�
 mô hình phổ biến trong thực tế và là ví dụ tốt để minh hoạ cho học viên về cách
 chọn CSDL theo đặc điểm dữ liệu, thay vì chọn theo thói quen.
 
+## Kiến trúc phân tầng (backend)
+
+```
+HTTP request
+   │
+   ▼
+routes/        nhận req → gọi 1 hàm service → trả res (không có if/else nghiệp vụ)
+   │
+   ▼
+services/      TOÀN BỘ logic: kiểm tra dữ liệu, quy tắc nghiệp vụ, tính toán,
+   │           ném AppError(status, message) khi không hợp lệ
+   ▼
+repositories/  CHỈ chạy câu truy vấn SQL / Mongo, trả dữ liệu thô
+providers/     CHỈ gọi API bên ngoài (Gemini)
+   │
+   ▼
+PostgreSQL · MongoDB · ổ đĩa · Gemini
+```
+
+**Dependency Injection:** mỗi file là 1 hàm factory nhận phụ thuộc qua tham số,
+VD `createPaysheetService({ paysheetRepository, timesheetService, ... })` — không tự
+`import` repository. `src/container.js` là nơi duy nhất tạo và nối các thành
+phần với nhau. Nhờ vậy:
+
+- Muốn thêm Redis cache cho 1 repository, đổi lưu file sang S3... chỉ sửa
+  `container.js`, service không đổi.
+- Test service bằng repository giả, không cần DB:
+  `createStoreSettingService({ storeRepository: { findSetting: async () => null, ... } })`.
+
+Lỗi nghiệp vụ: service `throw AppError.badRequest("...")` (hoặc
+`notFound`/`forbidden`/`conflict`), `middleware/errorHandler.js` trả về
+`{ error, code? }` với đúng HTTP status.
+
 ## Cấu trúc thư mục
 
 ```
 backend/
   src/
     config/       kết nối PostgreSQL, MongoDB, cấu hình Gemini
-    db/           schema.sql (PostgreSQL: users, documents [+ is_sensitive],
-                  document_chunks, stalls, employee_rates, attendance_events,
-                  attendance_edits, payroll_months), seed.js (reset + dữ liệu
-                  mẫu), migrate.js (cập nhật cấu trúc, giữ dữ liệu)
+    constants/    enums.js — bộ ENUM dùng chung (role, trạng thái...) + nguồn
+                  sinh kiểu ENUM của PostgreSQL
+    db/           schema.sql (bảng — xem mục "Thiết kế database"), drop.sql,
+                  seed.js (npm run db:reset: xoá sạch, tạo lại, nạp dữ liệu mẫu)
     models/       schema MongoDB — 2 collection RIÊNG (không lồng nhau):
                   conversation.model.js (1 đoạn chat/nhân viên, trạng thái
                   normal/flagged/resolved, isDeleted khi nhân viên xoá) và
                   message.model.js (từng tin nhắn, role user/assistant/admin,
                   isDeleted riêng từng tin — xem lý do tách trong file)
     middleware/   xác thực JWT, phân quyền (auth.js), requireMongo.js (trả lỗi
-                  503 ngay nếu MongoDB chưa sẵn sàng, tránh "treo" 10 giây)
-    routes/
-      auth.routes.js         đăng ký / đăng nhập — /register LUÔN tạo tài
-                             khoản role='employee' (không đọc role từ body,
-                             xem mục "Quản lý tài khoản admin")
-      documents.routes.js    upload/xoá/liệt kê văn bản (chỉ admin) — upload
-                             cũng lưu file gốc xuống uploads/ (xem bên dưới)
-      documentFiles.routes.js tải file GỐC của 1 tài liệu — dành cho MỌI người
-                             dùng đã đăng nhập (không chỉ admin), phục vụ nút
-                             "Nguồn trích dẫn" trong popover tin nhắn; tự chặn
-                             tài liệu `is_sensitive` với người không phải admin
-      chat.routes.js         API "đoạn chat đang hoạt động" của nhân viên: xem
-                             (phân trang), gửi câu hỏi, tự đánh dấu cần admin,
-                             xoá 1 tin nhắn, xoá cả đoạn chat
-      admin.routes.js        danh sách user + tạo/đổi vai trò/xoá tài khoản
-                             (xem mục "Quản lý tài khoản admin"), thống kê
-                             (gồm số liệu cho 4 biểu đồ dashboard — trạng thái
-                             văn bản/hội thoại, lý do escalate), top câu hỏi,
-                             xem (phân trang, kể cả tin/đoạn đã xoá) & trả lời
-                             trực tiếp bất kỳ đoạn chat nào (chỉ admin)
-      attendance.routes.js   chấm công phía nhân viên (quét QR, check-in/out,
-                             lịch sử)
-      hr.routes.js           gian hàng, nhân viên, bảng chấm công, chỉnh giờ,
-                             bảng lương (chỉ admin)
-    services/     attendance.service.js, payroll.service.js (tính muộn/sớm,
-                  lương ngày/tháng, chốt tháng), personalData.service.js (AI trả
-                  lời câu hỏi về lương/đi muộn của chính nhân viên);
-                  logic nghiệp vụ: rag.service.js (RAG + xử lý tài liệu nhạy
-                  cảm), summary.service.js (tóm tắt hội thoại flagged bằng
-                  Gemini), chatThread.service.js (tạo/lấy đoạn chat đang hoạt
-                  động, phân trang tin nhắn, xoá mềm, sinh tóm tắt nền — dùng
-                  chung cho cả chat.routes.js và admin.routes.js),
-                  document.service.js (xử lý văn bản + LƯU/XOÁ file gốc trên
-                  đĩa), chunk/embedding/trích xuất text
+                  503 ngay nếu MongoDB chưa sẵn sàng, tránh "treo" 10 giây),
+                  errorHandler.js (chuyển AppError thành response JSON)
+    container.js  COMPOSITION ROOT (Dependency Injection) — tạo repository →
+                  service → router và truyền vào nhau (xem mục "Kiến trúc
+                  phân tầng")
+    app.js        tạo Express app từ các router của container
+    index.js      kết nối MongoDB, khởi động server
+    routes/       TẦNG ROUTER — chỉ đọc req, gọi service, trả res
+      auth.routes.js          /api/auth        đăng nhập
+      superadmin.routes.js    /api/superadmin  cửa hàng, tài khoản superadmin
+      hr.routes.js            /api/hr          thiết lập, nhân viên, chấm công, bảng lương
+      clocking.routes.js      /api/clocking    nhân viên chấm công
+      admin.routes.js         /api/admin       tài khoản cửa hàng, thống kê AI, hộp thư hỗ trợ
+      documents.routes.js     /api/documents   upload/xoá/liệt kê văn bản (admin)
+      documentFiles.routes.js /api/doc-files   xem trước / tải file gốc (admin + user)
+      chat.routes.js          /api/chat        đoạn chat với trợ lý AI
+    services/     TẦNG SERVICE — toàn bộ logic nghiệp vụ, đặt tên theo nghiệp vụ:
+      auth.service.js                  đăng nhập (kiểm tra tài khoản + cửa hàng còn hoạt động)
+      superadmin.service.js            cửa hàng (+ admin đầu tiên, thiết lập mặc định), superadmin
+      storeAccount.service.js          tài khoản cửa hàng (chặn tự hạ quyền, giữ >= 1 admin)
+      storeSetting.service.js          thiết lập cửa hàng
+      employee.service.js              nhân viên + lương giờ
+      timesheet.service.js             lõi chấm công: dòng ngày, tổng hợp từ lịch sử, khoá tháng
+      clocking.service.js              nhân viên check-in/out (GPS + QR), lịch sử, lương của mình
+      clockingManagement.service.js    bảng công tháng, admin sửa giờ
+      paysheet.service.js              bảng lương: tạo / tính lại / chốt / huỷ / CSV, lương tạm tính
+      payrollCalculator.js             hàm THUẦN: tổng hợp 1 ngày, tính lương tháng
+      serializers.js                   chuyển dòng DB -> JSON API (camelCase)
+      dashboard.service.js             số liệu trợ lý AI của cửa hàng
+      chat.service.js                  đoạn chat nhân viên: phân trang, hỏi, gắn cờ, đánh giá, xoá mềm
+      supportInbox.service.js          admin xem & trả lời đoạn chat của cửa hàng
+      assistant.service.js             trợ lý AI — lõi RAG + chặn tài liệu nhạy cảm
+      salaryInquiry.service.js         trả lời câu hỏi lương/công của chính nhân viên
+      conversationSummary.service.js   tóm tắt đoạn chat flagged bằng Gemini
+      regulationDocument.service.js    văn bản quy chế: upload, xử lý nền, xem/tải
+    repositories/ TẦNG REPOSITORY — CHỈ kết nối & truy vấn DB, không có logic:
+                  store (+ setting), account, employee, clocking (+ history),
+                  paysheet (+ detail), document (+ detail) — PostgreSQL;
+                  conversation, message — MongoDB; fileStorage (file gốc trên
+                  đĩa); transaction.js (BEGIN/COMMIT)
+    providers/    ai.provider.js — gọi Gemini (embedding, sinh text, retry 503)
+    utils/        AppError, vnTime (ngày giờ VN), geo, textExtractor,
+                  textChunker, password (bcrypt), jwt, validators
   uploads/        file GỐC của các văn bản đã upload (tạo tự động, KHÔNG commit
                   vào git — xem .gitignore) — tên file = <document id>.<đuôi>,
-                  đường dẫn lưu ở cột documents.storage_path
+                  lưu ở cột document.stored_file_name
   sample-data/    6 văn bản mẫu để demo nhanh (5 quy chế thường + 1 tài liệu
                   nhạy cảm) — xem sample-data/README.md
 frontend/
   src/
     api/          client gọi API (fetch + JWT)
+    constants/    enums.js (bản sao enum backend + nhãn hiển thị, trang chủ theo
+                  role), demoAccounts.js (tài khoản mẫu ở màn đăng nhập)
     context/      AuthContext (trạng thái đăng nhập)
     routes/       ProtectedRoute (bảo vệ route theo role)
     components/
@@ -526,11 +578,12 @@ frontend/
       ChatPopup.jsx  cửa sổ chat nổi trong trang nhân viên (bọc Chat.jsx)
     utils/        format.js (định dạng tiền/giờ), geo.js (lấy vị trí GPS)
     pages/
-      employee/                      StallLanding.jsx (trang quét QR),
+      employee/                      StoreLanding.jsx (trang quét QR),
                                      EmployeeLayout.jsx, CheckIn.jsx, History.jsx
-      admin/Attendance.jsx, Employees.jsx, Stalls.jsx, Payroll.jsx
+      superadmin/SuperadminPage.jsx  cửa hàng + tài khoản superadmin
+      admin/Clockings.jsx, Employees.jsx, Paysheets.jsx, StoreSetting.jsx
                                      các trang chấm công & lương của admin
-      Login.jsx, Register.jsx        trang client (đăng nhập/đăng ký)
+      Login.jsx                      đăng nhập (+ danh sách tài khoản mẫu)
       client/Chat.jsx                trang client: 1 đoạn chat liên tục, tự
                                      tải thêm tin nhắn cũ khi kéo lên; rê chuột
                                      (hoặc chạm) vào 1 tin nhắn hiện nút "..."
@@ -551,8 +604,8 @@ frontend/
                                      trả lời trực tiếp bất kỳ đoạn chat nào —
                                      bố cục "danh sách + chi tiết" 2 cột ở màn
                                      hình máy tính, xếp chồng ở điện thoại
-      admin/Users.jsx                danh sách người dùng + tạo tài khoản mới
-                                     (chọn vai trò), thăng/hạ quyền, xoá
+      admin/Accounts.jsx             tài khoản của cửa hàng: tạo (chọn vai trò),
+                                     thăng/hạ quyền, xoá
     styles/       custom.css — CHỈ phần Bootstrap không có sẵn: thanh tab dưới
                   cùng, khung chat, hoạ tiết nền/gradient thương hiệu, popover
                   tuỳ chọn tin nhắn, sidebar + bố cục 2 cột của trang quản trị

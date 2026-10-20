@@ -1,8 +1,17 @@
-// Trang đăng nhập — dùng chung cho cả admin và nhân viên; sau khi đăng nhập,
-// điều hướng theo "role" trả về từ backend (admin -> /admin, employee -> /work).
+// Trang đăng nhập — dùng chung cho mọi role; sau khi đăng nhập điều hướng theo
+// "role" trả về từ backend (superadmin -> /superadmin, admin -> /admin, user -> /work).
+// Bên dưới form có danh sách tài khoản mẫu: bấm vào 1 dòng để điền sẵn.
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import { ROLE, ROLE_LABEL, homePathForRole } from "../constants/enums.js";
+import { DEMO_ACCOUNT_GROUPS, SHOW_DEMO_ACCOUNTS } from "../constants/demoAccounts.js";
+
+const ROLE_BADGE_CLASS = {
+  [ROLE.SUPERADMIN]: "text-bg-dark",
+  [ROLE.ADMIN]: "text-bg-primary",
+  [ROLE.USER]: "text-bg-secondary",
+};
 
 export default function Login() {
   const { login } = useAuth();
@@ -18,7 +27,7 @@ export default function Login() {
     setLoading(true);
     try {
       const user = await login(email, password);
-      navigate(user.role === "admin" ? "/admin" : "/work", { replace: true });
+      navigate(homePathForRole(user.role), { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -26,9 +35,15 @@ export default function Login() {
     }
   }
 
+  function pickDemoAccount(account) {
+    setEmail(account.email);
+    setPassword(account.password);
+    setError("");
+  }
+
   return (
-    <div className="auth-page container d-flex align-items-center">
-      <div className="card border-0 shadow-sm mx-auto" style={{ maxWidth: 400, width: "100%" }}>
+    <div className="auth-page container d-flex align-items-center py-4">
+      <div className="card border-0 shadow-sm mx-auto" style={{ maxWidth: 440, width: "100%" }}>
         <div className="card-body p-4">
           <img src="/logo.svg" alt="" className="auth-logo mb-3" />
           <h1 className="h4 mb-1">Chấm công & Trợ lý AI</h1>
@@ -67,14 +82,40 @@ export default function Login() {
           </form>
 
           <p className="text-center text-muted small mt-3 mb-0">
-            Tài khoản do quản trị viên cấp cho bạn.
+            Tài khoản do quản trị viên cửa hàng cấp cho bạn.
           </p>
 
-          <p className="text-muted small mt-3 mb-0">
-            Tài khoản demo (sau khi chạy <code>npm run seed</code>):<br />
-            Admin: admin@congty.vn / Admin@123<br />
-            Nhân viên: nhanvien@congty.vn / NhanVien@123
-          </p>
+          {SHOW_DEMO_ACCOUNTS && (
+            <div className="demo-accounts mt-4">
+              <div className="small fw-semibold mb-1">Tài khoản mẫu</div>
+              <div className="small text-muted mb-2">
+                Bấm để điền sẵn (có sau khi chạy <code>npm run db:reset</code>).
+              </div>
+              {DEMO_ACCOUNT_GROUPS.map((group) => (
+                <div key={group.title} className="mb-2">
+                  <div className="demo-accounts-group">{group.title}</div>
+                  <div className="list-group list-group-flush">
+                    {group.accounts.map((account) => (
+                      <button
+                        key={account.email}
+                        type="button"
+                        className={`list-group-item list-group-item-action d-flex align-items-center gap-2 py-2 px-2 ${email === account.email ? "active" : ""}`}
+                        onClick={() => pickDemoAccount(account)}
+                      >
+                        <span className={`badge ${ROLE_BADGE_CLASS[account.role]}`} style={{ minWidth: 92 }}>
+                          {ROLE_LABEL[account.role]}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="d-block small fw-semibold text-truncate">{account.fullName}</span>
+                          <span className="d-block small text-truncate opacity-75">{account.email}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

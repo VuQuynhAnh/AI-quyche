@@ -3,7 +3,12 @@
 import pg from "pg";
 import "dotenv/config";
 
-const { Pool } = pg;
+const { Pool, types } = pg;
+
+// Cột DATE (VD clocking.work_date) giữ nguyên chuỗi 'YYYY-MM-DD' — mặc định
+// node-pg đổi sang Date lúc 00:00 giờ MÁY CHỦ, dễ lệch ngày khi server chạy UTC.
+const PG_DATE_TYPE_OID = 1082;
+types.setTypeParser(PG_DATE_TYPE_OID, (value) => value);
 
 export const pool = new Pool({
   host: process.env.PGHOST || "localhost",

@@ -31,8 +31,13 @@ import { Link } from "react-router-dom";
 import { api } from "../../api/client.js";
 import StackedBarChart from "../../components/charts/StackedBarChart.jsx";
 import RankedBarChart from "../../components/charts/RankedBarChart.jsx";
+import { CONVERSATION_STATUS, MESSAGE_FEEDBACK } from "../../constants/enums.js";
 
-const CONV_STATUS_LABEL = { normal: "Bình thường (chatbot tự trả lời)", flagged: "Cần admin trả lời", resolved: "Admin đã trả lời" };
+const CONV_STATUS_LABEL = {
+  [CONVERSATION_STATUS.NORMAL]: "Bình thường (chatbot tự trả lời)",
+  [CONVERSATION_STATUS.FLAGGED]: "Cần admin trả lời",
+  [CONVERSATION_STATUS.RESOLVED]: "Admin đã trả lời",
+};
 
 // 2 icon đánh giá "hữu ích"/"không hữu ích" — CÙNG hình dùng ở nút đánh giá
 // bên trang chat của nhân viên (Chat.jsx), để 2 nơi nhận ra nhau bằng mắt.
@@ -74,9 +79,9 @@ export default function Dashboard() {
   // TỔNG số quy chế cho ô số liệu ở đầu trang.
   const totalDocuments = stats.documentsByStatus.reduce((sum, d) => sum + d.count, 0);
 
-  const normalCount = stats.conversationsByStatus.find((c) => c.status === "normal")?.count || 0;
-  const flaggedCount = stats.conversationsByStatus.find((c) => c.status === "flagged")?.count || 0;
-  const resolvedCount = stats.conversationsByStatus.find((c) => c.status === "resolved")?.count || 0;
+  const normalCount = stats.conversationsByStatus.find((c) => c.status === CONVERSATION_STATUS.NORMAL)?.count || 0;
+  const flaggedCount = stats.conversationsByStatus.find((c) => c.status === CONVERSATION_STATUS.FLAGGED)?.count || 0;
+  const resolvedCount = stats.conversationsByStatus.find((c) => c.status === CONVERSATION_STATUS.RESOLVED)?.count || 0;
 
   // "totalEscalations" cộng dồn qua LỊCH SỬ (1 đoạn chat có thể cần hỗ trợ
   // nhiều lần), nên về lý thuyết có thể vượt "totalQuestions" nếu nhân viên
@@ -85,8 +90,8 @@ export default function Dashboard() {
   const escalatedQuestionCount = Math.min(stats.totalEscalations, stats.totalQuestions);
   const autoAnsweredQuestionCount = Math.max(stats.totalQuestions - escalatedQuestionCount, 0);
 
-  const helpfulCount = stats.feedbackBreakdown.find((f) => f.feedback === "helpful")?.count || 0;
-  const unhelpfulCount = stats.feedbackBreakdown.find((f) => f.feedback === "unhelpful")?.count || 0;
+  const helpfulCount = stats.feedbackBreakdown.find((f) => f.feedback === MESSAGE_FEEDBACK.HELPFUL)?.count || 0;
+  const unhelpfulCount = stats.feedbackBreakdown.find((f) => f.feedback === MESSAGE_FEEDBACK.UNHELPFUL)?.count || 0;
 
   const tiles = [
     { label: "Tổng quy chế", value: totalDocuments },
@@ -130,8 +135,8 @@ export default function Dashboard() {
             title="Đánh giá câu trả lời của chatbot"
             caption="Trong số câu trả lời ĐÃ được nhân viên đánh giá (bấm hữu ích/không hữu ích ở trang chat) — bao nhiêu được cho là hữu ích"
             segments={[
-              { key: "helpful", label: "Hữu ích", value: helpfulCount, color: "var(--status-good)", icon: <ThumbsUpIcon /> },
-              { key: "unhelpful", label: "Không hữu ích", value: unhelpfulCount, color: "var(--status-critical)", icon: <ThumbsDownIcon /> },
+              { key: MESSAGE_FEEDBACK.HELPFUL, label: "Hữu ích", value: helpfulCount, color: "var(--status-good)", icon: <ThumbsUpIcon /> },
+              { key: MESSAGE_FEEDBACK.UNHELPFUL, label: "Không hữu ích", value: unhelpfulCount, color: "var(--status-critical)", icon: <ThumbsDownIcon /> },
             ]}
             emptyText="Chưa có câu trả lời nào được nhân viên đánh giá."
           />
@@ -142,9 +147,9 @@ export default function Dashboard() {
             title="Trạng thái hội thoại"
             caption="Bao nhiêu hội thoại chatbot tự xử lý được so với cần admin can thiệp"
             segments={[
-              { key: "normal", label: CONV_STATUS_LABEL.normal, value: normalCount, color: "var(--series-1)" },
-              { key: "flagged", label: CONV_STATUS_LABEL.flagged, value: flaggedCount, color: "var(--series-2)" },
-              { key: "resolved", label: CONV_STATUS_LABEL.resolved, value: resolvedCount, color: "var(--series-3)" },
+              { key: CONVERSATION_STATUS.NORMAL, label: CONV_STATUS_LABEL[CONVERSATION_STATUS.NORMAL], value: normalCount, color: "var(--series-1)" },
+              { key: CONVERSATION_STATUS.FLAGGED, label: CONV_STATUS_LABEL[CONVERSATION_STATUS.FLAGGED], value: flaggedCount, color: "var(--series-2)" },
+              { key: CONVERSATION_STATUS.RESOLVED, label: CONV_STATUS_LABEL[CONVERSATION_STATUS.RESOLVED], value: resolvedCount, color: "var(--series-3)" },
             ]}
             emptyText="Chưa có hội thoại nào."
           />

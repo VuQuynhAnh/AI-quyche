@@ -2,30 +2,22 @@ import { useEffect, useState } from "react";
 import { api } from "../../api/client.js";
 import Modal from "../../components/hr/Modal.jsx";
 import { useNotification } from "../../context/NotificationContext.jsx";
-import { fmtMoney, vnDateKey } from "../../utils/format.js";
+import { fmtMoney } from "../../utils/format.js";
 
-const EMPTY = { fullName: "", email: "", password: "", phone: "", position: "", stallId: "", hourlyRate: "", effectiveFrom: "" };
+const EMPTY = { fullName: "", email: "", password: "", phoneNumber: "", jobTitle: "", hourlyWage: "" };
 
-// Quản lý nhân viên chấm công: thông tin cơ bản, gian hàng, lương theo giờ.
-// (Tài khoản admin vẫn tạo ở mục "Tài khoản".)
+// Nhân viên của cửa hàng: thông tin cơ bản và lương theo giờ (1 mức duy nhất).
+// (Tài khoản quản trị viên quản lý ở mục "Tài khoản".)
 export default function Employees() {
   const { notifySuccess, notifyError } = useNotification();
   const [employees, setEmployees] = useState([]);
-  const [stalls, setStalls] = useState([]);
-  const [filterStall, setFilterStall] = useState("");
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(null);
-  const [origRate, setOrigRate] = useState(null);
   const [saving, setSaving] = useState(false);
 
   async function load() {
     try {
-      const [e, s] = await Promise.all([
-        api.get(`/hr/employees${filterStall ? `?stallId=${filterStall}` : ""}`),
-        api.get("/hr/stalls"),
-      ]);
-      setEmployees(e.employees);
-      setStalls(s.stalls);
+      setEmployees((await api.get("/hr/employees")).employees);
     } catch (err) {
       notifyError(err.message);
     } finally {
@@ -35,16 +27,15 @@ export default function Employees() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterStall]);
+  }, []);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   function openEdit(emp) {
-    setOrigRate(emp.hourlyRate ?? 0);
     setForm({
-      id: emp.id, fullName: emp.fullName, email: emp.email, password: "", phone: emp.phone || "",
-      position: emp.position || "", stallId: emp.stallId || "", hourlyRate: String(emp.hourlyRate ?? 0),
-      effectiveFrom: vnDateKey(), isActive: emp.isActive,
+      id: emp.id, fullName: emp.fullName, email: emp.email, password: "", phoneNumber: emp.phoneNumber || "",
+      jobTitle: emp.jobTitle || "", hourlyWage: String(emp.hourlyWage ?? 0), originalWage: emp.hourlyWage ?? 0,
+      isActive: emp.isActive,
     });
   }
 
@@ -52,23 +43,17 @@ export default function Employees() {
     e.preventDefault();
     setSaving(true);
     try {
+      const body = {
+        fullName: form.fullName, phoneNumber: form.phoneNumber, jobTitle: form.jobTitle,
+        hourlyWage: Number(form.hourlyWage || 0),
+      };
       if (form.id) {
-        const body = {
-          fullName: form.fullName, phone: form.phone, position: form.position,
-          stallId: form.stallId || null, isActive: form.isActive,
-        };
         if (form.password) body.password = form.password;
-        if (Number(form.hourlyRate) !== Number(origRate)) {
-          body.hourlyRate = Number(form.hourlyRate);
-          body.effectiveFrom = form.effectiveFrom;
-        }
+        body.isActive = form.isActive;
         await api.patch(`/hr/employees/${form.id}`, body);
         notifySuccess("Đã cập nhật nhân viên.");
       } else {
-        await api.post("/hr/employees", {
-          fullName: form.fullName, email: form.email, password: form.password, phone: form.phone,
-          position: form.position, stallId: form.stallId || undefined, hourlyRate: Number(form.hourlyRate || 0),
-        });
+        await api.post("/hr/employees", { ...body, email: form.email, password: form.password });
         notifySuccess("Đã tạo tài khoản nhân viên.");
       }
       setForm(null);
@@ -80,16 +65,13 @@ export default function Employees() {
     }
   }
 
-  const rateChanged = form?.id && Number(form.hourlyRate) !== Number(origRate);
+  const wageChanged = form?.id && Number(form.hourlyWage) !== Number(form.originalWage);
 
   return (
     <div>
       <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
-        <select className="form-select form-select-sm" style={{ maxWidth: 240 }} value={filterStall} onChange={(e) => setFilterStall(e.target.value)}>
-          <option value="">Tất cả gian hàng</option>
-          {stalls.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <button type="button" className="btn btn-primary btn-sm" onClick={() => { setOrigRate(null); setForm({ ...EMPTY }); }}>
+        <div className="text-muted small">Đổi lương giờ chỉ ảnh hưởng các bảng lương chưa chốt.</div>
+        <button type="button" className="btn btn-primary btn-sm" onClick={() => setForm({ ...EMPTY })}>
           + Thêm nhân viên
         </button>
       </div>
@@ -100,8 +82,7 @@ export default function Employees() {
             <thead>
               <tr>
                 <th className="ps-3">Họ tên</th>
-                <th>Gian hàng</th>
-                <th>Chức vụ</th>
+                <th>Chức danh</th>
                 <th>SĐT</th>
                 <th className="text-end">Lương giờ</th>
                 <th>Trạng thái</th>
@@ -115,10 +96,9 @@ export default function Employees() {
                     <div className="fw-semibold">{e.fullName}</div>
                     <div className="small text-muted">{e.email}</div>
                   </td>
-                  <td>{e.stallName || <span className="text-warning">Chưa gán</span>}</td>
-                  <td>{e.position || "—"}</td>
-                  <td>{e.phone || "—"}</td>
-                  <td className="text-end">{fmtMoney(e.hourlyRate ?? 0)}</td>
+                  <td>{e.jobTitle || "—"}</td>
+                  <td>{e.phoneNumber || "—"}</td>
+                  <td className="text-end">{fmtMoney(e.hourlyWage ?? 0)}</td>
                   <td>{e.isActive ? <span className="badge text-bg-success">Đang làm</span> : <span className="badge text-bg-secondary">Đã nghỉ</span>}</td>
                   <td className="pe-3 text-end">
                     <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => openEdit(e)}>Sửa</button>
@@ -157,30 +137,21 @@ export default function Employees() {
             </div>
             <div className="col-6">
               <label className="form-label small mb-1">Số điện thoại</label>
-              <input className="form-control" value={form.phone} onChange={set("phone")} />
+              <input className="form-control" value={form.phoneNumber} onChange={set("phoneNumber")} />
             </div>
             <div className="col-6">
-              <label className="form-label small mb-1">Chức vụ</label>
-              <input className="form-control" value={form.position} onChange={set("position")} />
-            </div>
-            <div className="col-12">
-              <label className="form-label small mb-1">Gian hàng</label>
-              <select className="form-select" value={form.stallId} onChange={set("stallId")}>
-                <option value="">— Chưa gán —</option>
-                {stalls.filter((s) => s.isActive || s.id === form.stallId).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <label className="form-label small mb-1">Chức danh</label>
+              <input className="form-control" value={form.jobTitle} onChange={set("jobTitle")} />
             </div>
             <div className="col-12 col-sm-6">
               <label className="form-label small mb-1">Lương mỗi giờ (đ)</label>
-              <input type="number" min="0" step="500" className="form-control" required value={form.hourlyRate} onChange={set("hourlyRate")} />
+              <input type="number" min="0" step="500" className="form-control" required value={form.hourlyWage} onChange={set("hourlyWage")} />
             </div>
-            {rateChanged && (
-              <div className="col-12 col-sm-6">
-                <label className="form-label small mb-1">Áp dụng từ ngày</label>
-                <input type="date" className="form-control" required min={`${vnDateKey().slice(0, 7)}-01`} value={form.effectiveFrom} onChange={set("effectiveFrom")} />
+            {wageChanged && (
+              <div className="col-12 form-text mt-0">
+                Mức lương mới áp dụng cho các tháng chưa chốt lương (bảng lương nháp cần bấm "Tính lại"). Bảng lương đã chốt giữ nguyên.
               </div>
             )}
-            {rateChanged && <div className="col-12 form-text mt-0">Các ngày trước ngày này vẫn tính theo mức lương cũ. Không áp dụng lùi về tháng đã khoá.</div>}
             {form.id && (
               <div className="col-12">
                 <div className="form-check form-switch mt-1">

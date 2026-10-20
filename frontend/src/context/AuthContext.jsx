@@ -1,7 +1,8 @@
 // Quản lý trạng thái đăng nhập dùng chung cho toàn bộ app (React Context).
 // JWT token + thông tin user được lưu ở localStorage để giữ đăng nhập qua các
-// lần tải lại trang; "user.role" ('admin' | 'employee') được ProtectedRoute
-// dùng để quyết định ai vào được /admin.
+// lần tải lại trang; "user.role" (xem ROLE trong constants/enums.js) được
+// ProtectedRoute dùng để quyết định ai vào được trang nào; "user.storeId" là
+// cửa hàng của tài khoản (null với superadmin).
 import { createContext, useContext, useState, useCallback } from "react";
 import { api } from "../api/client.js";
 

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useNotification } from "../../context/NotificationContext.jsx";
+import { CONVERSATION_STATUS, MESSAGE_FEEDBACK, MESSAGE_SENDER, ROLE } from "../../constants/enums.js";
 
 // Trang chat của nhân viên — thiết kế theo mô hình "1 nhân viên = 1 đoạn chat
 // liên tục" (giống Messenger/Zalo), KHÔNG phải nhiều hội thoại tách rời:
@@ -25,11 +26,11 @@ import { useNotification } from "../../context/NotificationContext.jsx";
 // rộng như thiết kế cũ. Không cần mục "normal" vì trạng thái đó không hiện
 // chip nào cả (xem "statusBadge" bên dưới).
 const STATUS_BADGE = {
-  flagged: {
+  [CONVERSATION_STATUS.FLAGGED]: {
     text: "Đang chờ admin trả lời",
     desc: "Câu hỏi này cần quản trị viên hỗ trợ trực tiếp — do liên quan tài liệu nhạy cảm (tự động), hoặc do bạn đã bấm \"Cần admin hỗ trợ\". Quản trị viên sẽ trả lời ngay trong đoạn chat này.",
   },
-  resolved: {
+  [CONVERSATION_STATUS.RESOLVED]: {
     text: "Admin đã trả lời",
     desc: "Quản trị viên đã gửi câu trả lời trực tiếp cho câu hỏi cần hỗ trợ ở trên.",
   },
@@ -292,7 +293,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
     // Ước lượng chiều cao popover để quyết định lật lên trên hay không — chỉ
     // cần TƯƠNG ĐỐI đúng (popover có max-height + tự cuộn riêng nếu quá dài,
     // xem .msg-context-menu trong custom.css, nên sai số nhỏ không ảnh hưởng).
-    const actionRows = m.role === "user" ? 2 : 1; // "Sửa & hỏi lại" + "Xoá tin nhắn", hoặc chỉ "Xoá tin nhắn"
+    const actionRows = m.role === MESSAGE_SENDER.USER ? 2 : 1; // "Sửa & hỏi lại" + "Xoá tin nhắn", hoặc chỉ "Xoá tin nhắn"
     const estimatedHeight =
       actionRows * 40 + 12 + (sources.length > 0 ? 26 + sources.length * 36 : 0);
     const openUp = rect.bottom + estimatedHeight + 8 > window.innerHeight;
@@ -390,7 +391,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
     pendingScrollAction.current = "bottom";
     setMessages((prev) => [
       ...prev,
-      { role: "user", content: question, _id: tempUserId, createdAt: new Date().toISOString() },
+      { role: MESSAGE_SENDER.USER, content: question, _id: tempUserId, createdAt: new Date().toISOString() },
     ]);
     setInput("");
     setSending(true);
@@ -398,7 +399,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
     try {
       const data = await api.post("/chat/thread/ask", { question });
       setConversationId(data.conversationId);
-      if (data.escalate) setStatus("flagged");
+      if (data.escalate) setStatus(CONVERSATION_STATUS.FLAGGED);
       pendingScrollAction.current = "bottom";
       setMessages((prev) => {
         // Thay ID tạm của câu hỏi vừa gửi bằng ID thật (Mongo) trả về từ server,
@@ -413,7 +414,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
         return [
           ...withRealUserId,
           {
-            role: "assistant",
+            role: MESSAGE_SENDER.ASSISTANT,
             content: data.answer,
             sources: data.sources,
             _id: data.assistantMessageId || `tmp-${Date.now()}-a`,
@@ -431,12 +432,12 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
   // Nhân viên tự đánh giá câu hỏi khó / trả lời của chatbot chưa thoả đáng —
   // đưa đoạn chat này vào danh sách "Cần admin trả lời" ở trang quản trị.
   async function handleFlag() {
-    // Chỉ chặn khi đoạn chat ĐANG "flagged" (đã có 1 câu hỏi khác chờ admin
-    // xử lý, không cần gắn cờ lại). "resolved" vẫn gắn cờ lại được bình
+    // Chỉ chặn khi đoạn chat ĐANG CONVERSATION_STATUS.FLAGGED (đã có 1 câu hỏi khác chờ admin
+    // xử lý, không cần gắn cờ lại). CONVERSATION_STATUS.RESOLVED vẫn gắn cờ lại được bình
     // thường — đây là 1 đoạn chat liên tục, không phải nhiều đoạn tách rời,
     // nên 1 câu hỏi khó MỚI sau khi admin đã xử lý xong câu hỏi trước đó vẫn
     // cần được chuyển cho admin lần nữa.
-    if (status === "flagged") return;
+    if (status === CONVERSATION_STATUS.FLAGGED) return;
     setFlagging(true);
     try {
       const data = await api.post("/chat/thread/flag", {});
@@ -514,7 +515,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
     <div className={`chat-container d-flex flex-column ${embedded ? "chat-embedded" : ""}`}>
       <div className="chat-header d-flex justify-content-between align-items-center px-3 py-2">
         <div className="d-flex align-items-center gap-2 min-w-0">
-          {!embedded && user?.role === "employee" && (
+          {!embedded && user?.role === ROLE.USER && (
             <button
               type="button"
               className="header-menu-trigger"
@@ -610,22 +611,22 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
         {messages.map((m) => (
           <div
             key={m._id}
-            className={`msg-row d-flex align-items-end gap-2 ${m.role === "user" ? "flex-row-reverse align-self-end" : "align-self-start"}`}
+            className={`msg-row d-flex align-items-end gap-2 ${m.role === MESSAGE_SENDER.USER ? "flex-row-reverse align-self-end" : "align-self-start"}`}
           >
-            {m.role !== "user" && (
-              <div className={`msg-avatar ${m.role === "admin" ? "admin" : "assistant"}`}>
-                {m.role === "admin" ? "QT" : "AI"}
+            {m.role !== MESSAGE_SENDER.USER && (
+              <div className={`msg-avatar ${m.role === MESSAGE_SENDER.ADMIN ? "admin" : "assistant"}`}>
+                {m.role === MESSAGE_SENDER.ADMIN ? "QT" : "AI"}
               </div>
             )}
             <div
-              className={`chat-bubble p-2 px-3 ${m.role === "user"
+              className={`chat-bubble p-2 px-3 ${m.role === MESSAGE_SENDER.USER
                   ? "user bg-primary text-white"
-                  : m.role === "admin"
+                  : m.role === MESSAGE_SENDER.ADMIN
                     ? "assistant bg-success text-white"
                     : "assistant bg-white border"
                 }`}
             >
-              {m.role === "admin" && <div className="fw-semibold small mb-1">Quản trị viên</div>}
+              {m.role === MESSAGE_SENDER.ADMIN && <div className="fw-semibold small mb-1">Quản trị viên</div>}
               <div className="chat-bubble-content">{m.content}</div>
               {/* KHÔNG hiện lại danh sách nguồn trích dẫn ở đây nữa — nguồn đã
                   có đầy đủ trong popover "..." (mục "Nguồn trích dẫn — bấm để
@@ -640,24 +641,24 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
                   thành nút "like/dislike" chung của mạng xã hội, đúng ý nghĩa
                   "đánh giá chất lượng câu trả lời" hơn. Bấm lại đúng lựa chọn
                   đang bật sẽ huỷ đánh giá — xem handleFeedback(). */}
-              {m.role === "assistant" && !String(m._id).startsWith("tmp-") && (
+              {m.role === MESSAGE_SENDER.ASSISTANT && !String(m._id).startsWith("tmp-") && (
                 <div className="msg-feedback d-flex align-items-center gap-1 mt-1">
                   <button
                     type="button"
-                    className={`msg-feedback-btn ${m.feedback === "helpful" ? "active-up" : ""}`}
+                    className={`msg-feedback-btn ${m.feedback === MESSAGE_FEEDBACK.HELPFUL ? "active-up" : ""}`}
                     title="Đánh giá câu trả lời này là hữu ích"
-                    aria-pressed={m.feedback === "helpful"}
-                    onClick={() => handleFeedback(m._id, "helpful")}
+                    aria-pressed={m.feedback === MESSAGE_FEEDBACK.HELPFUL}
+                    onClick={() => handleFeedback(m._id, MESSAGE_FEEDBACK.HELPFUL)}
                   >
                     <ThumbsUpIcon />
                     Hữu ích
                   </button>
                   <button
                     type="button"
-                    className={`msg-feedback-btn ${m.feedback === "unhelpful" ? "active-down" : ""}`}
+                    className={`msg-feedback-btn ${m.feedback === MESSAGE_FEEDBACK.UNHELPFUL ? "active-down" : ""}`}
                     title="Đánh giá câu trả lời này là không hữu ích"
-                    aria-pressed={m.feedback === "unhelpful"}
-                    onClick={() => handleFeedback(m._id, "unhelpful")}
+                    aria-pressed={m.feedback === MESSAGE_FEEDBACK.UNHELPFUL}
+                    onClick={() => handleFeedback(m._id, MESSAGE_FEEDBACK.UNHELPFUL)}
                   >
                     <ThumbsDownIcon />
                     Không hữu ích
@@ -665,7 +666,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
                 </div>
               )}
               {m.createdAt && (
-                <div className={`chat-bubble-time ${m.role === "user" ? "text-white-50" : "text-muted"}`}>
+                <div className={`chat-bubble-time ${m.role === MESSAGE_SENDER.USER ? "text-white-50" : "text-muted"}`}>
                   {formatMessageTime(m.createdAt)}
                 </div>
               )}
@@ -697,7 +698,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
       {/* Nút "cần admin hỗ trợ" — thu gọn thành 1 pill nhỏ căn phải thay vì
           chiếm hẳn 1 hàng ngang toàn bộ chiều rộng với chữ dài như trước, cho
           gọn gàng hơn. Vẫn giữ đủ ý nghĩa qua "title" (tooltip) khi rê chuột. */}
-      {conversationId && (!status || status !== "flagged") && (
+      {conversationId && (!status || status !== CONVERSATION_STATUS.FLAGGED) && (
         <div className="px-3 pb-2 d-flex justify-content-end">
           <button
             type="button"
@@ -745,7 +746,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
               transform: menu.openUp ? "translateY(-100%)" : "none",
             }}
           >
-            {menu.role === "user" && (
+            {menu.role === MESSAGE_SENDER.USER && (
               <button type="button" className="msg-context-menu-item" onClick={handleAskAgain}>
                 <PencilIcon />
                 Sửa & hỏi lại

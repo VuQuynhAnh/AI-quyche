@@ -5,15 +5,20 @@
 // Zalo, không phải nhiều "hội thoại" tách rời như thiết kế trước đây. Khi
 // nhân viên xoá cả đoạn chat, document này được XOÁ MỀM (isDeleted = true,
 // deletedAt = thời điểm xoá) và 1 document mới được tạo cho các tin nhắn tiếp
-// theo — xem chatThread.service.js (hàm getOrCreateActiveThread).
+// theo — xem chat.service.js (hàm getOrCreateActiveThread).
 //
 // Tin nhắn KHÔNG còn lồng (embed) trong document này nữa — xem models/message.model.js
 // và comment giải thích lý do (tránh mảng phát triển không giới hạn).
 import mongoose from "mongoose";
+import { CONVERSATION_STATUS, enumValues } from "../constants/enums.js";
 
 const conversationSchema = new mongoose.Schema(
   {
-    // Tham chiếu "mềm" tới bảng users bên PostgreSQL (không dùng foreign key
+    // Cửa hàng của nhân viên (UUID bảng store bên PostgreSQL) — admin chỉ thấy
+    // đoạn chat của cửa hàng mình.
+    storeId: { type: String, required: true, index: true },
+
+    // Tham chiếu "mềm" tới bảng account bên PostgreSQL (không dùng foreign key
     // thật vì khác hệ quản trị CSDL) — lưu kèm tên/email để trang admin hiển
     // thị log mà không phải query chéo sang Postgres.
     // LƯU Ý: không đặt thêm "index: true" ở đây — cột này đã được đánh index
@@ -33,8 +38,8 @@ const conversationSchema = new mongoose.Schema(
     //  - 'resolved' : admin đã vào trả lời trực tiếp
     status: {
       type: String,
-      enum: ["normal", "flagged", "resolved"],
-      default: "normal",
+      enum: enumValues(CONVERSATION_STATUS),
+      default: CONVERSATION_STATUS.NORMAL,
       index: true,
     },
     autoEscalated: { type: Boolean, default: false },
@@ -53,7 +58,7 @@ const conversationSchema = new mongoose.Schema(
     // Tóm tắt ngắn (do Gemini sinh ra) lúc đoạn chat CHUYỂN SANG "flagged" —
     // hiển thị ở trang quản trị (Logs.jsx) để admin nắm nhanh nội dung mà
     // không cần mở xem toàn bộ tin nhắn. Sinh 1 LẦN tại thời điểm gắn cờ (xem
-    // chatThread.service.js#generateConversationSummaryAsync), không tự cập
+    // chat.service.js#generateSummaryInBackground), không tự cập
     // nhật theo các tin nhắn gửi thêm sau đó — đây là lựa chọn đơn giản hoá có
     // chủ đích cho bản demo, đủ để nắm bối cảnh ban đầu của vướng mắc.
     summary: String,

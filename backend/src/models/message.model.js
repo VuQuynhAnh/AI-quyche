@@ -10,10 +10,11 @@
 // PHÂN TRANG hiệu quả bằng index (VD: "load 20 tin nhắn gần nhất, kéo lên load
 // thêm 20 tin cũ hơn") mà không phải tải nguyên document.
 import mongoose from "mongoose";
+import { MESSAGE_FEEDBACK, MESSAGE_SENDER, enumValues } from "../constants/enums.js";
 
 const sourceSchema = new mongoose.Schema(
   {
-    documentId: String, // UUID của tài liệu bên PostgreSQL
+    documentId: String, // UUID của văn bản (bảng document) bên PostgreSQL
     title: String,
   },
   { _id: false }
@@ -22,11 +23,13 @@ const sourceSchema = new mongoose.Schema(
 const messageSchema = new mongoose.Schema(
   {
     conversationId: { type: mongoose.Schema.Types.ObjectId, ref: "Conversation", required: true },
+    // Cửa hàng (chép từ đoạn chat) — để thống kê theo cửa hàng không cần join
+    storeId: { type: String, required: true, index: true },
 
     // 'user'      : câu hỏi của nhân viên
     // 'assistant' : câu trả lời tự động của chatbot (Gemini)
     // 'admin'     : câu trả lời TRỰC TIẾP của quản trị viên
-    role: { type: String, enum: ["user", "assistant", "admin"], required: true },
+    role: { type: String, enum: enumValues(MESSAGE_SENDER), required: true },
     content: { type: String, required: true },
     sources: { type: [sourceSchema], default: [] },
 
@@ -35,7 +38,7 @@ const messageSchema = new mongoose.Schema(
     // /chat/thread/messages/:messageId/feedback). null = chưa đánh giá. Dùng
     // để đo chất lượng trả lời tự động, tổng hợp ở Dashboard admin (GET
     // /admin/stats -> feedbackBreakdown).
-    feedback: { type: String, enum: ["helpful", "unhelpful", null], default: null },
+    feedback: { type: String, enum: [...enumValues(MESSAGE_FEEDBACK), null], default: null },
 
     // Xoá mềm 1 tin nhắn lẻ (nhân viên xoá 1 tin nhắn trong đoạn chat của họ,
     // không ảnh hưởng tới các tin nhắn khác hay trạng thái cả đoạn chat).

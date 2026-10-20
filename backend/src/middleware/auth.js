@@ -10,7 +10,7 @@ export function requireAuth(req, res, next) {
   }
 
   try {
-    req.user = verifyToken(token); // { id, email, role, fullName }
+    req.user = verifyToken(token); // { id, email, role, fullName, storeId }
     next();
   } catch (err) {
     return res.status(401).json({ error: "Token không hợp lệ hoặc đã hết hạn." });

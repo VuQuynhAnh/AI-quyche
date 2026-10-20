@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../../api/client.js";
+import { CONVERSATION_STATUS, MESSAGE_SENDER } from "../../constants/enums.js";
 
 // Trang admin xem lại lịch sử hỏi đáp của toàn bộ nhân viên — hữu ích để kiểm
 // tra chất lượng câu trả lời AI, và đặc biệt là XỬ LÝ các hội thoại "flagged"
@@ -28,19 +29,19 @@ import { api } from "../../api/client.js";
 // từng badge trạng thái riêng lẻ (trong danh sách + ở khung chi tiết) để admin
 // rê chuột vào bất kỳ đâu cũng xem lại được, không chỉ ở phần chú giải.
 const STATUS_BADGE = {
-  normal: {
+  [CONVERSATION_STATUS.NORMAL]: {
     text: "Bình thường",
     cls: "bg-secondary",
     desc:
       'Trạng thái mặc định của mọi hội thoại mới. Chatbot tự trả lời được câu hỏi của nhân viên bằng dữ liệu quy chế không nhạy cảm — không có gì bất thường, admin không cần làm gì.',
   },
-  flagged: {
+  [CONVERSATION_STATUS.FLAGGED]: {
     text: "Cần trả lời",
     cls: "bg-warning text-dark",
     desc:
       'Cần admin trả lời trực tiếp. Hội thoại tự chuyển sang trạng thái này khi: (1) câu hỏi trùng chủ đề 1 quy chế đã đánh dấu "nhạy cảm" nên chatbot không tự trả lời mà chuyển cho admin (tự động), hoặc (2) chính nhân viên bấm nút đánh dấu "câu hỏi khó, cần admin hỗ trợ".',
   },
-  resolved: {
+  [CONVERSATION_STATUS.RESOLVED]: {
     text: "Đã trả lời",
     cls: "bg-success",
     desc:
@@ -50,7 +51,7 @@ const STATUS_BADGE = {
 // Thứ tự hiển thị cố định ở phần chú giải (khác thứ tự khai báo ở trên, vốn
 // ưu tiên "flagged" lên đầu vì đó là trạng thái quan trọng nhất khi code thao
 // tác dữ liệu) — ở đây muốn đi từ trạng thái "bình thường" trước để dễ hiểu.
-const STATUS_LEGEND_ORDER = ["normal", "flagged", "resolved"];
+const STATUS_LEGEND_ORDER = [CONVERSATION_STATUS.NORMAL, CONVERSATION_STATUS.FLAGGED, CONVERSATION_STATUS.RESOLVED];
 
 // Icon "i" tròn nhỏ — dấu hiệu bằng mắt là "còn có thêm giải thích khi rê
 // chuột/focus vào đây", đặt riêng trong 1 nút bấm nhỏ (status-chip-info) để
@@ -216,12 +217,12 @@ export default function Logs() {
         status: data.status,
         messages: [
           ...prev.messages,
-          { _id: `local-${Date.now()}`, role: "admin", content: replyText, createdAt: new Date().toISOString() },
+          { _id: `local-${Date.now()}`, role: MESSAGE_SENDER.ADMIN, content: replyText, createdAt: new Date().toISOString() },
         ],
       }));
       if (data.warning) setReplyWarning(data.warning);
       setReplyText("");
-      loadLists(); // hội thoại chuyển từ "flagged" sang "resolved" nên cần làm mới cả 2 danh sách
+      loadLists(); // hội thoại chuyển từ CONVERSATION_STATUS.FLAGGED sang CONVERSATION_STATUS.RESOLVED nên cần làm mới cả 2 danh sách
     } catch (err) {
       setError(err.message);
     } finally {
@@ -233,7 +234,7 @@ export default function Logs() {
     return (
       <div className="list-group">
         {list.map((c) => {
-          const badge = STATUS_BADGE[c.status] || STATUS_BADGE.normal;
+          const badge = STATUS_BADGE[c.status] || STATUS_BADGE[CONVERSATION_STATUS.NORMAL];
           return (
             <button
               key={c._id}
@@ -248,12 +249,12 @@ export default function Logs() {
                   </span>
                 )}
               </div>
-              {/* Tóm tắt (do Gemini sinh khi hội thoại được gắn cờ "flagged") —
+              {/* Tóm tắt (do Gemini sinh khi hội thoại được gắn cờ CONVERSATION_STATUS.FLAGGED) —
                   giúp admin lướt danh sách là nắm nhanh được nội dung, không
                   cần mở từng hội thoại ra đọc lại toàn bộ tin nhắn. Chỉ hiện
                   khi ĐANG cần trả lời và đã có tóm tắt (sinh nền, có thể mất
                   vài giây hoặc lỗi nếu chưa cấu hình GEMINI_API_KEY). */}
-              {c.status === "flagged" && c.summary && (
+              {c.status === CONVERSATION_STATUS.FLAGGED && c.summary && (
                 <div
                   className={`small text-truncate fst-italic ${selectedId === c._id ? "text-white-50" : "text-muted"}`}
                   title={c.summary}
@@ -277,28 +278,28 @@ export default function Logs() {
     );
   }
 
-  const statusBadge = conversation ? STATUS_BADGE[conversation.status] || STATUS_BADGE.normal : null;
+  const statusBadge = conversation ? STATUS_BADGE[conversation.status] || STATUS_BADGE[CONVERSATION_STATUS.NORMAL] : null;
 
   // Đếm số hội thoại theo từng trạng thái để hiển thị ở phần chú giải — đếm
-  // trên "allConversations" (đã có đủ mọi trạng thái, không riêng "flagged")
+  // trên "allConversations" (đã có đủ mọi trạng thái, không riêng CONVERSATION_STATUS.FLAGGED)
   // nên không cần gọi thêm API. Hội thoại chưa có "status" (dữ liệu cũ, nếu
-  // có) coi như "normal" — khớp với default trong conversation.model.js.
+  // có) coi như CONVERSATION_STATUS.NORMAL — khớp với default trong conversation.model.js.
   const statusCounts = STATUS_LEGEND_ORDER.reduce((acc, key) => {
-    acc[key] = allConversations.filter((c) => (c.status || "normal") === key).length;
+    acc[key] = allConversations.filter((c) => (c.status || CONVERSATION_STATUS.NORMAL) === key).length;
     return acc;
   }, {});
 
   // CHỈ 1 danh sách duy nhất (không tách riêng "Cần admin trả lời" / "Tất cả
   // hội thoại" như trước) — sắp xếp theo 2 tiêu chí:
-  //   1. Hội thoại ĐANG "flagged" (cần trả lời) luôn lên ĐẦU danh sách, và
+  //   1. Hội thoại ĐANG CONVERSATION_STATUS.FLAGGED (cần trả lời) luôn lên ĐẦU danh sách, và
   //      trong nhóm này, hội thoại chờ LÂU HƠN (flaggedAt cũ hơn) lên trước —
   //      admin xử lý đúng thứ tự "ai chờ lâu nhất trước", không bị hội thoại
   //      mới gắn cờ chen ngang lên trên.
   //   2. Các hội thoại còn lại (không đang chờ) sắp theo thời gian MỚI NHẤT
   //      lên trước, giống thứ tự quen thuộc của 1 hộp thư/app nhắn tin.
   const sortedConversations = [...allConversations].sort((a, b) => {
-    const aWaiting = a.status === "flagged";
-    const bWaiting = b.status === "flagged";
+    const aWaiting = a.status === CONVERSATION_STATUS.FLAGGED;
+    const bWaiting = b.status === CONVERSATION_STATUS.FLAGGED;
     if (aWaiting !== bWaiting) return aWaiting ? -1 : 1;
     if (aWaiting) return new Date(a.flaggedAt) - new Date(b.flaggedAt);
     return new Date(b.createdAt) - new Date(a.createdAt);
@@ -341,7 +342,7 @@ export default function Logs() {
                       Nhân viên đã xoá đoạn chat này và đã bắt đầu 1 đoạn chat mới.
                     </div>
                   )}
-                  {conversation.status === "flagged" && conversation.summary && (
+                  {conversation.status === CONVERSATION_STATUS.FLAGGED && conversation.summary && (
                     <div className="text-muted small fst-italic mt-1">Tóm tắt: {conversation.summary}</div>
                   )}
                 </div>
@@ -374,24 +375,24 @@ export default function Logs() {
                   // co hẹp bề rộng dòng tin nhắn (xem "chat-bubble" trong CSS).
                   <div
                     key={m._id}
-                    className={`d-flex align-items-end gap-2 ${m.role === "user" ? "" : "justify-content-end"}`}
+                    className={`d-flex align-items-end gap-2 ${m.role === MESSAGE_SENDER.USER ? "" : "justify-content-end"}`}
                   >
-                    {m.role === "user" && (
+                    {m.role === MESSAGE_SENDER.USER && (
                       <div className="msg-avatar user">
                         {conversation.userName?.trim()?.charAt(0)?.toUpperCase() || "NV"}
                       </div>
                     )}
                     <div
                       className={`chat-bubble p-2 px-3 ${
-                        m.role === "admin"
+                        m.role === MESSAGE_SENDER.ADMIN
                           ? "user bg-primary text-white"
-                          : m.role === "user"
+                          : m.role === MESSAGE_SENDER.USER
                           ? "assistant bg-white border"
                           : "user ai-reply-bubble border"
                       } ${m.isDeleted ? "opacity-50" : ""}`}
                     >
-                      {m.role === "admin" && <div className="fw-semibold small mb-1">Bạn (quản trị viên)</div>}
-                      {m.role === "assistant" && <div className="fw-semibold small mb-1">Trợ lý AI</div>}
+                      {m.role === MESSAGE_SENDER.ADMIN && <div className="fw-semibold small mb-1">Bạn (quản trị viên)</div>}
+                      {m.role === MESSAGE_SENDER.ASSISTANT && <div className="fw-semibold small mb-1">Trợ lý AI</div>}
                       {m.content}
                       {m.isDeleted && (
                         <div className="small fst-italic mt-1">
@@ -399,7 +400,7 @@ export default function Logs() {
                         </div>
                       )}
                       {m.createdAt && (
-                        <div className={`chat-bubble-time ${m.role === "admin" ? "text-white-50" : "text-muted"}`}>
+                        <div className={`chat-bubble-time ${m.role === MESSAGE_SENDER.ADMIN ? "text-white-50" : "text-muted"}`}>
                           {new Date(m.createdAt).toLocaleString("vi-VN", {
                             day: "2-digit",
                             month: "2-digit",
@@ -418,9 +419,9 @@ export default function Logs() {
 
               {replyWarning && <div className="alert alert-warning py-2">{replyWarning}</div>}
 
-              {/* Khung trả lời trực tiếp — dùng cho các hội thoại "flagged" mà chatbot
+              {/* Khung trả lời trực tiếp — dùng cho các hội thoại CONVERSATION_STATUS.FLAGGED mà chatbot
                   không tự trả lời được (câu hỏi khó hoặc liên quan tài liệu nhạy cảm).
-                  Vẫn cho phép trả lời cả khi hội thoại đã "resolved" để bổ sung thêm,
+                  Vẫn cho phép trả lời cả khi hội thoại đã CONVERSATION_STATUS.RESOLVED để bổ sung thêm,
                   hoặc kể cả khi đã bị nhân viên xoá (để giữ đầy đủ hồ sơ — nhưng khi
                   đó API sẽ trả về cảnh báo vì nhân viên sẽ không thấy được). */}
               <form onSubmit={handleReply} className="d-flex gap-2">

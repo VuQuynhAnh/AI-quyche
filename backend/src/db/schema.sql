@@ -1,174 +1,143 @@
 -- ============================================================
--- SCHEMA CƠ SỞ DỮ LIỆU
--- Trợ lý AI hỗ trợ giải đáp quy chế & văn bản nội bộ doanh nghiệp
+-- SCHEMA CƠ SỞ DỮ LIỆU (PostgreSQL 14+ có extension pgvector)
+-- Chấm công, bảng lương & trợ lý AI hỏi đáp quy chế — nhiều cửa hàng
 -- ============================================================
--- Yêu cầu: PostgreSQL 14+ với extension "pgvector" đã cài đặt
--- (trên Ubuntu: sudo apt install postgresql-16-pgvector, hoặc dùng
---  Docker image "ankane/pgvector" / "pgvector/pgvector")
+-- Quy ước đặt tên:
+--  - Tên bảng số ít, snake_case, theo nghiệp vụ; bảng con dạng <cha>_detail /
+--    <cha>_history.
+--  - Không viết tắt; đơn vị ghi trong tên (_minutes, _meters); boolean bắt đầu
+--    bằng is_; khoá ngoại ghi rõ vai trò (created_by_account_id).
+--  - Mốc thời gian lưu TIMESTAMPTZ (UTC); "ngày làm việc" (work_date) và
+--    "tháng lương" (pay_month) luôn theo giờ Việt Nam (Asia/Ho_Chi_Minh).
+--
+-- CÁC KIỂU ENUM (account_role, paysheet_status...) KHÔNG khai báo ở đây: chúng
+-- được sinh từ backend/src/constants/enums.js (POSTGRES_ENUM_TYPES) bởi
+-- db/seed.js ngay trước khi chạy file này — nguồn giá trị duy nhất.
+--
+-- Chạy bằng: npm run db:reset (XOÁ SẠCH rồi tạo lại + nạp dữ liệu mẫu)
+-- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS vector;
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ---------- Người dùng ----------
--- role: 'admin'  -> quản trị viên (upload/quản lý văn bản, xem lịch sử hỏi đáp)
---       'employee' -> nhân viên (chỉ dùng trang chat hỏi đáp)
-CREATE TABLE IF NOT EXISTS users (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- ---------- Cửa hàng ----------
+-- Do superadmin tạo (kèm 1 admin đầu tiên); sau đó cửa hàng tự quản lý.
+CREATE TABLE store (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name                  VARCHAR(255) NOT NULL,
+  address               VARCHAR(500),
+  is_active             BOOLEAN NOT NULL DEFAULT true,
+  created_by_account_id UUID,           -- FK thêm sau khi có bảng account
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ---------- Thiết lập cửa hàng (1–1 với store) ----------
+-- Giờ ca, tiền phạt, vị trí chấm công. latitude/longitude tuỳ chọn: nếu có thì
+-- mỗi lần chấm công ghi khoảng cách và gắn cờ "ngoài phạm vi" (chỉ để admin
+-- xem, KHÔNG chặn nhân viên chấm công).
+CREATE TABLE setting (
+  store_id                  UUID PRIMARY KEY REFERENCES store(id) ON DELETE CASCADE,
+  shift_start_time          TIME NOT NULL DEFAULT '08:00',
+  shift_end_time            TIME NOT NULL DEFAULT '17:00',
+  penalty_amount_per_minute NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (penalty_amount_per_minute >= 0),
+  latitude                  DOUBLE PRECISION,
+  longitude                 DOUBLE PRECISION,
+  check_in_radius_meters    INT NOT NULL DEFAULT 100 CHECK (check_in_radius_meters BETWEEN 10 AND 5000),
+  updated_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (shift_end_time > shift_start_time),
+  CHECK ((latitude IS NULL) = (longitude IS NULL))
+);
+
+-- ---------- Tài khoản đăng nhập ----------
+-- superadmin không thuộc cửa hàng nào; admin/user luôn thuộc đúng 1 cửa hàng.
+CREATE TABLE account (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  store_id      UUID REFERENCES store(id) ON DELETE CASCADE,
   full_name     VARCHAR(255) NOT NULL,
-  email         VARCHAR(255) UNIQUE NOT NULL,
+  email         VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  role          VARCHAR(20) NOT NULL DEFAULT 'employee' CHECK (role IN ('admin', 'employee')),
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+  role          account_role NOT NULL,
+  is_active     BOOLEAN NOT NULL DEFAULT true,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK ((role = 'superadmin') = (store_id IS NULL))
+);
+CREATE INDEX account_store_id_idx ON account (store_id);
+
+ALTER TABLE store
+  ADD CONSTRAINT store_created_by_account_id_fkey
+  FOREIGN KEY (created_by_account_id) REFERENCES account(id) ON DELETE SET NULL;
+
+-- ---------- Hồ sơ nhân viên (1–1 với account thuộc cửa hàng) ----------
+-- Mỗi nhân viên chỉ có 1 mức lương giờ. Đổi lương chỉ ảnh hưởng các bảng lương
+-- CHƯA chốt (bảng đã chốt lưu lại mức lương đã dùng trong paysheet_detail).
+CREATE TABLE employee (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id   UUID NOT NULL UNIQUE REFERENCES account(id) ON DELETE CASCADE,
+  phone_number VARCHAR(30),
+  job_title    VARCHAR(100),
+  hourly_wage  NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (hourly_wage >= 0),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- ---------- Văn bản / quy chế nội bộ ----------
--- is_sensitive = true  -> tài liệu NHẠY CẢM (VD: hợp đồng lương cá nhân, thông
---   tin kỷ luật, dữ liệu khách hàng...). Loại tài liệu này VẪN được tải lên và
---   tách chunk/embedding để admin có thể tìm kiếm nội bộ, NHƯNG bị loại khỏi
---   kết quả trả lời tự động của chatbot cho nhân viên (xem rag.service.js) —
---   nếu câu hỏi của nhân viên khớp với nội dung này, hệ thống sẽ từ chối trả
---   lời và hướng dẫn liên hệ trực tiếp quản trị viên, đồng thời tự động gắn cờ
---   hội thoại đó để admin vào trả lời (xem models/conversation.model.js).
--- is_sensitive = false -> tài liệu quy chế/chính sách thông thường, chatbot
---   được phép dùng để trả lời tự động.
-CREATE TABLE IF NOT EXISTS documents (
-  id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  title             VARCHAR(500) NOT NULL,
-  category          VARCHAR(150),              -- VD: 'Nhân sự', 'Tài chính', 'An toàn lao động'
-  original_filename VARCHAR(500),
-  -- Tên file đã lưu trong thư mục backend/uploads/ (KHÔNG phải đường dẫn đầy
-  -- đủ) — phục vụ tính năng "tải tài liệu nguồn" từ popover trích dẫn tin
-  -- nhắn (xem services/document.service.js + routes/documentFiles.routes.js).
-  storage_path      VARCHAR(1000),
-  is_sensitive      BOOLEAN NOT NULL DEFAULT false,
-  status            VARCHAR(20) NOT NULL DEFAULT 'processing'
-                      CHECK (status IN ('processing', 'ready', 'failed')),
-  uploaded_by       UUID REFERENCES users(id) ON DELETE SET NULL,
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+-- ---------- Chấm công theo NGÀY ----------
+-- Mỗi nhân viên mỗi ngày làm việc (giờ VN) 1 dòng — tổng hợp từ clocking_history.
+-- Giờ ca được chụp lại lúc tạo dòng, để đổi thiết lập sau đó không làm sai
+-- các ngày đã qua.
+CREATE TABLE clocking (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  store_id             UUID NOT NULL REFERENCES store(id) ON DELETE CASCADE,
+  employee_id          UUID NOT NULL REFERENCES employee(id) ON DELETE CASCADE,
+  work_date            DATE NOT NULL,
+  shift_start_time     TIME NOT NULL,
+  shift_end_time       TIME NOT NULL,
+  check_in_time        TIMESTAMPTZ,
+  check_out_time       TIMESTAMPTZ,
+  worked_minutes       INT NOT NULL DEFAULT 0,
+  late_minutes         INT NOT NULL DEFAULT 0,
+  early_leave_minutes  INT NOT NULL DEFAULT 0,
+  is_missing_check_out BOOLEAN NOT NULL DEFAULT false,
+  is_out_of_range      BOOLEAN NOT NULL DEFAULT false,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (employee_id, work_date)
 );
+CREATE INDEX clocking_store_work_date_idx ON clocking (store_id, work_date);
 
--- Thêm cột "storage_path" cho CSDL đã được tạo TRƯỚC KHI có tính năng tải
--- tài liệu nguồn (script trên chỉ chạy CREATE TABLE IF NOT EXISTS nên sẽ
--- không tự thêm cột mới vào bảng đã tồn tại) — chạy lại file schema.sql này
--- là đủ để cập nhật, không cần xoá dữ liệu cũ.
-ALTER TABLE documents ADD COLUMN IF NOT EXISTS storage_path VARCHAR(1000);
-
--- ---------- Đoạn văn bản đã tách nhỏ (chunk) + vector embedding ----------
--- 768 chiều = số chiều đầu ra của model "text-embedding-004" (Gemini)
-CREATE TABLE IF NOT EXISTS document_chunks (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  document_id   UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-  chunk_index   INT NOT NULL,
-  content       TEXT NOT NULL,
-  embedding     VECTOR(768),
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+-- ---------- Lịch sử chấm công (từng lần bấm + các lần admin sửa) ----------
+-- Thời điểm (clock_time) do SERVER ghi. Không xoá, không sửa: admin "sửa giờ" =
+-- huỷ dòng cũ (status voided) + thêm dòng mới (source admin) trỏ về dòng cũ
+-- qua replaced_history_id.
+CREATE TABLE clocking_history (
+  id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clocking_id              UUID NOT NULL REFERENCES clocking(id) ON DELETE CASCADE,
+  action_type              clocking_action_type NOT NULL,
+  clock_time               TIMESTAMPTZ NOT NULL DEFAULT now(),
+  source                   clocking_source NOT NULL,
+  latitude                 DOUBLE PRECISION,
+  longitude                DOUBLE PRECISION,
+  gps_accuracy_meters      DOUBLE PRECISION,
+  distance_to_store_meters DOUBLE PRECISION,
+  is_out_of_range          BOOLEAN NOT NULL DEFAULT false,
+  device_identifier        VARCHAR(100),
+  status                   clocking_history_status NOT NULL DEFAULT 'valid',
+  replaced_history_id      UUID REFERENCES clocking_history(id) ON DELETE CASCADE,
+  created_by_account_id    UUID REFERENCES account(id) ON DELETE SET NULL,
+  created_at               TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX clocking_history_clocking_id_idx ON clocking_history (clocking_id, clock_time);
 
--- Index tìm kiếm vector gần nhất theo cosine similarity
-CREATE INDEX IF NOT EXISTS document_chunks_embedding_idx
-  ON document_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-
-CREATE INDEX IF NOT EXISTS document_chunks_document_id_idx
-  ON document_chunks (document_id);
-
--- ---------- Hội thoại & tin nhắn ----------
--- Đã CHUYỂN SANG MongoDB (xem backend/src/models/conversation.model.js).
--- Lý do: mỗi tin nhắn có số lượng nguồn trích dẫn khác nhau và luôn được đọc/ghi
--- theo trọn 1 hội thoại — hợp với mô hình document lồng nhau của Mongo hơn là
--- 2 bảng quan hệ phải join. Xem phần "So sánh PostgreSQL vs MongoDB" trong README.
-
--- ============================================================
--- PHẦN CHẤM CÔNG & TÍNH LƯƠNG (nâng cấp)
--- Idempotent: chạy lại nhiều lần không lỗi, không mất dữ liệu.
--- Mốc thời gian lưu dạng TIMESTAMPTZ (UTC); "ngày làm việc" và "tháng" luôn
--- tính theo giờ Việt Nam (Asia/Ho_Chi_Minh, UTC+7) ở tầng code.
--- (Không lưu IP — chưa làm chấm công theo wifi, chỉ lưu vị trí GPS.)
--- ===== BEGIN ATTENDANCE =====
-
--- ---------- Gian hàng / cửa hàng ----------
--- Mỗi gian hàng có QR riêng (link /s/<id>) dán tại quầy. Giờ ca và tiền phạt
--- cấu hình theo gian hàng. lat/lng/radius_m là tuỳ chọn: nếu có thì mỗi lần
--- chấm công sẽ ghi khoảng cách tới gian hàng và gắn cờ "ngoài phạm vi"
--- (chỉ để admin xem, KHÔNG chặn nhân viên chấm công).
-CREATE TABLE IF NOT EXISTS stalls (
-  id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name               VARCHAR(255) NOT NULL,
-  address            VARCHAR(500),
-  lat                DOUBLE PRECISION,
-  lng                DOUBLE PRECISION,
-  radius_m           INT NOT NULL DEFAULT 100,
-  shift_start        TIME NOT NULL DEFAULT '08:00',
-  shift_end          TIME NOT NULL DEFAULT '17:00',
-  penalty_per_minute NUMERIC(12,2) NOT NULL DEFAULT 0,
-  is_active          BOOLEAN NOT NULL DEFAULT true,
-  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CHECK (shift_end > shift_start),
-  CHECK (penalty_per_minute >= 0)
-);
-
--- ---------- Thông tin nhân viên (mở rộng bảng users) ----------
-ALTER TABLE users ADD COLUMN IF NOT EXISTS stall_id  UUID REFERENCES stalls(id) ON DELETE SET NULL;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS phone     VARCHAR(30);
-ALTER TABLE users ADD COLUMN IF NOT EXISTS position  VARCHAR(100);
-ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
-CREATE INDEX IF NOT EXISTS users_stall_id_idx ON users (stall_id);
-
--- ---------- Lịch sử lương giờ ----------
--- Mỗi lần đổi lương giờ thêm 1 dòng mới (không sửa dòng cũ) để các ngày trước
--- đó vẫn tính theo mức lương cũ. Mức áp dụng cho 1 ngày = dòng có
--- effective_from lớn nhất mà <= ngày đó.
-CREATE TABLE IF NOT EXISTS employee_rates (
-  id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  hourly_rate    NUMERIC(12,2) NOT NULL CHECK (hourly_rate >= 0),
-  effective_from DATE NOT NULL,
-  created_by     UUID REFERENCES users(id) ON DELETE SET NULL,
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (user_id, effective_from)
-);
-
--- ---------- Các lần chấm công ----------
--- Thời điểm (occurred_at) luôn do SERVER ghi, không tin giờ của điện thoại.
--- Không xoá cứng: sửa/huỷ đều đổi status = 'voided' + ghi attendance_edits.
-CREATE TABLE IF NOT EXISTS attendance_events (
-  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  stall_id     UUID REFERENCES stalls(id) ON DELETE SET NULL,
-  type         VARCHAR(3) NOT NULL CHECK (type IN ('in', 'out')),
-  occurred_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  lat          DOUBLE PRECISION,
-  lng          DOUBLE PRECISION,
-  accuracy_m   DOUBLE PRECISION,
-  distance_m   DOUBLE PRECISION,           -- khoảng cách tới gian hàng (nếu gian hàng có toạ độ)
-  out_of_range BOOLEAN NOT NULL DEFAULT false,
-  device_id    VARCHAR(100),
-  method       VARCHAR(10) NOT NULL DEFAULT 'self' CHECK (method IN ('self', 'admin')),
-  status       VARCHAR(10) NOT NULL DEFAULT 'valid' CHECK (status IN ('valid', 'voided')),
-  note         VARCHAR(500),
-  created_by   UUID REFERENCES users(id) ON DELETE SET NULL,
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
-);
--- Sửa giờ KHÔNG ghi đè dòng cũ: dòng cũ bị đánh dấu 'voided', 1 dòng MỚI
--- (method = 'admin') được tạo và trỏ về dòng cũ qua replaces_event_id.
-ALTER TABLE attendance_events ADD COLUMN IF NOT EXISTS replaces_event_id UUID REFERENCES attendance_events(id) ON DELETE SET NULL;
-
--- Bất biến: các lần chấm công KHÔNG THỂ bị sửa nội dung (giờ, loại, người,
--- vị trí, nguồn). Chỉ cho phép đổi status 'valid' -> 'voided'. Ràng buộc đặt
--- ngay trong CSDL nên dù có lỗi code/gọi thẳng SQL cũng không ghi đè được lịch sử.
-CREATE OR REPLACE FUNCTION attendance_events_immutable() RETURNS trigger AS $$
+-- Bất biến: chỉ cho đổi status valid -> voided, mọi cột khác không sửa được.
+-- Đặt ngay trong CSDL nên dù lỗi code/gọi thẳng SQL cũng không ghi đè lịch sử.
+-- Ngoại lệ: created_by_account_id được về NULL (khi xoá tài khoản admin đã sửa giờ).
+CREATE FUNCTION clocking_history_immutable() RETURNS trigger AS $$
 BEGIN
-  IF NEW.user_id IS DISTINCT FROM OLD.user_id
-     OR NEW.stall_id IS DISTINCT FROM OLD.stall_id
-     OR NEW.type IS DISTINCT FROM OLD.type
-     OR NEW.occurred_at IS DISTINCT FROM OLD.occurred_at
-     OR NEW.lat IS DISTINCT FROM OLD.lat
-     OR NEW.lng IS DISTINCT FROM OLD.lng
-     OR NEW.method IS DISTINCT FROM OLD.method
-     OR NEW.note IS DISTINCT FROM OLD.note
-     OR NEW.created_at IS DISTINCT FROM OLD.created_at
-     OR NEW.replaces_event_id IS DISTINCT FROM OLD.replaces_event_id THEN
-    RAISE EXCEPTION 'Lần chấm công không thể sửa nội dung (chỉ được huỷ).';
+  IF (to_jsonb(NEW) - 'status' - 'created_by_account_id')
+       IS DISTINCT FROM (to_jsonb(OLD) - 'status' - 'created_by_account_id')
+     OR (NEW.created_by_account_id IS NOT NULL
+         AND NEW.created_by_account_id IS DISTINCT FROM OLD.created_by_account_id) THEN
+    RAISE EXCEPTION 'Lịch sử chấm công không thể sửa nội dung (chỉ được huỷ).';
   END IF;
   IF OLD.status = 'voided' AND NEW.status <> 'voided' THEN
     RAISE EXCEPTION 'Lần chấm công đã huỷ không thể khôi phục.';
@@ -176,47 +145,88 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-DROP TRIGGER IF EXISTS attendance_events_immutable_trg ON attendance_events;
-CREATE TRIGGER attendance_events_immutable_trg BEFORE UPDATE ON attendance_events
-  FOR EACH ROW EXECUTE FUNCTION attendance_events_immutable();
+CREATE TRIGGER clocking_history_immutable_trg BEFORE UPDATE ON clocking_history
+  FOR EACH ROW EXECUTE FUNCTION clocking_history_immutable();
 
-CREATE INDEX IF NOT EXISTS attendance_events_user_time_idx ON attendance_events (user_id, occurred_at);
-CREATE INDEX IF NOT EXISTS attendance_events_stall_time_idx ON attendance_events (stall_id, occurred_at);
-
--- ---------- Nhật ký chỉnh sửa chấm công (admin) ----------
-CREATE TABLE IF NOT EXISTS attendance_edits (
-  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  event_id   UUID REFERENCES attendance_events(id) ON DELETE CASCADE,
-  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- nhân viên bị sửa
-  admin_id   UUID REFERENCES users(id) ON DELETE SET NULL,
-  action     VARCHAR(10) NOT NULL CHECK (action IN ('create', 'update', 'void')),
-  before     JSONB,
-  after      JSONB,
-  reason     VARCHAR(500) NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+-- ---------- Bảng lương tháng của cửa hàng ----------
+-- Admin tạo (draft) -> tính lại khi cần -> chốt (finalized) hoặc huỷ (cancelled).
+-- Mỗi cửa hàng chỉ có 1 bảng lương CHƯA HUỶ cho mỗi tháng (unique index bên dưới).
+-- Tháng có bảng lương finalized: không sửa được chấm công của tháng đó.
+CREATE TABLE paysheet (
+  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  store_id                  UUID NOT NULL REFERENCES store(id) ON DELETE CASCADE,
+  pay_month                 CHAR(7) NOT NULL CHECK (pay_month ~ '^\d{4}-(0[1-9]|1[0-2])$'),
+  status                    paysheet_status NOT NULL DEFAULT 'draft',
+  penalty_amount_per_minute NUMERIC(12,2) NOT NULL DEFAULT 0, -- mức phạt đã dùng khi tính
+  employee_count            INT NOT NULL DEFAULT 0,
+  total_worked_minutes      INT NOT NULL DEFAULT 0,
+  total_gross_salary        NUMERIC(14,2) NOT NULL DEFAULT 0,
+  total_penalty_amount      NUMERIC(14,2) NOT NULL DEFAULT 0,
+  total_net_salary          NUMERIC(14,2) NOT NULL DEFAULT 0,
+  calculated_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by_account_id     UUID REFERENCES account(id) ON DELETE SET NULL,
+  created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
+  finalized_by_account_id   UUID REFERENCES account(id) ON DELETE SET NULL,
+  finalized_at              TIMESTAMPTZ,
+  cancelled_by_account_id   UUID REFERENCES account(id) ON DELETE SET NULL,
+  cancelled_at              TIMESTAMPTZ,
+  cancel_reason             VARCHAR(500),
+  updated_at                TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS attendance_edits_user_idx ON attendance_edits (user_id, created_at);
--- Bản mới không yêu cầu nhập lý do khi chỉnh sửa
-ALTER TABLE attendance_edits ALTER COLUMN reason DROP NOT NULL;
+CREATE UNIQUE INDEX paysheet_one_active_per_month_idx
+  ON paysheet (store_id, pay_month) WHERE status <> 'cancelled';
 
--- ---------- Bảng lương đã chốt ----------
--- Tháng đã kết thúc được "đóng băng" 1 lần: lưu kết quả + chi tiết từng ngày,
--- để đổi lương giờ / giờ ca / tiền phạt về sau không làm thay đổi lương cũ.
-CREATE TABLE IF NOT EXISTS payroll_months (
-  id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  month          CHAR(7) NOT NULL,          -- 'YYYY-MM'
-  stall_id       UUID REFERENCES stalls(id) ON DELETE SET NULL,
-  days_worked    INT NOT NULL,
-  worked_minutes INT NOT NULL,
-  late_minutes   INT NOT NULL,
-  early_minutes  INT NOT NULL,
-  gross          NUMERIC(14,2) NOT NULL,
-  penalty        NUMERIC(14,2) NOT NULL,
-  net            NUMERIC(14,2) NOT NULL,
-  detail         JSONB NOT NULL,            -- từng ngày + cấu hình đã dùng
-  locked_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (user_id, month)
+-- ---------- Chi tiết bảng lương: lương từng nhân viên ----------
+CREATE TABLE paysheet_detail (
+  id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  paysheet_id            UUID NOT NULL REFERENCES paysheet(id) ON DELETE CASCADE,
+  employee_id            UUID NOT NULL REFERENCES employee(id) ON DELETE CASCADE,
+  hourly_wage            NUMERIC(12,2) NOT NULL, -- mức lương đã dùng khi tính
+  worked_days            INT NOT NULL,
+  worked_minutes         INT NOT NULL,
+  late_minutes           INT NOT NULL,
+  early_leave_minutes    INT NOT NULL,
+  missing_check_out_days INT NOT NULL,
+  gross_salary           NUMERIC(14,2) NOT NULL,
+  penalty_amount         NUMERIC(14,2) NOT NULL,
+  net_salary             NUMERIC(14,2) NOT NULL,
+  daily_breakdown        JSONB NOT NULL,         -- từng ngày: giờ vào/ra, phút, tiền
+  UNIQUE (paysheet_id, employee_id)
 );
-CREATE INDEX IF NOT EXISTS payroll_months_month_idx ON payroll_months (month);
--- ===== END ATTENDANCE =====
+CREATE INDEX paysheet_detail_employee_id_idx ON paysheet_detail (employee_id);
+
+-- ---------- Văn bản quy chế (riêng từng cửa hàng) ----------
+-- is_sensitive = true: tài liệu NHẠY CẢM — vẫn tách đoạn/embedding nhưng
+-- chatbot KHÔNG dùng để tự trả lời; câu hỏi khớp nội dung này được chuyển cho
+-- admin cửa hàng (đoạn chat tự gắn cờ).
+CREATE TABLE document (
+  id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  store_id               UUID NOT NULL REFERENCES store(id) ON DELETE CASCADE,
+  title                  VARCHAR(500) NOT NULL,
+  category               VARCHAR(150),
+  original_file_name     VARCHAR(500),
+  stored_file_name       VARCHAR(1000),  -- tên file trong backend/uploads/
+  is_sensitive           BOOLEAN NOT NULL DEFAULT false,
+  processing_status      document_processing_status NOT NULL DEFAULT 'processing',
+  uploaded_by_account_id UUID REFERENCES account(id) ON DELETE SET NULL,
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX document_store_id_idx ON document (store_id);
+
+-- ---------- Chi tiết văn bản: các đoạn đã tách + vector embedding ----------
+-- 768 chiều = số chiều embedding (GEMINI_EMBEDDING_DIMENSIONS).
+CREATE TABLE document_detail (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_id UUID NOT NULL REFERENCES document(id) ON DELETE CASCADE,
+  chunk_index INT NOT NULL,
+  content     TEXT NOT NULL,
+  embedding   VECTOR(768),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (document_id, chunk_index)
+);
+CREATE INDEX document_detail_embedding_idx
+  ON document_detail USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+-- ---------- Hội thoại & tin nhắn ----------
+-- Lưu ở MongoDB (backend/src/models/), có storeId để tách theo cửa hàng.

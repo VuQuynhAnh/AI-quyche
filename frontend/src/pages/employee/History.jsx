@@ -2,8 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.js";
 import MonthNav from "../../components/hr/MonthNav.jsx";
 import {
+  CLOCKING_ACTION_LABEL, CLOCKING_HISTORY_STATUS, CLOCKING_SOURCE, PAYSHEET_STATUS,
+} from "../../constants/enums.js";
+import {
   daysInMonth, firstWeekdayMonFirst, fmtDateLong, fmtMinutes, fmtMoney, fmtTime, vnDateKey, vnMonthKey,
 } from "../../utils/format.js";
+
+// Nguồn số lương hiển thị: bảng lương của cửa hàng (nháp/đã chốt) hoặc tạm tính
+const SALARY_SOURCE_LABEL = {
+  [PAYSHEET_STATUS.FINALIZED]: "Lương đã chốt",
+  [PAYSHEET_STATUS.DRAFT]: "Lương theo bảng lương nháp (chưa chốt)",
+};
+const ESTIMATE_LABEL = "Lương tạm tính (tới hiện tại)";
 
 // Lịch sử chấm công theo tháng: lưới lịch (màu theo tình trạng ngày) + tổng
 // kết tháng. Bấm vào 1 ngày để xem từng lần chấm công của ngày đó.
@@ -11,22 +21,22 @@ export default function History() {
   const [month, setMonth] = useState(vnMonthKey());
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
-  const [selected, setSelected] = useState(null); // dateKey
+  const [selected, setSelected] = useState(null); // workDate
 
   useEffect(() => {
     let cancelled = false;
     setResult(null);
     setError("");
     api
-      .get(`/attendance/me/month?month=${month}`)
-      .then((d) => !cancelled && setResult(d.result))
+      .get(`/clocking/me/month?month=${month}`)
+      .then((d) => !cancelled && setResult(d))
       .catch((e) => !cancelled && setError(e.message));
     return () => {
       cancelled = true;
     };
   }, [month]);
 
-  const dayMap = useMemo(() => new Map((result?.days || []).map((d) => [d.date, d])), [result]);
+  const dayMap = useMemo(() => new Map((result?.days || []).map((d) => [d.workDate, d])), [result]);
   const total = daysInMonth(month);
   const lead = firstWeekdayMonFirst(month);
   const todayKey = vnDateKey();
@@ -41,10 +51,12 @@ export default function History() {
   function cls(info) {
     if (!info) return "";
     // Hôm nay đã check-in nhưng chưa check-out = đang làm, chưa phải lỗi
-    if (info.missingCheckout) return info.date === todayKey ? "working" : "bad";
-    if (info.lateMinutes > 0 || info.earlyMinutes > 0) return "warn";
+    if (info.isMissingCheckOut) return info.workDate === todayKey ? "working" : "bad";
+    if (info.lateMinutes > 0 || info.earlyLeaveMinutes > 0) return "warn";
     return "ok";
   }
+
+  const salary = result?.salary;
 
   return (
     <div>
@@ -58,22 +70,21 @@ export default function History() {
       {result && (
         <>
           <div className="row g-2 mb-3">
-            <Stat label="Ngày công" value={result.totals.daysWorked} />
-            <Stat label="Giờ làm" value={fmtMinutes(result.totals.workedMinutes)} />
-            <Stat label="Đi muộn" value={fmtMinutes(result.totals.lateMinutes)} />
-            <Stat label="Về sớm" value={fmtMinutes(result.totals.earlyMinutes)} />
+            <Stat label="Ngày công" value={salary.workedDays} />
+            <Stat label="Giờ làm" value={fmtMinutes(salary.workedMinutes)} />
+            <Stat label="Đi muộn" value={fmtMinutes(salary.lateMinutes)} />
+            <Stat label="Về sớm" value={fmtMinutes(salary.earlyLeaveMinutes)} />
           </div>
           <div className="card border-0 shadow-sm mb-3">
             <div className="card-body d-flex justify-content-between align-items-center">
               <div>
-                <div className="text-muted small">
-                  {result.locked ? "Lương đã chốt" : "Lương tạm tính (tới hiện tại)"}
-                </div>
-                <div className="fs-4 fw-bold">{fmtMoney(result.totals.net)}</div>
+                <div className="text-muted small">{SALARY_SOURCE_LABEL[result.paysheetStatus] || ESTIMATE_LABEL}</div>
+                <div className="fs-4 fw-bold">{fmtMoney(salary.netSalary)}</div>
               </div>
               <div className="text-end small text-muted">
-                <div>Gộp: {fmtMoney(result.totals.gross)}</div>
-                <div>Phạt: −{fmtMoney(result.totals.penalty)}</div>
+                <div>Lương giờ: {fmtMoney(salary.hourlyWage)}</div>
+                <div>Gộp: {fmtMoney(salary.grossSalary)}</div>
+                <div>Phạt: −{fmtMoney(salary.penaltyAmount)}</div>
               </div>
             </div>
           </div>
@@ -99,7 +110,7 @@ export default function History() {
                   <span>{c.day}</span>
                   {c.info && (
                     <span className="cal-hours">
-                      {c.info.missingCheckout ? (c.key === todayKey ? "…" : "!") : (c.info.workedMinutes / 60).toFixed(1)}
+                      {c.info.isMissingCheckOut ? (c.key === todayKey ? "…" : "!") : (c.info.workedMinutes / 60).toFixed(1)}
                     </span>
                   )}
                 </button>
@@ -115,7 +126,7 @@ export default function History() {
         </>
       )}
 
-      {selected && <DaySheet dateKey={selected} info={dayMap.get(selected)} onClose={() => setSelected(null)} />}
+      {selected && <DaySheet workDate={selected} info={dayMap.get(selected)} onClose={() => setSelected(null)} />}
     </div>
   );
 }
@@ -134,26 +145,26 @@ function Stat({ label, value }) {
 }
 
 // Chi tiết từng lần chấm công của 1 ngày
-function DaySheet({ dateKey, info, onClose }) {
-  const [events, setEvents] = useState(null);
+function DaySheet({ workDate, info, onClose }) {
+  const [histories, setHistories] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     api
-      .get(`/attendance/me/day?date=${dateKey}`)
-      .then((d) => !cancelled && setEvents(d.events))
+      .get(`/clocking/me/day?date=${workDate}`)
+      .then((d) => !cancelled && setHistories(d.histories.filter((h) => h.status === CLOCKING_HISTORY_STATUS.VALID)))
       .catch((e) => !cancelled && setError(e.message));
     return () => {
       cancelled = true;
     };
-  }, [dateKey]);
+  }, [workDate]);
 
   return (
     <div className="sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="sheet" role="dialog" aria-modal="true">
         <div className="d-flex justify-content-between align-items-start mb-2">
-          <h2 className="h6 mb-0">{fmtDateLong(dateKey)}</h2>
+          <h2 className="h6 mb-0">{fmtDateLong(workDate)}</h2>
           <button type="button" className="btn-close" aria-label="Đóng" onClick={onClose} />
         </div>
 
@@ -161,30 +172,25 @@ function DaySheet({ dateKey, info, onClose }) {
           <div className="small text-muted mb-2">
             Làm {fmtMinutes(info.workedMinutes)}
             {info.lateMinutes > 0 && <> · muộn {info.lateMinutes} phút</>}
-            {info.earlyMinutes > 0 && <> · về sớm {info.earlyMinutes} phút</>}
+            {info.earlyLeaveMinutes > 0 && <> · về sớm {info.earlyLeaveMinutes} phút</>}
             {" · "}
-            {fmtMoney(info.net)}
-            {info.missingCheckout && dateKey !== vnDateKey() && (
+            {fmtMoney(info.netSalary)}
+            {info.isMissingCheckOut && workDate !== vnDateKey() && (
               <div className="text-danger mt-1">Thiếu check-out — hãy báo quản trị viên để chỉnh.</div>
             )}
           </div>
         )}
 
         {error && <div className="alert alert-danger py-2">{error}</div>}
-        {!events && !error && <p className="text-muted">Đang tải...</p>}
-        {events && events.filter((e) => e.status === "valid").length === 0 && <p className="text-muted mb-0">Không có lần chấm công nào trong ngày này.</p>}
-        {events &&
-          events
-            .filter((e) => e.status === "valid")
-            .map((e) => (
-              <div key={e.id} className="event-row">
-                <span className={`event-badge ${e.type}`}>{e.type === "in" ? "VÀO" : "RA"}</span>
-                <span className="fw-semibold">{fmtTime(e.occurred_at)}</span>
-                {e.method === "admin" && (
-                  <span className="ms-auto small text-muted">Đã thay đổi bởi admin</span>
-                )}
-              </div>
-            ))}
+        {!histories && !error && <p className="text-muted">Đang tải...</p>}
+        {histories && histories.length === 0 && <p className="text-muted mb-0">Không có lần chấm công nào trong ngày này.</p>}
+        {histories?.map((h) => (
+          <div key={h.id} className="event-row">
+            <span className={`event-badge ${h.actionType}`}>{CLOCKING_ACTION_LABEL[h.actionType]}</span>
+            <span className="fw-semibold">{fmtTime(h.clockTime)}</span>
+            {h.source === CLOCKING_SOURCE.ADMIN && <span className="ms-auto small text-muted">Đã thay đổi bởi admin</span>}
+          </div>
+        ))}
       </div>
     </div>
   );
