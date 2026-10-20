@@ -6,6 +6,7 @@ import {
   CLOCKING_ACTION, CLOCKING_ACTION_LABEL, CLOCKING_HISTORY_STATUS, CLOCKING_SOURCE,
 } from "../../constants/enums.js";
 import { fmtDateLong, fmtMinutes, fmtTime, vnDateKey } from "../../utils/format.js";
+import TimeInput from "./TimeInput.jsx";
 
 // Chi tiết 1 ngày của 1 nhân viên (admin): giờ vào, giờ ra và lịch sử các lần
 // chấm công. Lịch sử KHÔNG sửa/xoá được; nút "Chỉnh sửa" đặt lại giờ vào
@@ -73,7 +74,6 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
   return (
     <Modal title={`${fullName} — ${fmtDateLong(date)}`} onClose={onClose} width={520}>
       {error && <div className="alert alert-danger py-2">{error}</div>}
-      {!data && !error && <p className="text-muted">Đang tải...</p>}
 
       {data && (
         <>
@@ -104,25 +104,21 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
           )}
 
           {editing && (
-            <form onSubmit={save} className="border rounded p-3 mt-3 bg-light">
-              <div className="fw-semibold small mb-2">Chỉnh sửa giờ vào / giờ ra</div>
-              <div className="row g-2">
-                <div className="col-6">
-                  <label className="form-label small mb-1">Giờ vào</label>
-                  <input type="time" className="form-control" value={editing.checkInTime} onChange={(e) => setEditing({ ...editing, checkInTime: e.target.value })} />
-                </div>
-                <div className="col-6">
-                  <label className="form-label small mb-1">Giờ ra</label>
-                  <input type="time" className="form-control" value={editing.checkOutTime} onChange={(e) => setEditing({ ...editing, checkOutTime: e.target.value })} />
-                </div>
-                <div className="col-12 form-text mt-1">Có thể sửa một hoặc cả hai. Lần chấm gốc vẫn được giữ trong lịch sử.</div>
-                <div className="col-12 d-flex justify-content-end gap-2">
-                  <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setEditing(null)}>Đóng</button>
+            <form onSubmit={save} className="day-edit mt-3">
+              <div className="d-flex flex-wrap align-items-center gap-2">
+                <span className="small text-muted">Vào</span>
+                <TimeInput label="Giờ vào" value={editing.checkInTime} onChange={(v) => setEditing({ ...editing, checkInTime: v })} />
+                <span className="text-muted">→</span>
+                <span className="small text-muted">Ra</span>
+                <TimeInput label="Giờ ra" value={editing.checkOutTime} onChange={(v) => setEditing({ ...editing, checkOutTime: v })} />
+                <div className="ms-auto d-flex gap-2">
+                  <button type="button" className="btn btn-light btn-sm" onClick={() => setEditing(null)}>Huỷ</button>
                   <button type="submit" className="btn btn-primary btn-sm" disabled={!changed || saving}>
                     {saving ? "Đang lưu..." : "Lưu"}
                   </button>
                 </div>
               </div>
+              <div className="form-text mt-1">Sửa một hoặc cả hai giờ. Lần chấm gốc vẫn được giữ trong lịch sử.</div>
             </form>
           )}
 

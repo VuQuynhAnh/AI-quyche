@@ -29,7 +29,7 @@ export default function StoreLanding() {
         } catch {
           /* trình duyệt chặn lưu trữ: vẫn đi tiếp được, chỉ phải quét lại lần sau */
         }
-        if (user?.role === ROLE.USER) navigate("/work", { replace: true });
+        if (user?.role === ROLE.USER || user?.role === ROLE.ADMIN) navigate("/work", { replace: true });
       })
       .catch((e) => !cancelled && setError(e.message));
     return () => {

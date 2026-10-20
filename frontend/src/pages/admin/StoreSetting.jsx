@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { api } from "../../api/client.js";
 import { useNotification } from "../../context/NotificationContext.jsx";
 import { getCurrentPosition } from "../../utils/geo.js";
+import TimeInput from "../../components/hr/TimeInput.jsx";
 
 // Thiết lập cửa hàng: giờ vào/tan ca, tiền phạt mỗi phút muộn/sớm, vị trí +
 // bán kính chấm công (tuỳ chọn), và mã QR dán tại quầy.
@@ -62,7 +63,7 @@ export default function StoreSetting() {
     }
   }
 
-  if (!store || !form) return <p className="text-muted">Đang tải...</p>;
+  if (!store || !form) return null; // lớp phủ "Đang xử lý" toàn màn hình đang hiện
 
   return (
     <div className="row g-3">
@@ -75,11 +76,11 @@ export default function StoreSetting() {
             <div className="row g-2">
               <div className="col-6">
                 <label className="form-label small mb-1">Giờ vào ca</label>
-                <input type="time" className="form-control" required value={form.shiftStartTime} onChange={set("shiftStartTime")} />
+                <TimeInput required value={form.shiftStartTime} onChange={(v) => setForm((f) => ({ ...f, shiftStartTime: v }))} />
               </div>
               <div className="col-6">
                 <label className="form-label small mb-1">Giờ tan ca</label>
-                <input type="time" className="form-control" required value={form.shiftEndTime} onChange={set("shiftEndTime")} />
+                <TimeInput required value={form.shiftEndTime} onChange={(v) => setForm((f) => ({ ...f, shiftEndTime: v }))} />
               </div>
               <div className="col-12">
                 <label className="form-label small mb-1">Tiền phạt mỗi phút đi muộn / về sớm (đ)</label>

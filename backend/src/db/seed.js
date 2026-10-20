@@ -32,6 +32,7 @@ import {
   CLOCKING_ACTION, CLOCKING_SOURCE, PAYSHEET_STATUS, POSTGRES_ENUM_TYPES, ROLE, enumValues,
 } from "../constants/enums.js";
 import { summarizeClockingDay } from "../services/payrollCalculator.js";
+import { vnToday } from "../services/storePlan.service.js";
 import { distanceMeters } from "../utils/geo.js";
 import { extractText } from "../utils/textExtractor.js";
 import { splitIntoChunks } from "../utils/textChunker.js";
@@ -66,6 +67,8 @@ const STORES = [
     key: "hoan-kiem",
     name: "Cửa hàng Hoàn Kiếm",
     address: "12 Hàng Bài, Hoàn Kiếm, Hà Nội",
+    // Gói do superadmin đặt: hạn dùng tính từ hôm nay (ngày)
+    plan: { ownerPhoneNumber: "0912000001", maxEmployeeCount: 10, expiresInDays: 365 },
     setting: { latitude: 21.0245, longitude: 105.8522, checkInRadiusMeters: 100, shiftStartTime: "08:00", shiftEndTime: "17:00", penaltyAmountPerMinute: 1000 },
     admin: { fullName: "Đỗ Thu Hà", email: "admin.hoankiem@smartclocking.vn", password: "Admin@123" },
     employees: [
@@ -78,6 +81,7 @@ const STORES = [
     key: "cau-giay",
     name: "Cửa hàng Cầu Giấy",
     address: "88 Xuân Thuỷ, Cầu Giấy, Hà Nội",
+    plan: { ownerPhoneNumber: "0912000002", maxEmployeeCount: 5, expiresInDays: 20 }, // sắp hết hạn
     setting: { latitude: 21.0368, longitude: 105.7826, checkInRadiusMeters: 150, shiftStartTime: "09:00", shiftEndTime: "18:00", penaltyAmountPerMinute: 500 },
     admin: { fullName: "Vũ Minh Quân", email: "admin.caugiay@smartclocking.vn", password: "Admin@123" },
     employees: [
@@ -154,7 +158,15 @@ async function seedAccounts() {
 
   const stores = [];
   for (const def of STORES) {
-    const { store } = await superadminService.createStore(superadmin, { name: def.name, address: def.address, admin: def.admin });
+    const expiry = new Date(Date.now() + def.plan.expiresInDays * 86400000);
+    const { store } = await superadminService.createStore(superadmin, {
+      name: def.name,
+      address: def.address,
+      ownerPhoneNumber: def.plan.ownerPhoneNumber,
+      maxEmployeeCount: def.plan.maxEmployeeCount,
+      expiryDate: vnToday(expiry),
+      admin: def.admin,
+    });
     const s = def.setting;
     await storeRepository.updateSetting(store.id, {
       shift_start_time: s.shiftStartTime,

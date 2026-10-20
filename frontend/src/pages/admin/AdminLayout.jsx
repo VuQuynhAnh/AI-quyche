@@ -12,7 +12,7 @@ import { useAuth } from "../../context/AuthContext.jsx";
 //     tốt bình thường.
 // Menu chia 3 nhóm: "Chấm công & lương" là phần chính (màn mặc định khi vào
 // /admin), "Trợ lý AI" giữ nguyên toàn bộ tính năng cũ (tổng quan, hội thoại,
-// quy chế), "Hệ thống" là quản lý tài khoản đăng nhập.
+// quy chế). Người của cửa hàng (kể cả thăng/hạ admin) quản lý ở "Nhân viên".
 const NAV_GROUPS = [
   {
     title: "Chấm công & lương",
@@ -30,10 +30,6 @@ const NAV_GROUPS = [
       { to: "/admin/logs", label: "Hội thoại", icon: ChatIcon },
       { to: "/admin/documents", label: "Quy chế", icon: DocumentIcon },
     ],
-  },
-  {
-    title: "Hệ thống",
-    items: [{ to: "/admin/accounts", label: "Tài khoản", icon: UsersIcon }],
   },
 ];
 
@@ -84,6 +80,10 @@ export default function AdminLayout() {
           <div className="text-white small text-truncate mb-2" title={user?.fullName}>
             {user?.fullName}
           </div>
+          {/* Admin cũng chấm công như nhân viên */}
+          <NavLink to="/work" className="btn btn-light btn-sm w-100 mb-2">
+            Chấm công của tôi
+          </NavLink>
           <button className="btn btn-outline-light btn-sm w-100" onClick={handleLogout}>
             Đăng xuất
           </button>
@@ -100,6 +100,7 @@ export default function AdminLayout() {
           </div>
           <div className="d-flex align-items-center gap-2">
             <span className="text-muted small d-none d-sm-inline">Xin chào, {user?.fullName}</span>
+            <NavLink to="/work" className="btn btn-primary btn-sm d-lg-none text-nowrap">Chấm công</NavLink>
             <button className="btn btn-outline-secondary btn-sm d-lg-none" onClick={handleLogout}>
               Đăng xuất
             </button>

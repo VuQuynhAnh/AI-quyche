@@ -6,9 +6,10 @@ export function createStoreRepository({ db }) {
     // Danh sách cửa hàng kèm số admin / nhân viên (màn superadmin)
     async listWithAccountCounts(executor = db) {
       const r = await executor.query(
-        `SELECT s.id, s.name, s.address, s.is_active, s.created_at,
+        `SELECT s.*,
                 COUNT(a.id) FILTER (WHERE a.role = $1)::int AS admin_count,
-                COUNT(a.id) FILTER (WHERE a.role = $2)::int AS user_count
+                COUNT(a.id) FILTER (WHERE a.role = $2)::int AS user_count,
+                COUNT(a.id) FILTER (WHERE a.is_active)::int AS active_account_count
          FROM store s
          LEFT JOIN account a ON a.store_id = s.id
          GROUP BY s.id
@@ -23,10 +24,14 @@ export function createStoreRepository({ db }) {
       return r.rows[0] || null;
     },
 
-    async create({ name, address, createdByAccountId }, executor = db) {
+    async create(
+      { name, address, ownerPhoneNumber, maxEmployeeCount, expiryDate, createdByAccountId },
+      executor = db
+    ) {
       const r = await executor.query(
-        `INSERT INTO store (name, address, created_by_account_id) VALUES ($1, $2, $3) RETURNING *`,
-        [name, address, createdByAccountId]
+        `INSERT INTO store (name, address, owner_phone_number, max_employee_count, expiry_date, created_by_account_id)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [name, address, ownerPhoneNumber, maxEmployeeCount, expiryDate, createdByAccountId]
       );
       return r.rows[0];
     },

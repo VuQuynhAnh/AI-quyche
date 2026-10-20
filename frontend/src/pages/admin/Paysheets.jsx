@@ -5,6 +5,7 @@ import MonthNav from "../../components/hr/MonthNav.jsx";
 import { useNotification } from "../../context/NotificationContext.jsx";
 import { PAYSHEET_STATUS, PAYSHEET_STATUS_LABEL } from "../../constants/enums.js";
 import { fmtDateLong, fmtDateTime, fmtMinutes, fmtMoney, fmtTime, monthLabel, vnMonthKey } from "../../utils/format.js";
+import { downloadPayslipCsv, printPayslip } from "../../utils/payslip.js";
 
 // Bảng lương tháng của cửa hàng:
 //   Tạo bảng lương ──▶ Nháp ──(Tính lại)──▶ Nháp ──(Chốt)──▶ Đã chốt
@@ -110,7 +111,6 @@ export default function Paysheets() {
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
-      {!data && !error && <p className="text-muted">Đang tải...</p>}
 
       {data && !paysheet && (
         <div className="card">
@@ -170,7 +170,7 @@ export default function Paysheets() {
                       <td className="text-end">{fmtMinutes(d.workedMinutes)}</td>
                       <td className="text-end">{d.lateMinutes + d.earlyLeaveMinutes}p</td>
                       <td className="text-end">{fmtMoney(d.grossSalary)}</td>
-                      <td className="text-end text-danger">−{fmtMoney(d.penaltyAmount)}</td>
+                      <td className="text-end text-danger">{d.penaltyAmount > 0 ? `−${fmtMoney(d.penaltyAmount)}` : ""}</td>
                       <td className="text-end fw-bold pe-3">{fmtMoney(d.netSalary)}</td>
                     </tr>
                   ))}
@@ -180,7 +180,7 @@ export default function Paysheets() {
                     <tr className="fw-bold">
                       <td className="ps-3" colSpan={5}>Tổng cộng</td>
                       <td className="text-end">{fmtMoney(paysheet.totalGrossSalary)}</td>
-                      <td className="text-end text-danger">−{fmtMoney(paysheet.totalPenaltyAmount)}</td>
+                      <td className="text-end text-danger">{paysheet.totalPenaltyAmount > 0 ? `−${fmtMoney(paysheet.totalPenaltyAmount)}` : ""}</td>
                       <td className="text-end pe-3">{fmtMoney(paysheet.totalNetSalary)}</td>
                     </tr>
                   </tfoot>
@@ -239,7 +239,25 @@ export default function Paysheets() {
       )}
 
       {detail && (
-        <Modal title={`${detail.fullName} — ${monthLabel(month)}`} onClose={() => setDetail(null)} width={760}>
+        <Modal
+          title={`${detail.fullName} — ${monthLabel(month)}`}
+          onClose={() => setDetail(null)}
+          width={760}
+          footer={
+            <>
+              <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => downloadPayslipCsv(detail, { month, statusLabel: statusInfo?.text })}>
+                Xuất file
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => printPayslip(detail, { month, statusLabel: statusInfo?.text }) || notifyError("Trình duyệt đã chặn cửa sổ in — hãy cho phép pop-up rồi thử lại.")}
+              >
+                In / PDF
+              </button>
+            </>
+          }
+        >
           <div className="table-responsive">
             <table className="table table-sm align-middle">
               <thead>
@@ -256,10 +274,11 @@ export default function Paysheets() {
                     <td>{fmtTime(d.checkInTime)}</td>
                     <td>{d.isMissingCheckOut ? <span className="text-danger">thiếu</span> : fmtTime(d.checkOutTime)}</td>
                     <td className="text-end">{fmtMinutes(d.workedMinutes)}</td>
-                    <td className="text-end">{d.lateMinutes}p</td>
-                    <td className="text-end">{d.earlyLeaveMinutes}p</td>
+                    {/* Ô bằng 0 để trống cho dễ nhìn ra ngày có đi muộn / về sớm / bị phạt */}
+                    <td className="text-end">{d.lateMinutes > 0 ? `${d.lateMinutes}p` : ""}</td>
+                    <td className="text-end">{d.earlyLeaveMinutes > 0 ? `${d.earlyLeaveMinutes}p` : ""}</td>
                     <td className="text-end">{fmtMoney(d.grossSalary)}</td>
-                    <td className="text-end text-danger">−{fmtMoney(d.penaltyAmount)}</td>
+                    <td className="text-end text-danger">{d.penaltyAmount > 0 ? `−${fmtMoney(d.penaltyAmount)}` : ""}</td>
                     <td className="text-end">{fmtMoney(d.netSalary)}</td>
                   </tr>
                 ))}

@@ -65,7 +65,6 @@ export default function History() {
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
-      {!result && !error && <p className="text-muted text-center">Đang tải...</p>}
 
       {result && (
         <>
@@ -182,7 +181,6 @@ function DaySheet({ workDate, info, onClose }) {
         )}
 
         {error && <div className="alert alert-danger py-2">{error}</div>}
-        {!histories && !error && <p className="text-muted">Đang tải...</p>}
         {histories && histories.length === 0 && <p className="text-muted mb-0">Không có lần chấm công nào trong ngày này.</p>}
         {histories?.map((h) => (
           <div key={h.id} className="event-row">

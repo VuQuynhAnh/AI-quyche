@@ -21,10 +21,19 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ---------- Cửa hàng ----------
 -- Do superadmin tạo (kèm 1 admin đầu tiên); sau đó cửa hàng tự quản lý.
+-- Gói sử dụng do superadmin đặt:
+--  - max_employee_count: số tài khoản ĐANG HOẠT ĐỘNG tối đa (admin + nhân viên);
+--    NULL = không giới hạn.
+--  - expiry_date: dùng được tới HẾT ngày này (giờ VN); NULL = không thời hạn.
+--    Hết hạn hoặc is_active = false -> mọi tài khoản của cửa hàng bị chặn.
+--  - owner_phone_number: SĐT chủ cửa hàng để chăm sóc khách hàng.
 CREATE TABLE store (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name                  VARCHAR(255) NOT NULL,
   address               VARCHAR(500),
+  owner_phone_number    VARCHAR(30),
+  max_employee_count    INT CHECK (max_employee_count IS NULL OR max_employee_count > 0),
+  expiry_date           DATE,
   is_active             BOOLEAN NOT NULL DEFAULT true,
   created_by_account_id UUID,           -- FK thêm sau khi có bảng account
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),

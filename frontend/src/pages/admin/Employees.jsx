@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client.js";
 import Modal from "../../components/hr/Modal.jsx";
+import { ROLE } from "../../constants/enums.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 import { useNotification } from "../../context/NotificationContext.jsx";
 import { fmtMoney } from "../../utils/format.js";
 
-const EMPTY = { fullName: "", email: "", password: "", phoneNumber: "", jobTitle: "", hourlyWage: "" };
+const EMPTY = { fullName: "", email: "", password: "", phoneNumber: "", jobTitle: "", hourlyWage: "", role: ROLE.USER };
 
-// Nhân viên của cửa hàng: thông tin cơ bản và lương theo giờ (1 mức duy nhất).
-// (Tài khoản quản trị viên quản lý ở mục "Tài khoản".)
+// Người của cửa hàng (admin + nhân viên) — nơi duy nhất admin quản lý người:
+// thông tin, lương giờ (1 mức duy nhất), tài khoản đăng nhập, thăng làm admin /
+// hạ xuống nhân viên, khoá (nghỉ việc) và xoá.
 export default function Employees() {
-  const { notifySuccess, notifyError } = useNotification();
+  const { user: me } = useAuth();
+  const { notifySuccess, notifyError, confirm } = useNotification();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(null);
@@ -35,21 +39,39 @@ export default function Employees() {
     setForm({
       id: emp.id, fullName: emp.fullName, email: emp.email, password: "", phoneNumber: emp.phoneNumber || "",
       jobTitle: emp.jobTitle || "", hourlyWage: String(emp.hourlyWage ?? 0), originalWage: emp.hourlyWage ?? 0,
-      isActive: emp.isActive,
+      isActive: emp.isActive, role: emp.role, orig: emp,
     });
   }
 
   async function save(e) {
     e.preventDefault();
+    if (form.id) {
+      const notes = [];
+      if (form.role !== form.orig.role) {
+        notes.push(form.role === ROLE.ADMIN
+          ? "• Thăng làm admin: người này sẽ vào được trang quản trị, xem và sửa chấm công, lương của cả cửa hàng."
+          : "• Hạ xuống nhân viên: người này sẽ không vào được trang quản trị nữa.");
+      }
+      if (form.email.trim().toLowerCase() !== form.orig.email) {
+        notes.push(`• Đổi email đăng nhập: ${form.orig.email} → ${form.email.trim()}. Lần đăng nhập sau phải dùng email mới.`);
+      }
+      if (notes.length) {
+        const ok = await confirm(`Lưu thay đổi cho "${form.orig.fullName}"?\n\n${notes.join("\n")}`, {
+          confirmText: "Lưu", danger: form.role !== form.orig.role,
+        });
+        if (!ok) return;
+      }
+    }
     setSaving(true);
     try {
       const body = {
         fullName: form.fullName, phoneNumber: form.phoneNumber, jobTitle: form.jobTitle,
-        hourlyWage: Number(form.hourlyWage || 0),
+        hourlyWage: Number(form.hourlyWage || 0), role: form.role,
       };
       if (form.id) {
         if (form.password) body.password = form.password;
         body.isActive = form.isActive;
+        body.email = form.email;
         await api.patch(`/hr/employees/${form.id}`, body);
         notifySuccess("Đã cập nhật nhân viên.");
       } else {
@@ -65,7 +87,26 @@ export default function Employees() {
     }
   }
 
+  async function remove() {
+    const ok = await confirm(
+      `Xoá hẳn "${form.orig.fullName}" (${form.orig.email})? Không thể hoàn tác.\n\n` +
+        `Nếu người này đã có chấm công/lương, hãy tắt "Đang làm việc" thay vì xoá.`,
+      { confirmText: "Xoá", danger: true }
+    );
+    if (!ok) return;
+    try {
+      await api.delete(`/hr/employees/${form.id}`);
+      notifySuccess("Đã xoá.");
+      setForm(null);
+      await load();
+    } catch (err) {
+      notifyError(err.message);
+    }
+  }
+
   const wageChanged = form?.id && Number(form.hourlyWage) !== Number(form.originalWage);
+  const isSelf = form?.id && form.orig.accountId === me?.id;
+  const emailChanged = form?.id && form.email.trim().toLowerCase() !== form.orig.email;
 
   return (
     <div>
@@ -93,7 +134,10 @@ export default function Employees() {
               {employees.map((e) => (
                 <tr key={e.id} className={e.isActive ? "" : "text-muted"}>
                   <td className="ps-3">
-                    <div className="fw-semibold">{e.fullName}</div>
+                    <div className="fw-semibold">
+                      {e.fullName}
+                      {e.role === ROLE.ADMIN && <span className="badge text-bg-primary ms-2 fw-normal">Admin</span>}
+                    </div>
                     <div className="small text-muted">{e.email}</div>
                   </td>
                   <td>{e.jobTitle || "—"}</td>
@@ -117,6 +161,9 @@ export default function Employees() {
           onClose={() => setForm(null)}
           footer={
             <>
+              {form.id && !isSelf && (
+                <button type="button" className="btn btn-outline-danger me-auto" onClick={remove}>Xoá</button>
+              )}
               <button type="button" className="btn btn-outline-secondary" onClick={() => setForm(null)}>Huỷ</button>
               <button type="submit" form="emp-form" className="btn btn-primary" disabled={saving}>{saving ? "Đang lưu..." : "Lưu"}</button>
             </>
@@ -129,7 +176,16 @@ export default function Employees() {
             </div>
             <div className="col-12">
               <label className="form-label small mb-1">Email đăng nhập</label>
-              <input type="email" className="form-control" required disabled={!!form.id} value={form.email} onChange={set("email")} />
+              <input type="email" className="form-control" required value={form.email} onChange={set("email")} />
+              {emailChanged && <div className="form-text text-warning-emphasis">Người này sẽ phải đăng nhập bằng email mới.</div>}
+            </div>
+            <div className="col-12">
+              <label className="form-label small mb-1">Vai trò</label>
+              <select className="form-select" value={form.role} onChange={set("role")} disabled={isSelf}>
+                <option value={ROLE.USER}>Nhân viên</option>
+                <option value={ROLE.ADMIN}>Admin (vào được trang quản trị cửa hàng)</option>
+              </select>
+              {isSelf && <div className="form-text">Không thể tự đổi vai trò của chính mình.</div>}
             </div>
             <div className="col-12">
               <label className="form-label small mb-1">{form.id ? "Đặt lại mật khẩu (để trống nếu không đổi)" : "Mật khẩu"}</label>
@@ -155,7 +211,7 @@ export default function Employees() {
             {form.id && (
               <div className="col-12">
                 <div className="form-check form-switch mt-1">
-                  <input className="form-check-input" type="checkbox" id="emp-active" checked={form.isActive} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} />
+                  <input className="form-check-input" type="checkbox" id="emp-active" disabled={isSelf} checked={form.isActive} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} />
                   <label className="form-check-label" htmlFor="emp-active">Đang làm việc (tắt = nghỉ việc, không đăng nhập được)</label>
                 </div>
               </div>

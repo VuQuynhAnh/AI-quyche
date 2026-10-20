@@ -34,6 +34,11 @@ export function createHrRouter({ storeSettingService, employeeService, clockingM
     res.json(await employeeService.update(req.user, req.params.id, req.body));
   }));
 
+  router.delete("/employees/:id", asyncHandler(async (req, res) => {
+    await employeeService.remove(req.user, req.params.id);
+    res.status(204).end();
+  }));
+
   // ---------- Chấm công ----------
   router.get("/clockings/overview", asyncHandler(async (req, res) => {
     res.json(await clockingManagementService.getMonthOverview(req.user, req.query));

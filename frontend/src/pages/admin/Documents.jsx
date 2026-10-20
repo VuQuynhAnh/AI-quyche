@@ -101,15 +101,16 @@ export default function Documents() {
   // nghĩa cho popover tin nhắn) để 2 nơi có giao diện giống hệt nhau.
   const [docMenu, setDocMenu] = useState(null); // { id, status, left, top, openUp }
 
-  async function loadDocuments() {
-    const data = await api.get("/documents");
+  async function loadDocuments({ silent = false } = {}) {
+    const data = await api.get("/documents", { silent });
     setDocuments(data.documents);
   }
 
   useEffect(() => {
     loadDocuments();
     // Tự động làm mới danh sách mỗi 4 giây để cập nhật trạng thái xử lý (processing -> ready)
-    const interval = setInterval(loadDocuments, 4000);
+    // — chạy ngầm, không che màn hình
+    const interval = setInterval(() => loadDocuments({ silent: true }), 4000);
     return () => clearInterval(interval);
   }, []);
 
@@ -462,11 +463,8 @@ export default function Documents() {
                 <button type="button" className="btn-close" aria-label="Đóng" onClick={closePreview} />
               </div>
               <div className="doc-preview-body">
-                {previewLoading ? (
-                  <p className="text-muted mb-0">Đang tải nội dung...</p>
-                ) : (
-                  <pre className="doc-preview-content">{preview.content}</pre>
-                )}
+                {/* Đang tải: để trống — lớp phủ "Đang xử lý" toàn màn hình đang hiện */}
+                {!previewLoading && <pre className="doc-preview-content">{preview.content}</pre>}
               </div>
             </div>
           </div>,

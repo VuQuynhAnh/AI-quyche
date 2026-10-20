@@ -39,8 +39,9 @@ import { createAiProvider } from "./providers/ai.provider.js";
 
 // Services
 import { createAuthService } from "./services/auth.service.js";
+import { createStorePlanService } from "./services/storePlan.service.js";
+import { createAccountAccessGuard } from "./middleware/accountAccess.js";
 import { createSuperadminService } from "./services/superadmin.service.js";
-import { createStoreAccountService } from "./services/storeAccount.service.js";
 import { createStoreSettingService } from "./services/storeSetting.service.js";
 import { createEmployeeService } from "./services/employee.service.js";
 import { createTimesheetService } from "./services/timesheet.service.js";
@@ -86,15 +87,10 @@ export function createContainer() {
 
   // ---------- Services: tài khoản & cửa hàng ----------
   const authService = createAuthService({ accountRepository, passwordHasher, tokenService });
+  const storePlanService = createStorePlanService({ storeRepository, accountRepository });
   const superadminService = createSuperadminService({
     transaction,
     storeRepository,
-    accountRepository,
-    employeeRepository,
-    passwordHasher,
-  });
-  const storeAccountService = createStoreAccountService({
-    transaction,
     accountRepository,
     employeeRepository,
     passwordHasher,
@@ -105,6 +101,7 @@ export function createContainer() {
     accountRepository,
     employeeRepository,
     passwordHasher,
+    storePlanService,
   });
 
   // ---------- Services: chấm công & lương ----------
@@ -164,7 +161,7 @@ export function createContainer() {
     superadmin: createSuperadminRouter({ superadminService }),
     hr: createHrRouter({ storeSettingService, employeeService, clockingManagementService, paysheetService }),
     clocking: createClockingRouter({ clockingService }),
-    admin: createAdminRouter({ storeAccountService, dashboardService, supportInboxService }),
+    admin: createAdminRouter({ dashboardService, supportInboxService }),
     documents: createDocumentsRouter({ regulationDocumentService }),
     "doc-files": createDocumentFilesRouter({ regulationDocumentService }),
     chat: createChatRouter({ chatService }),
@@ -172,6 +169,7 @@ export function createContainer() {
 
   return {
     routers,
+    accountAccessGuard: createAccountAccessGuard({ accountRepository, tokenService }),
     // Xuất thêm để script (db/seed.js) và test dùng lại
     transaction,
     repositories: {
@@ -188,7 +186,6 @@ export function createContainer() {
     providers: { aiProvider },
     services: {
       superadminService,
-      storeAccountService,
       employeeService,
       timesheetService,
       paysheetService,

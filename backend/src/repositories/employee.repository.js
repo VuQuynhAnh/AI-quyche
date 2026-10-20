@@ -1,5 +1,4 @@
 // Truy cập bảng employee (hồ sơ nhân viên, 1–1 với account thuộc cửa hàng).
-import { ROLE } from "../constants/enums.js";
 
 const EMPLOYEE_COLUMNS = `
   e.id, e.account_id, e.phone_number, e.job_title, e.hourly_wage, e.created_at, e.updated_at,
@@ -34,28 +33,29 @@ export function createEmployeeRepository({ db }) {
       return r.rows[0] || null;
     },
 
-    // Nhân viên (role user) của cửa hàng
-    async listUsersInStore(storeId, executor = db) {
+    // Mọi người của cửa hàng (admin + nhân viên) — màn "Nhân viên" của admin
+    async listInStore(storeId, executor = db) {
       const r = await executor.query(
         `SELECT ${EMPLOYEE_COLUMNS} FROM employee e JOIN account a ON a.id = e.account_id
-         WHERE a.store_id = $1 AND a.role = $2
-         ORDER BY a.is_active DESC, a.full_name`,
-        [storeId, ROLE.USER]
+         WHERE a.store_id = $1
+         ORDER BY a.is_active DESC, a.role, a.full_name`,
+        [storeId]
       );
       return r.rows;
     },
 
     // Người cần có trong bảng công / bảng lương của kỳ [firstDate, lastDate]:
-    // nhân viên (role user) đang làm việc + bất kỳ ai đã có công trong kỳ
+    // mọi người của cửa hàng đang làm việc (admin cũng chấm công, nhận lương
+    // như nhân viên) + bất kỳ ai đã có công trong kỳ (kể cả đã nghỉ)
     async listForPeriod({ storeId, firstDate, lastDate }, executor = db) {
       const r = await executor.query(
         `SELECT ${EMPLOYEE_COLUMNS} FROM employee e JOIN account a ON a.id = e.account_id
          WHERE a.store_id = $1
-           AND ((a.role = $2 AND a.is_active) OR EXISTS (
+           AND (a.is_active OR EXISTS (
              SELECT 1 FROM clocking c
-             WHERE c.employee_id = e.id AND c.work_date BETWEEN $3 AND $4))
+             WHERE c.employee_id = e.id AND c.work_date BETWEEN $2 AND $3))
          ORDER BY a.full_name`,
-        [storeId, ROLE.USER, firstDate, lastDate]
+        [storeId, firstDate, lastDate]
       );
       return r.rows;
     },

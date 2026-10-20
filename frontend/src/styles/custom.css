@@ -1063,7 +1063,7 @@
   border-radius: 0.75rem;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.25);
   width: min(720px, 100%);
-  max-height: min(80vh, 720px);
+  max-height: min(90vh, 760px);
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -1071,6 +1071,11 @@
 
 .doc-preview-body {
   overflow-y: auto;
+  /* .row của Bootstrap có margin âm 2 bên — không chặn trục ngang thì form
+     trong modal sinh thêm thanh cuộn ngang. Padding nhỏ để viền focus của
+     input không bị cắt. */
+  overflow-x: hidden;
+  padding: 2px 4px;
   flex-grow: 1;
 }
 
@@ -1169,28 +1174,95 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Nút chấm công: chữ nhật rộng hết màn hình, kiểu nút chính của app di động */
 .check-btn {
-  width: 168px;
-  height: 168px;
-  border-radius: 50%;
+  width: 100%;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   border: none;
+  border-radius: 12px;
   color: #fff;
-  font-size: 1.25rem;
-  font-weight: 700;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.25);
-  transition: transform 0.1s ease, opacity 0.15s ease;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.15);
+  transition: transform 0.1s ease, opacity 0.15s ease, filter 0.15s ease;
+}
+.check-btn:hover:not(:disabled) {
+  filter: brightness(1.05);
 }
 .check-btn:active:not(:disabled) {
-  transform: scale(0.96);
+  transform: scale(0.98);
 }
 .check-btn:disabled {
   opacity: 0.6;
 }
 .check-btn.in {
-  background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+  background: #16a34a;
 }
 .check-btn.out {
-  background: linear-gradient(135deg, #f97316 0%, #c2410c 100%);
+  background: #ea580c;
+}
+
+/* Màn quét QR trong app (components/QrScanner.jsx): phủ toàn màn hình, nền đen */
+.qr-scanner {
+  position: fixed;
+  inset: 0;
+  z-index: 1150;
+  background: #000;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+}
+.qr-scanner-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  font-weight: 600;
+}
+.qr-scanner-view {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+.qr-scanner-view video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.qr-scanner-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(70vw, 280px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45); /* làm tối phần ngoài khung */
+}
+.qr-scanner-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 32px;
+  text-align: center;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+.qr-scanner-error {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
 }
 
 /* ---------- Lịch chấm công tháng ---------- */
@@ -1348,6 +1420,31 @@
 .att-table thead th.att-name {
   z-index: 4;
 }
+/* 2 cột tổng (Tổng giờ, Muộn/sớm) ghim bên phải: độ rộng cố định để cột
+   "Tổng giờ" biết cách mép phải bao xa (right = độ rộng cột "Muộn/sớm"). */
+.att-table .att-total,
+.att-table .att-late {
+  position: sticky;
+  z-index: 2;
+  background: #fff;
+}
+.att-table .att-late {
+  right: 0;
+  width: 76px;
+  min-width: 76px;
+}
+.att-table .att-total {
+  right: 76px;
+  width: 84px;
+  min-width: 84px;
+  border-left: 1px solid #eef0f4;
+  box-shadow: -4px 0 6px -4px rgba(15, 23, 42, 0.15); /* bóng mờ báo còn cột bị che */
+}
+.att-table thead th.att-total,
+.att-table thead th.att-late {
+  background: #f8fafc;
+  z-index: 4;
+}
 .att-cell {
   cursor: pointer;
   border-radius: 6px;
@@ -1404,4 +1501,80 @@
   letter-spacing: 0.04em;
   color: var(--bs-secondary-color);
   margin: 0.25rem 0;
+}
+
+/* Lớp phủ "đang tải" toàn màn hình (components/GlobalLoading.jsx) — nằm trên
+   cả modal (1090) và hộp xác nhận (1120) để chặn mọi thao tác khi đang lưu. */
+.global-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(15, 23, 42, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: progress;
+}
+
+.global-loading-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 14px 20px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.25);
+  font-weight: 500;
+}
+
+/* Ô chọn giờ 24h (components/hr/TimeInput.jsx): trông như 1 ô nhập nhỏ
+   "07 : 55", 2 <select> bên trong bỏ khung và mũi tên. */
+.time-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background: #fff;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.time-input:focus-within {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+.time-input select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0 2px;
+  width: 2.6ch;
+  text-align: center;
+  text-align-last: center;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  outline: none;
+}
+.time-input-sep {
+  color: #6c757d;
+  font-weight: 600;
+}
+.time-input.is-empty select {
+  color: #adb5bd;
+}
+.time-input.is-disabled {
+  background: #e9ecef;
+}
+.time-input.is-disabled select {
+  cursor: default;
+}
+
+/* Khối sửa giờ vào/ra trong chi tiết ngày công: 1 hàng gọn, ngăn bằng đường kẻ */
+.day-edit {
+  padding-top: 12px;
+  border-top: 1px solid #eef0f4;
 }

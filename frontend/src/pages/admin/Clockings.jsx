@@ -47,7 +47,6 @@ export default function Clockings() {
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
-      {!data && !error && <p className="text-muted">Đang tải...</p>}
 
       {data && (
         <div className="card">
@@ -62,8 +61,9 @@ export default function Clockings() {
                       <div style={{ fontSize: "0.62rem", fontWeight: 400 }}>{["CN", "T2", "T3", "T4", "T5", "T6", "T7"][dow(d)]}</div>
                     </th>
                   ))}
-                  <th style={{ minWidth: 64 }}>Tổng giờ</th>
-                  <th style={{ minWidth: 56 }}>Muộn/sớm</th>
+                  {/* 2 cột tổng được ghim bên phải khi cuộn ngang (xem .att-total, .att-late) */}
+                  <th className="att-total">Tổng giờ</th>
+                  <th className="att-late">Muộn/sớm</th>
                 </tr>
               </thead>
               <tbody>
@@ -89,8 +89,8 @@ export default function Clockings() {
                           </td>
                         );
                       })}
-                      <td className="fw-semibold">{fmtMinutes(r.totals.workedMinutes)}</td>
-                      <td className={r.totals.lateMinutes + r.totals.earlyLeaveMinutes > 0 ? "text-warning fw-semibold" : "text-muted"}>
+                      <td className="att-total fw-semibold">{fmtMinutes(r.totals.workedMinutes)}</td>
+                      <td className={`att-late ${r.totals.lateMinutes + r.totals.earlyLeaveMinutes > 0 ? "text-warning fw-semibold" : "text-muted"}`}>
                         {r.totals.lateMinutes + r.totals.earlyLeaveMinutes}p
                       </td>
                     </tr>

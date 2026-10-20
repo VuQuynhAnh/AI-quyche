@@ -31,7 +31,16 @@ export function serializeEmployee(e) {
 }
 
 export function serializeStore(s) {
-  return { id: s.id, name: s.name, address: s.address, isActive: s.is_active, createdAt: s.created_at };
+  return {
+    id: s.id,
+    name: s.name,
+    address: s.address,
+    ownerPhoneNumber: s.owner_phone_number,
+    maxEmployeeCount: s.max_employee_count,
+    expiryDate: s.expiry_date, // 'YYYY-MM-DD' hoặc null (không thời hạn)
+    isActive: s.is_active,
+    createdAt: s.created_at,
+  };
 }
 
 export function serializeSetting(s) {

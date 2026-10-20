@@ -17,7 +17,8 @@ export function createClockingRouter({ clockingService }) {
     res.json(await clockingService.getPublicStore(req.params.id));
   }));
 
-  router.use(requireAuth, requireRole(ROLE.USER));
+  // Admin cửa hàng cũng chấm công như nhân viên (chỉ superadmin thì không)
+  router.use(requireAuth, requireRole(ROLE.USER, ROLE.ADMIN));
 
   router.get("/me/today", asyncHandler(async (req, res) => {
     res.json(await clockingService.getToday(req.user));

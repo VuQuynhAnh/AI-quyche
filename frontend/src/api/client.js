@@ -12,7 +12,36 @@ function getToken() {
   return localStorage.getItem("token");
 }
 
-async function request(path, { method = "GET", body, isFormData = false } = {}) {
+// Đếm số request đang chạy để hiện lớp phủ "đang tải" toàn màn hình
+// (components/GlobalLoading.jsx) — chặn người dùng thao tác khác trong lúc
+// tải trang / lưu. Request chạy ngầm (polling, gửi câu hỏi chat...) truyền
+// { silent: true } để không che màn hình.
+let pendingCount = 0;
+const loadingListeners = new Set();
+
+export function subscribeLoading(listener) {
+  loadingListeners.add(listener);
+  listener(pendingCount);
+  return () => loadingListeners.delete(listener);
+}
+
+async function track(silent, run) {
+  if (silent) return run();
+  pendingCount += 1;
+  loadingListeners.forEach((l) => l(pendingCount));
+  try {
+    return await run();
+  } finally {
+    pendingCount -= 1;
+    loadingListeners.forEach((l) => l(pendingCount));
+  }
+}
+
+function request(path, { silent = false, ...options } = {}) {
+  return track(silent, () => send(path, options));
+}
+
+async function send(path, { method = "GET", body, isFormData = false } = {}) {
   const headers = {};
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -29,6 +58,13 @@ async function request(path, { method = "GET", body, isFormData = false } = {}) 
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
+    // Cửa hàng bị tạm ngưng / hết hạn hoặc tài khoản bị khoá trong lúc đang
+    // dùng: đăng xuất và về trang đăng nhập (đăng nhập lại sẽ hiện lý do)
+    if (token && (data.code === "STORE_LOCKED" || res.status === 401)) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      if (window.location.pathname !== "/login") window.location.assign("/login");
+    }
     throw new Error(data.error || `Lỗi ${res.status}`);
   }
 
@@ -40,7 +76,11 @@ async function request(path, { method = "GET", body, isFormData = false } = {}) 
 // đọc thành Blob rồi tự tạo 1 thẻ <a download> ẩn để trình duyệt tải xuống,
 // đồng thời vẫn gắn kèm JWT token qua header (thẻ <a href="..."> thường không
 // làm được việc này nếu route yêu cầu xác thực).
-async function downloadFile(path, fallbackFilename) {
+function downloadFile(path, fallbackFilename) {
+  return track(false, () => saveDownload(path, fallbackFilename));
+}
+
+async function saveDownload(path, fallbackFilename) {
   const token = getToken();
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -69,11 +109,12 @@ async function downloadFile(path, fallbackFilename) {
   URL.revokeObjectURL(url);
 }
 
+// opts: { silent: true } -> không hiện lớp phủ "đang tải" toàn màn hình
 export const api = {
-  get: (path) => request(path),
-  post: (path, body) => request(path, { method: "POST", body }),
-  patch: (path, body) => request(path, { method: "PATCH", body }),
-  postForm: (path, formData) => request(path, { method: "POST", body: formData, isFormData: true }),
-  delete: (path) => request(path, { method: "DELETE" }),
+  get: (path, opts) => request(path, { ...opts }),
+  post: (path, body, opts) => request(path, { ...opts, method: "POST", body }),
+  patch: (path, body, opts) => request(path, { ...opts, method: "PATCH", body }),
+  postForm: (path, formData, opts) => request(path, { ...opts, method: "POST", body: formData, isFormData: true }),
+  delete: (path, opts) => request(path, { ...opts, method: "DELETE" }),
   downloadFile,
 };

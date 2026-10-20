@@ -258,7 +258,8 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
     setLoadingOlder(true);
     try {
       const data = await api.get(
-        `/chat/thread?before=${encodeURIComponent(oldest.createdAt)}&limit=20`
+        `/chat/thread?before=${encodeURIComponent(oldest.createdAt)}&limit=20`,
+        { silent: true } // tải thêm khi cuộn lên — đã có dòng "Đang tải tin nhắn cũ hơn"
       );
       pendingScrollAction.current = {
         prevScrollHeight: container.scrollHeight,
@@ -397,7 +398,8 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
     setSending(true);
 
     try {
-      const data = await api.post("/chat/thread/ask", { question });
+      // Chat có hiệu ứng "đang trả lời" riêng — không che màn hình
+      const data = await api.post("/chat/thread/ask", { question }, { silent: true });
       setConversationId(data.conversationId);
       if (data.escalate) setStatus(CONVERSATION_STATUS.FLAGGED);
       pendingScrollAction.current = "bottom";
@@ -515,7 +517,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
     <div className={`chat-container d-flex flex-column ${embedded ? "chat-embedded" : ""}`}>
       <div className="chat-header d-flex justify-content-between align-items-center px-3 py-2">
         <div className="d-flex align-items-center gap-2 min-w-0">
-          {!embedded && user?.role === ROLE.USER && (
+          {!embedded && (user?.role === ROLE.USER || user?.role === ROLE.ADMIN) && (
             <button
               type="button"
               className="header-menu-trigger"
@@ -600,7 +602,6 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
       <div className="chat-messages flex-grow-1 p-3 d-flex flex-column gap-2" ref={scrollRef} onScroll={handleScroll}>
         {loadingOlder && <div className="text-center text-muted small mb-1">Đang tải tin nhắn cũ hơn...</div>}
 
-        {initialLoading && <p className="text-muted text-center mt-4">Đang tải đoạn chat...</p>}
 
         {!initialLoading && messages.length === 0 && (
           <p className="text-muted text-center mt-4">

@@ -17,7 +17,6 @@ import Paysheets from "./pages/admin/Paysheets.jsx";
 import Dashboard from "./pages/admin/Dashboard.jsx";
 import Documents from "./pages/admin/Documents.jsx";
 import Logs from "./pages/admin/Logs.jsx";
-import Accounts from "./pages/admin/Accounts.jsx";
 import Chat from "./pages/client/Chat.jsx";
 import EmployeeLayout from "./pages/employee/EmployeeLayout.jsx";
 import CheckIn from "./pages/employee/CheckIn.jsx";
@@ -45,7 +44,7 @@ export default function App() {
       <Route
         path="/work"
         element={
-          <ProtectedRoute allowedRoles={[ROLE.USER]}>
+          <ProtectedRoute allowedRoles={[ROLE.USER, ROLE.ADMIN]}>
             <EmployeeLayout />
           </ProtectedRoute>
         }
@@ -81,7 +80,8 @@ export default function App() {
         <Route path="ai" element={<Dashboard />} />
         <Route path="logs" element={<Logs />} />
         <Route path="documents" element={<Documents />} />
-        <Route path="accounts" element={<Accounts />} />
+        {/* Mục "Tài khoản" cũ đã gộp vào "Nhân viên" */}
+        <Route path="accounts" element={<Navigate to="/admin/employees" replace />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />

@@ -5,15 +5,36 @@ const PUBLIC_COLUMNS = `a.id, a.store_id, a.full_name, a.email, a.role, a.is_act
 
 export function createAccountRepository({ db }) {
   return {
-    // Dùng khi đăng nhập — kèm password_hash và trạng thái cửa hàng
+    // Dùng khi đăng nhập — kèm password_hash và trạng thái + hạn dùng của cửa hàng
     async findByEmailForLogin(email, executor = db) {
       const r = await executor.query(
-        `SELECT a.*, s.is_active AS store_is_active
+        `SELECT a.*, s.is_active AS store_is_active, s.expiry_date AS store_expiry_date
          FROM account a LEFT JOIN store s ON s.id = a.store_id
          WHERE a.email = $1`,
         [email]
       );
       return r.rows[0] || null;
+    },
+
+    // Kiểm tra ở MỌI request (middleware/accountAccess.js): tài khoản còn hoạt
+    // động, cửa hàng còn bật và còn hạn
+    async findAccessState(id, executor = db) {
+      const r = await executor.query(
+        `SELECT a.role, a.is_active, s.is_active AS store_is_active, s.expiry_date AS store_expiry_date
+         FROM account a LEFT JOIN store s ON s.id = a.store_id
+         WHERE a.id = $1`,
+        [id]
+      );
+      return r.rows[0] || null;
+    },
+
+    // Số tài khoản đang hoạt động của cửa hàng (so với gói max_employee_count)
+    async countActiveInStore(storeId, executor = db) {
+      const r = await executor.query(
+        `SELECT COUNT(*)::int AS count FROM account WHERE store_id = $1 AND is_active`,
+        [storeId]
+      );
+      return r.rows[0].count;
     },
 
     async existsByEmail(email, executor = db) {

@@ -4,23 +4,29 @@ import { useNotification } from "../../context/NotificationContext.jsx";
 import { CLOCKING_ACTION, CLOCKING_ACTION_LABEL, CLOCKING_SOURCE } from "../../constants/enums.js";
 import { fmtTime, fmtDateLong, getDeviceId, vnDateKey } from "../../utils/format.js";
 import { getCurrentPosition } from "../../utils/geo.js";
-import { QR_STORE_STORAGE_KEY } from "./StoreLanding.jsx";
+import QrScanner from "../../components/QrScanner.jsx";
 
-// Màn chấm công: đồng hồ + nút lớn Check-in/Check-out + các lần chấm hôm nay.
-// Giờ chấm công thực tế do SERVER ghi; đồng hồ ở đây chỉ để xem.
+// Lấy id cửa hàng từ nội dung mã QR dán tại quầy: "https://<web>/s/<id>"
+// (xem Thiết lập cửa hàng) — chấp nhận cả trường hợp QR chỉ chứa id.
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+function storeIdFromQr(text) {
+  const fromPath = String(text).match(new RegExp(`/s/(${UUID_RE.source})`, "i"));
+  if (fromPath) return fromPath[1];
+  const raw = String(text).trim();
+  return new RegExp(`^${UUID_RE.source}$`, "i").test(raw) ? raw : null;
+}
+
+// Màn chấm công: đồng hồ + nút Check-in/Check-out + các lần chấm hôm nay.
+// Mỗi lần chấm: bấm nút -> mở camera quét mã QR dán tại quầy (chứng minh đang
+// ở cửa hàng) -> lấy GPS -> gửi lên server. Giờ chấm công thực tế do SERVER
+// ghi; đồng hồ ở đây chỉ để xem.
 export default function CheckIn() {
   const { notifySuccess, notifyError } = useNotification();
   const [today, setToday] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(new Date());
-  const [qrStoreId, setQrStoreId] = useState(() => {
-    try {
-      return localStorage.getItem(QR_STORE_STORAGE_KEY);
-    } catch {
-      return null;
-    }
-  });
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -40,14 +46,24 @@ export default function CheckIn() {
     load();
   }, [load]);
 
-  async function handleCheck() {
+  function startCheck() {
     if (!today || busy) return;
+    setScanning(true);
+  }
+
+  async function handleQr(text) {
+    setScanning(false);
+    const storeId = storeIdFromQr(text);
+    if (!storeId) {
+      notifyError("Mã QR này không phải mã chấm công của cửa hàng.");
+      return;
+    }
     setBusy(true);
     try {
       const pos = await getCurrentPosition();
       const data = await api.post("/clocking/check", {
         actionType: today.nextActionType,
-        storeId: qrStoreId,
+        storeId,
         latitude: pos.lat,
         longitude: pos.lng,
         accuracy: pos.accuracy,
@@ -65,19 +81,9 @@ export default function CheckIn() {
     }
   }
 
-  function forgetQr() {
-    try {
-      localStorage.removeItem(QR_STORE_STORAGE_KEY);
-    } catch {
-      /* bỏ qua */
-    }
-    setQrStoreId(null);
-  }
-
   if (loadError) return <div className="alert alert-danger">{loadError}</div>;
-  if (!today) return <p className="text-muted text-center mt-4">Đang tải...</p>;
+  if (!today) return null; // lớp phủ "Đang xử lý" toàn màn hình đang hiện
 
-  const needQr = !qrStoreId;
   const isCheckIn = today.nextActionType === CLOCKING_ACTION.CHECK_IN;
   const dateKey = vnDateKey(now);
 
@@ -96,22 +102,22 @@ export default function CheckIn() {
         </div>
       </div>
 
-      {needQr && (
-        <div className="alert alert-info">
-          Hãy dùng camera điện thoại <strong>quét mã QR dán tại cửa hàng</strong> để chấm công.
-        </div>
-      )}
-
-      <div className="text-center my-4">
+      <div className="my-4">
         <button
           type="button"
           className={`check-btn ${isCheckIn ? "in" : "out"}`}
-          onClick={handleCheck}
-          disabled={busy || needQr}
+          onClick={startCheck}
+          disabled={busy}
         >
-          {busy ? "Đang xử lý..." : isCheckIn ? "CHECK-IN" : "CHECK-OUT"}
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
+            <rect x="7" y="7" width="10" height="10" rx="1" />
+          </svg>
+          <span>{busy ? "Đang chấm công..." : isCheckIn ? "Check-in" : "Check-out"}</span>
         </button>
-        <div className="text-muted small mt-2">Cần bật định vị (GPS) khi chấm công</div>
+        <div className="text-muted small mt-2 text-center">
+          Bấm để mở camera, quét mã QR dán tại quầy. Cần bật định vị (GPS).
+        </div>
       </div>
 
       <div className="card border-0 shadow-sm">
@@ -129,12 +135,12 @@ export default function CheckIn() {
         </div>
       </div>
 
-      {qrStoreId && (
-        <div className="text-center mt-3">
-          <button type="button" className="btn btn-link btn-sm text-muted" onClick={forgetQr}>
-            Quét lại mã QR
-          </button>
-        </div>
+      {scanning && (
+        <QrScanner
+          title={isCheckIn ? "Quét mã QR để check-in" : "Quét mã QR để check-out"}
+          onResult={handleQr}
+          onClose={() => setScanning(false)}
+        />
       )}
     </div>
   );

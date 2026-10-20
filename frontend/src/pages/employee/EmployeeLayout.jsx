@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { ROLE } from "../../constants/enums.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import ChatPopup from "../../components/ChatPopup.jsx";
 
@@ -21,9 +22,15 @@ export default function EmployeeLayout() {
           <div className="fw-bold text-truncate">{user?.fullName}</div>
           <div className="small" style={{ opacity: 0.85 }}>Chấm công</div>
         </div>
-        <button type="button" className="btn btn-sm btn-outline-light" onClick={handleLogout}>
-          Đăng xuất
-        </button>
+        <div className="d-flex gap-2 flex-shrink-0">
+          {/* Admin cửa hàng vừa chấm công vừa quản trị */}
+          {user?.role === ROLE.ADMIN && (
+            <NavLink to="/admin" className="btn btn-sm btn-outline-light">Quản trị</NavLink>
+          )}
+          <button type="button" className="btn btn-sm btn-outline-light" onClick={handleLogout}>
+            Đăng xuất
+          </button>
+        </div>
       </div>
 
       <div className="emp-content p-3">

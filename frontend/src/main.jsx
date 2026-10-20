@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
+import GlobalLoading from "./components/GlobalLoading.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -19,6 +20,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             của trình duyệt, xem context/NotificationContext.jsx. */}
         <NotificationProvider>
           <App />
+          <GlobalLoading />
         </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>

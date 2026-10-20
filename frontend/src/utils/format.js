@@ -62,13 +62,13 @@ export function fmtDateLong(dateKey) {
   return `${names[dow]}, ${pad(d)}/${pad(m)}/${y}`;
 }
 
-// 495 -> "8g 15p"
+// 495 -> "8h 15p"
 export function fmtMinutes(min) {
   const n = Math.max(0, Math.round(Number(min) || 0));
   const h = Math.floor(n / 60);
   const m = n % 60;
   if (h === 0) return `${m}p`;
-  return m === 0 ? `${h}g` : `${h}g ${pad(m)}p`;
+  return m === 0 ? `${h}h` : `${h}h ${pad(m)}p`;
 }
 
 export function fmtMoney(v) {

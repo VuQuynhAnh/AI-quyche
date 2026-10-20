@@ -2,6 +2,7 @@
 // superadmin (superadmin, admin đầu tiên của cửa hàng) hoặc admin cửa hàng tạo.
 import { ROLE } from "../constants/enums.js";
 import { AppError } from "../utils/AppError.js";
+import { assertStoreUsable } from "./storePlan.service.js";
 
 export function createAuthService({ accountRepository, passwordHasher, tokenService }) {
   async function login({ email, password } = {}) {
@@ -14,8 +15,9 @@ export function createAuthService({ accountRepository, passwordHasher, tokenServ
     if (!account.is_active) {
       throw AppError.forbidden("Tài khoản đã bị vô hiệu hoá. Liên hệ quản trị viên.");
     }
-    if (account.role !== ROLE.SUPERADMIN && !account.store_is_active) {
-      throw AppError.forbidden("Cửa hàng của bạn đang tạm ngưng hoạt động.");
+    // Cửa hàng bị tạm ngưng hoặc đã hết hạn -> không đăng nhập được
+    if (account.role !== ROLE.SUPERADMIN) {
+      assertStoreUsable({ isActive: account.store_is_active, expiryDate: account.store_expiry_date });
     }
 
     const user = {

@@ -72,7 +72,7 @@ export default function Dashboard() {
   }, []);
 
   if (error) return <div className="alert alert-danger">{error}</div>;
-  if (!stats) return <p className="text-muted">Đang tải...</p>;
+  if (!stats) return null; // lớp phủ "Đang xử lý" toàn màn hình đang hiện
 
   // Không còn vẽ biểu đồ riêng cho trạng thái xử lý quy chế (đã thay bằng
   // biểu đồ "Đánh giá câu trả lời của chatbot" — xem bên dưới), nên chỉ cần

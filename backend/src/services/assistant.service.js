@@ -106,9 +106,9 @@ export function createAssistantService({ documentRepository, aiProvider, salaryI
   async function answerQuestion(question, user) {
     // Câu hỏi về lương/đi muộn/công của CHÍNH nhân viên -> đi đường dữ liệu chấm
     // công, đặt TRƯỚC bước kiểm tra tài liệu nhạy cảm (nếu không, "lương của tôi"
-    // sẽ bị nhầm với hợp đồng lương cá nhân và chuyển cho admin). Admin không có
-    // dữ liệu chấm công nên vẫn đi đường RAG như cũ.
-    if (user?.role === ROLE.USER && salaryInquiryService.isPersonalDataQuestion(question)) {
+    // sẽ bị nhầm với hợp đồng lương cá nhân và chuyển cho admin). Admin cửa
+    // hàng cũng chấm công nên cũng hỏi được lương/công của chính mình.
+    if ((user?.role === ROLE.USER || user?.role === ROLE.ADMIN) && salaryInquiryService.isPersonalDataQuestion(question)) {
       return answerPersonalQuestion(question, user);
     }
 
