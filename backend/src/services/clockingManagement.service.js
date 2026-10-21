@@ -66,7 +66,8 @@ export function createClockingManagementService({
       clockingRepository.findByEmployeeAndDate(employee.id, date),
       timesheetService.isMonthFinalized(actor.storeId, date.slice(0, 7)),
     ]);
-    const histories = clocking ? await clockingRepository.listHistories(clocking.id, { includeVoided: true }) : [];
+    // Hiển thị dạng nhật ký thay đổi (theo thời điểm ghi nhận), không theo giờ chấm
+    const histories = clocking ? await clockingRepository.listHistoryLog(clocking.id) : [];
 
     return {
       date,

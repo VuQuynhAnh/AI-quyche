@@ -45,6 +45,8 @@ export function createClockingService({
       date: workDate,
       nextActionType: timesheetService.nextActionType(histories),
       histories: histories.map((h) => serializeClockingHistory(h, { withLocation: false })),
+      // Tổng hợp hôm nay: giờ vào/ra, giờ làm, phút muộn/về sớm (để nhân viên tự xem)
+      clocking: clocking ? serializeClocking(clocking) : null,
       store: { id: store.id, name: store.name, ...serializeSetting(setting) },
     };
   }

@@ -13,11 +13,24 @@ import {
   assertPassword, assertUuid, normalizeEmail, optionalText, parseMoney, requiredText,
 } from "../utils/validators.js";
 import { serializeEmployee } from "./serializers.js";
+import { isValidDateKey } from "../utils/vnTime.js";
+import { randomUUID } from "crypto";
+
+// Ảnh đại diện: frontend đã thu nhỏ trước khi gửi; chặn thêm ở đây cho chắc
+const AVATAR_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+export const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+
+// Ngày bắt đầu làm 'YYYY-MM-DD'; rỗng -> null (khi tạo mới: mặc định hôm nay)
+function parseStartWorkDate(value) {
+  if (value === "" || value == null) return null;
+  if (!isValidDateKey(value)) throw AppError.badRequest("Ngày bắt đầu làm không hợp lệ.");
+  return value;
+}
 
 const sameId = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 
 export function createEmployeeService({
-  transaction, accountRepository, employeeRepository, passwordHasher, storePlanService,
+  transaction, accountRepository, employeeRepository, passwordHasher, storePlanService, fileStorage,
 }) {
   async function findOrThrow(actor, employeeId) {
     assertUuid(employeeId);
@@ -60,6 +73,7 @@ export function createEmployeeService({
           phoneNumber: optionalText(body.phoneNumber, 30),
           jobTitle: optionalText(body.jobTitle, 100),
           hourlyWage,
+          startWorkDate: parseStartWorkDate(body.startWorkDate),
         },
         tx
       );
@@ -72,6 +86,13 @@ export function createEmployeeService({
   async function update(actor, employeeId, body = {}) {
     const current = await findOrThrow(actor, employeeId);
     const isSelf = sameId(current.account_id, actor.id);
+
+    // Người đã nghỉ: chỉ được "nhận lại" (isActive = true); muốn sửa thông tin
+    // khác thì phải nhận lại trước
+    if (!current.is_active) {
+      const otherKeys = Object.keys(body).filter((k) => k !== "isActive" && body[k] !== undefined);
+      if (otherKeys.length) throw AppError.badRequest("Nhân viên đã nghỉ việc — hãy bấm \"Nhận lại\" trước khi sửa thông tin.");
+    }
 
     const accountFields = {};
     const employeeFields = {};
@@ -112,6 +133,11 @@ export function createEmployeeService({
     }
     if (body.phoneNumber !== undefined) employeeFields.phone_number = optionalText(body.phoneNumber, 30);
     if (body.jobTitle !== undefined) employeeFields.job_title = optionalText(body.jobTitle, 100);
+    if (body.startWorkDate !== undefined) {
+      const date = parseStartWorkDate(body.startWorkDate);
+      if (!date) throw AppError.badRequest("Cần nhập ngày bắt đầu làm.");
+      employeeFields.start_work_date = date;
+    }
     if (body.hourlyWage !== undefined) employeeFields.hourly_wage = parseMoney(body.hourlyWage, "Lương giờ không hợp lệ.");
 
     await transaction.run(async (tx) => {
@@ -121,17 +147,46 @@ export function createEmployeeService({
     return { employee: serializeEmployee(await employeeRepository.findInStore(employeeId, actor.storeId)) };
   }
 
-  // Xoá hẳn — chỉ khi chưa có chấm công/lương (có rồi thì khoá tài khoản)
+  // Xoá hẳn — chỉ người ĐÃ NGHỈ và chưa có chấm công/lương (có rồi thì để ở danh sách đã nghỉ)
   async function remove(actor, employeeId) {
     const current = await findOrThrow(actor, employeeId);
     if (sameId(current.account_id, actor.id)) throw AppError.badRequest("Không thể tự xoá chính tài khoản đang đăng nhập.");
+    // Tránh xoá nhầm người đang làm: phải cho nghỉ việc trước rồi mới xoá được
+    if (current.is_active) throw AppError.badRequest("Hãy cho nhân viên nghỉ việc trước khi xoá.");
     await assertNotLastAdmin(actor, current, "Không thể xoá — cửa hàng cần giữ lại ít nhất 1 admin.");
     // Xoá tài khoản kéo theo (CASCADE) chấm công + chi tiết bảng lương của người đó
     if (await accountRepository.hasWorkRecords(current.account_id)) {
       throw AppError.conflict("Nhân viên đã có dữ liệu chấm công/lương — hãy khoá tài khoản (nghỉ việc) thay vì xoá.");
     }
     await accountRepository.deleteById(current.account_id);
+    if (current.avatar_path) await fileStorage.remove(current.avatar_path);
   }
 
-  return { list, create, update, remove };
+  // Đặt / thay ảnh đại diện. Tên file ngẫu nhiên (không đoán được) vì ảnh được
+  // phục vụ công khai để thẻ <img> hiển thị được mà không cần token.
+  async function setAvatar(actor, employeeId, file) {
+    const current = await findOrThrow(actor, employeeId);
+    if (!current.is_active) throw AppError.badRequest("Nhân viên đã nghỉ việc — hãy bấm \"Nhận lại\" trước khi sửa thông tin.");
+    const ext = file && AVATAR_TYPES[file.mimetype];
+    if (!ext) throw AppError.badRequest("Ảnh đại diện phải là file JPG, PNG hoặc WEBP.");
+    if (file.size > AVATAR_MAX_BYTES) throw AppError.badRequest("Ảnh đại diện tối đa 2MB.");
+
+    const avatarPath = `avatars/${randomUUID()}.${ext}`;
+    await fileStorage.save(avatarPath, file.buffer);
+    await employeeRepository.update(current.id, { avatar_path: avatarPath });
+    if (current.avatar_path) await fileStorage.remove(current.avatar_path);
+    return { employee: serializeEmployee(await employeeRepository.findInStore(employeeId, actor.storeId)) };
+  }
+
+  async function removeAvatar(actor, employeeId) {
+    const current = await findOrThrow(actor, employeeId);
+    if (!current.is_active) throw AppError.badRequest("Nhân viên đã nghỉ việc — hãy bấm \"Nhận lại\" trước khi sửa thông tin.");
+    if (current.avatar_path) {
+      await employeeRepository.update(current.id, { avatar_path: null });
+      await fileStorage.remove(current.avatar_path);
+    }
+    return { employee: serializeEmployee(await employeeRepository.findInStore(employeeId, actor.storeId)) };
+  }
+
+  return { list, create, update, remove, setAvatar, removeAvatar };
 }

@@ -57,10 +57,13 @@ export function createTimesheetService({ storeRepository, clockingRepository, pa
     return summary;
   }
 
-  // Lần bấm tiếp theo là check-in hay check-out (theo lần hợp lệ cuối cùng)
+  // Mỗi ngày chỉ check-in 1 lần: đã có check-in hợp lệ thì mọi lần bấm sau đều
+  // là check-out (lần check-out cuối cùng được tính là giờ ra — xem
+  // summarizeClockingDay trong payrollCalculator.js)
   function nextActionType(validHistories) {
-    const last = validHistories[validHistories.length - 1];
-    return last?.action_type === CLOCKING_ACTION.CHECK_IN ? CLOCKING_ACTION.CHECK_OUT : CLOCKING_ACTION.CHECK_IN;
+    return validHistories.some((h) => h.action_type === CLOCKING_ACTION.CHECK_IN)
+      ? CLOCKING_ACTION.CHECK_OUT
+      : CLOCKING_ACTION.CHECK_IN;
   }
 
   return {

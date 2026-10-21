@@ -4,6 +4,7 @@ import { api } from "../../api/client.js";
 import { useNotification } from "../../context/NotificationContext.jsx";
 import { getCurrentPosition } from "../../utils/geo.js";
 import TimeInput from "../../components/hr/TimeInput.jsx";
+import MoneyInput from "../../components/hr/MoneyInput.jsx";
 
 // Thiết lập cửa hàng: giờ vào/tan ca, tiền phạt mỗi phút muộn/sớm, vị trí +
 // bán kính chấm công (tuỳ chọn), và mã QR dán tại quầy.
@@ -83,8 +84,10 @@ export default function StoreSetting() {
                 <TimeInput required value={form.shiftEndTime} onChange={(v) => setForm((f) => ({ ...f, shiftEndTime: v }))} />
               </div>
               <div className="col-12">
-                <label className="form-label small mb-1">Tiền phạt mỗi phút đi muộn / về sớm (đ)</label>
-                <input type="number" min="0" step="100" className="form-control" required value={form.penaltyAmountPerMinute} onChange={set("penaltyAmountPerMinute")} />
+                <label className="form-label small mb-1">Tiền phạt mỗi phút đi muộn / về sớm</label>
+                <div style={{ maxWidth: 260 }}>
+                  <MoneyInput required value={form.penaltyAmountPerMinute} onChange={(v) => setForm((f) => ({ ...f, penaltyAmountPerMinute: v }))} />
+                </div>
               </div>
               <div className="col-12">
                 <div className="d-flex justify-content-between align-items-center">

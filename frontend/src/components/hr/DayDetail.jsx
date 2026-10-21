@@ -5,7 +5,7 @@ import { useNotification } from "../../context/NotificationContext.jsx";
 import {
   CLOCKING_ACTION, CLOCKING_ACTION_LABEL, CLOCKING_HISTORY_STATUS, CLOCKING_SOURCE,
 } from "../../constants/enums.js";
-import { fmtDateLong, fmtMinutes, fmtTime, vnDateKey } from "../../utils/format.js";
+import { fmtDateLong, fmtDateTime, fmtMinutes, fmtTime, vnDateKey } from "../../utils/format.js";
 import TimeInput from "./TimeInput.jsx";
 
 // Chi tiết 1 ngày của 1 nhân viên (admin): giờ vào, giờ ra và lịch sử các lần
@@ -33,7 +33,13 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
   }, [load]);
 
   const clocking = data?.clocking;
-  const valid = data ? data.histories.filter((h) => h.status === CLOCKING_HISTORY_STATUS.VALID) : [];
+  // data.histories xếp theo thời điểm ghi nhận (nhật ký) — giờ vào/ra phải xét theo giờ chấm
+  const valid = data
+    ? data.histories
+        .filter((h) => h.status === CLOCKING_HISTORY_STATUS.VALID)
+        .sort((a, b) => new Date(a.clockTime) - new Date(b.clockTime))
+    : [];
+  const byId = new Map((data?.histories || []).map((h) => [h.id, h]));
   const firstIn = valid.find((h) => h.actionType === CLOCKING_ACTION.CHECK_IN);
   const lastOut = [...valid].reverse().find((h) => h.actionType === CLOCKING_ACTION.CHECK_OUT);
   const hhmm = (iso) => (iso ? fmtTime(iso) : "");
@@ -123,28 +129,51 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
           )}
 
           {data.histories.length === 0 && <p className="text-muted small mt-2">Chưa có lần chấm công nào.</p>}
-          {data.histories.map((h) => {
-            const voided = h.status === CLOCKING_HISTORY_STATUS.VOIDED;
-            return (
-              <div key={h.id} className={`event-row ${voided ? "opacity-50" : ""}`}>
-                <span className={`event-badge ${h.actionType}`}>{CLOCKING_ACTION_LABEL[h.actionType]}</span>
-                <span className={`fw-semibold ${voided ? "text-decoration-line-through" : ""}`}>{fmtTime(h.clockTime)}</span>
-                <span className="ms-auto small text-muted text-end">
-                  {voided ? (
-                    <span className="badge text-bg-light border">Đã được thay</span>
-                  ) : h.source === CLOCKING_SOURCE.ADMIN ? (
-                    <span className="badge text-bg-info">Admin chỉnh</span>
-                  ) : (
-                    h.latitude != null && (
-                      <a href={`https://www.google.com/maps?q=${h.latitude},${h.longitude}`} target="_blank" rel="noreferrer">
-                        Vị trí{h.isOutOfRange && <span className="text-danger"> (ngoài phạm vi)</span>}
-                      </a>
-                    )
-                  )}
-                </span>
-              </div>
-            );
-          })}
+          {/* Nhật ký thay đổi: xếp theo lúc ghi nhận — lần chấm gốc trước, các lần admin sửa sau */}
+          <ol className="change-log">
+            {data.histories.map((h) => {
+              const voided = h.status === CLOCKING_HISTORY_STATUS.VOIDED;
+              const byAdmin = h.source === CLOCKING_SOURCE.ADMIN;
+              const replaced = h.replacedHistoryId ? byId.get(h.replacedHistoryId) : null;
+              const label = CLOCKING_ACTION_LABEL[h.actionType];
+              return (
+                <li key={h.id} className={`change-log-item ${byAdmin ? "admin" : ""} ${voided ? "voided" : ""}`}>
+                  <div className="d-flex align-items-center gap-2">
+                    <span className={`event-badge ${h.actionType}`}>{label}</span>
+                    {replaced ? (
+                      <span className="fw-semibold">
+                        <span className="text-muted text-decoration-line-through">{fmtTime(replaced.clockTime)}</span>
+                        <span className="text-muted mx-1">→</span>
+                        <span className={voided ? "text-decoration-line-through" : ""}>{fmtTime(h.clockTime)}</span>
+                      </span>
+                    ) : (
+                      <span className={`fw-semibold ${voided ? "text-decoration-line-through" : ""}`}>{fmtTime(h.clockTime)}</span>
+                    )}
+                    <span className="ms-auto small text-end">
+                      {voided ? (
+                        <span className="badge text-bg-light border">Đã được thay</span>
+                      ) : byAdmin ? (
+                        <span className="badge text-bg-info">Admin sửa</span>
+                      ) : (
+                        h.latitude != null && (
+                          <a href={`https://www.google.com/maps?q=${h.latitude},${h.longitude}`} target="_blank" rel="noreferrer">
+                            Vị trí{h.isOutOfRange && <span className="text-danger"> (ngoài phạm vi)</span>}
+                          </a>
+                        )
+                      )}
+                    </span>
+                  </div>
+                  <div className="change-log-meta">
+                    {byAdmin
+                      ? `${h.createdByName || "Admin"} ${replaced ? `sửa giờ ${label.toLowerCase()}` : `thêm giờ ${label.toLowerCase()}`}`
+                      : `${h.createdByName || "Nhân viên"} tự chấm công`}
+                    {" · "}
+                    {fmtDateTime(h.createdAt)}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
         </>
       )}
     </Modal>

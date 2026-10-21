@@ -86,6 +86,10 @@ CREATE TABLE employee (
   phone_number VARCHAR(30),
   job_title    VARCHAR(100),
   hourly_wage  NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (hourly_wage >= 0),
+  -- Ngày bắt đầu đi làm (giờ VN) — KHÁC created_at (ngày tạo tài khoản), admin sửa được
+  start_work_date DATE NOT NULL DEFAULT ((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date),
+  -- Ảnh đại diện: tên file trong backend/uploads/ (VD "avatars/<uuid>.jpg"); NULL = chưa có
+  avatar_path  VARCHAR(255),
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );

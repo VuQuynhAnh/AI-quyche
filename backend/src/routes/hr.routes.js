@@ -4,6 +4,8 @@
 //  /clockings   : bảng công, sửa giờ     → services/clockingManagement.service.js
 //  /paysheets   : bảng lương tháng       → services/paysheet.service.js
 import { Router } from "express";
+import multer from "multer";
+import { AVATAR_MAX_BYTES } from "../services/employee.service.js";
 import { ROLE } from "../constants/enums.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -37,6 +39,16 @@ export function createHrRouter({ storeSettingService, employeeService, clockingM
   router.delete("/employees/:id", asyncHandler(async (req, res) => {
     await employeeService.remove(req.user, req.params.id);
     res.status(204).end();
+  }));
+
+  // Ảnh đại diện (multipart, trường "avatar")
+  const avatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: AVATAR_MAX_BYTES } });
+  router.post("/employees/:id/avatar", avatarUpload.single("avatar"), asyncHandler(async (req, res) => {
+    res.json(await employeeService.setAvatar(req.user, req.params.id, req.file));
+  }));
+
+  router.delete("/employees/:id/avatar", asyncHandler(async (req, res) => {
+    res.json(await employeeService.removeAvatar(req.user, req.params.id));
   }));
 
   // ---------- Chấm công ----------

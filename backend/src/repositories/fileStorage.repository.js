@@ -18,7 +18,7 @@ export function createFileStorage({ uploadDir = DEFAULT_UPLOAD_DIR } = {}) {
 
     // Ghi buffer xuống đĩa với tên `storagePath`
     async save(storagePath, buffer) {
-      await fs.mkdir(uploadDir, { recursive: true });
+      await fs.mkdir(path.dirname(resolvePath(storagePath)), { recursive: true });
       await fs.writeFile(resolvePath(storagePath), buffer);
     },
 

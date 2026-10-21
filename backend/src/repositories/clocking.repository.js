@@ -104,6 +104,19 @@ export function createClockingRepository({ db }) {
       return r.rows;
     },
 
+    // Nhật ký thay đổi của 1 ngày (màn admin): MỌI lần chấm kể cả lần đã bị
+    // thay, xếp theo thời điểm GHI NHẬN (created_at), kèm tên người tạo
+    async listHistoryLog(clockingId, executor = db) {
+      const r = await executor.query(
+        `SELECT h.*, a.full_name AS created_by_name
+         FROM clocking_history h LEFT JOIN account a ON a.id = h.created_by_account_id
+         WHERE h.clocking_id = $1
+         ORDER BY h.created_at, h.clock_time`,
+        [clockingId]
+      );
+      return r.rows;
+    },
+
     async voidHistory(id, executor = db) {
       await executor.query(`UPDATE clocking_history SET status = $2 WHERE id = $1`, [
         id,

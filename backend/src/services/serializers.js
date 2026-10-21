@@ -25,8 +25,11 @@ export function serializeEmployee(e) {
     phoneNumber: e.phone_number,
     jobTitle: e.job_title,
     hourlyWage: toNumber(e.hourly_wage),
+    startWorkDate: e.start_work_date, // 'YYYY-MM-DD' — ngày bắt đầu đi làm
+    // Ảnh đại diện — phục vụ công khai qua /api/avatars/<tên file ngẫu nhiên> (routes/avatars.routes.js)
+    avatarUrl: e.avatar_path ? `/api/${e.avatar_path}` : null,
     isActive: e.is_active,
-    createdAt: e.created_at,
+    createdAt: e.created_at, // ngày tạo tài khoản
   };
 }
 
@@ -81,6 +84,8 @@ export function serializeClockingHistory(h, { withLocation = true } = {}) {
     status: h.status,
     isOutOfRange: h.is_out_of_range,
     replacedHistoryId: h.replaced_history_id,
+    createdAt: h.created_at, // thời điểm ghi nhận (khác clockTime khi admin sửa giờ)
+    createdByName: h.created_by_name ?? null,
     ...(withLocation
       ? {
           latitude: h.latitude,

@@ -1,16 +1,17 @@
 // Truy cập bảng employee (hồ sơ nhân viên, 1–1 với account thuộc cửa hàng).
 
 const EMPLOYEE_COLUMNS = `
-  e.id, e.account_id, e.phone_number, e.job_title, e.hourly_wage, e.created_at, e.updated_at,
+  e.id, e.account_id, e.phone_number, e.job_title, e.hourly_wage, e.start_work_date, e.avatar_path, e.created_at, e.updated_at,
   a.store_id, a.full_name, a.email, a.role, a.is_active`;
 
 export function createEmployeeRepository({ db }) {
   return {
-    async create({ accountId, phoneNumber, jobTitle, hourlyWage }, executor = db) {
+    // startWorkDate: 'YYYY-MM-DD'; null/undefined -> mặc định hôm nay (giờ VN)
+    async create({ accountId, phoneNumber, jobTitle, hourlyWage, startWorkDate }, executor = db) {
       const r = await executor.query(
-        `INSERT INTO employee (account_id, phone_number, job_title, hourly_wage)
-         VALUES ($1, $2, $3, $4) RETURNING id`,
-        [accountId, phoneNumber, jobTitle, hourlyWage]
+        `INSERT INTO employee (account_id, phone_number, job_title, hourly_wage, start_work_date)
+         VALUES ($1, $2, $3, $4, COALESCE($5::date, (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)) RETURNING id`,
+        [accountId, phoneNumber, jobTitle, hourlyWage, startWorkDate ?? null]
       );
       return r.rows[0];
     },

@@ -181,8 +181,10 @@ async function seedAccounts() {
     const admin = { id: adminAccount.id, role: ROLE.ADMIN, storeId: store.id };
 
     const employees = [];
-    for (const e of def.employees) {
-      const { employee } = await employeeService.create(admin, { ...e, password: EMPLOYEE_PASSWORD });
+    for (const [i, e] of def.employees.entries()) {
+      // Ngày bắt đầu làm mẫu (khác ngày tạo tài khoản): mỗi người vào làm 1 tháng khác nhau năm trước
+      const startWorkDate = e.startWorkDate || `${new Date().getFullYear() - 1}-${String(3 + i * 2).padStart(2, "0")}-01`;
+      const { employee } = await employeeService.create(admin, { ...e, startWorkDate, password: EMPLOYEE_PASSWORD });
       employees.push({ ...e, id: employee.id, accountId: employee.accountId });
     }
     stores.push({ ...def, id: store.id, adminActor: admin, employees });

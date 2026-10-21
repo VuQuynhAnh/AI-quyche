@@ -8,6 +8,12 @@
 //   lúc build, để gọi thẳng tới backend đã deploy.
 const BASE_URL = `${import.meta.env.VITE_API_URL || ""}/api`;
 
+// Đường dẫn file do backend trả về dạng "/api/..." (VD avatarUrl) -> URL đầy đủ
+// (khi deploy frontend và backend khác domain thì cần ghép VITE_API_URL)
+export function assetUrl(path) {
+  return path ? `${import.meta.env.VITE_API_URL || ""}${path}` : null;
+}
+
 function getToken() {
   return localStorage.getItem("token");
 }

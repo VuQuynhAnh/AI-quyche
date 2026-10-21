@@ -1527,54 +1527,304 @@
   font-weight: 500;
 }
 
-/* Ô chọn giờ 24h (components/hr/TimeInput.jsx): trông như 1 ô nhập nhỏ
-   "07 : 55", 2 <select> bên trong bỏ khung và mũi tên. */
+/* Ô chọn giờ 24h (components/hr/TimeInput.jsx): nút gọn "07 : 55", bấm mở
+   bảng chọn 2 cột Giờ / Phút (tự vẽ để có thanh cuộn mảnh, không dùng danh
+   sách mặc định của trình duyệt). */
 .time-input {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   height: 34px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 1px solid #dee2e6;
   border-radius: 8px;
   background: #fff;
+  color: #212529;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-.time-input:focus-within {
+.time-input:hover:not(:disabled) {
+  border-color: #adb5bd;
+}
+.time-input.is-open,
+.time-input:focus-visible {
+  outline: none;
   border-color: #86b7fe;
   box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
 }
-.time-input select {
-  appearance: none;
-  -webkit-appearance: none;
-  border: 0;
-  background: transparent;
-  padding: 0 2px;
-  width: 2.6ch;
-  text-align: center;
-  text-align-last: center;
-  font-weight: 600;
-  color: inherit;
-  cursor: pointer;
-  outline: none;
+.time-input.is-empty {
+  color: #adb5bd;
+}
+.time-input:disabled {
+  background: #e9ecef;
+  cursor: default;
 }
 .time-input-sep {
   color: #6c757d;
+}
+/* Ô ẩn chỉ để giữ ràng buộc "required" của form */
+.time-input-required {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.time-panel {
+  position: fixed;
+  z-index: 1150; /* trên modal (1090), dưới lớp phủ đang tải (1200) */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px;
+  width: 152px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+}
+.time-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: calc(100% - 4px);
+}
+.time-panel:has(.time-panel-clear) .time-column {
+  height: calc(100% - 36px);
+}
+.time-column-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  text-align: center;
+  padding-bottom: 4px;
+}
+.time-column-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 2px;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #d1d5db transparent;
+}
+.time-column-list::-webkit-scrollbar {
+  width: 4px;
+}
+.time-column-list::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+.time-column-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.time-option {
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  padding: 4px 0;
+  font-variant-numeric: tabular-nums;
+  color: #374151;
+}
+.time-option:hover {
+  background: #f1f5f9;
+}
+.time-option.active {
+  background: #0d6efd;
+  color: #fff;
   font-weight: 600;
 }
-.time-input.is-empty select {
-  color: #adb5bd;
-}
-.time-input.is-disabled {
-  background: #e9ecef;
-}
-.time-input.is-disabled select {
-  cursor: default;
+.time-panel-clear {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid #eef0f4;
+  background: transparent;
+  padding-top: 6px;
+  font-size: 0.8rem;
+  color: #dc3545;
 }
 
 /* Khối sửa giờ vào/ra trong chi tiết ngày công: 1 hàng gọn, ngăn bằng đường kẻ */
 .day-edit {
   padding-top: 12px;
   border-top: 1px solid #eef0f4;
+}
+
+/* Tóm tắt công hôm nay trên màn chấm công của nhân viên */
+.today-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  text-align: center;
+}
+.today-stat {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 8px 4px;
+}
+.today-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.today-flags .flag {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.today-flags .flag.ok {
+  background: #e7f7ec;
+  color: #15803d;
+}
+.today-flags .flag.warn {
+  background: #fff5db;
+  color: #a16207;
+}
+.today-flags .flag.bad {
+  background: #fde8e8;
+  color: #b91c1c;
+}
+
+/* Hồ sơ nhân viên kiểu CV (pages/admin/Employees.jsx): thẻ hồ sơ bên trái,
+   các nhóm thông tin bên phải; màn hẹp thì xếp chồng. */
+.emp-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+.emp-profile {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 20px;
+}
+.emp-profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 20px 14px;
+  background: #f8fafc;
+  border: 1px solid #eef0f4;
+  border-radius: 12px;
+  align-self: start;
+}
+.emp-profile-card .emp-avatar {
+  margin-bottom: 4px;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.15);
+}
+/* Họ tên & chức danh trông như chữ trên CV, chỉ hiện khung khi rê chuột / đang sửa */
+.emp-profile-name,
+.emp-profile-title {
+  text-align: center;
+  background: transparent;
+  border-color: transparent;
+}
+.emp-profile-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.emp-profile-title {
+  color: #6c757d;
+}
+.emp-profile-name:hover,
+.emp-profile-title:hover,
+.emp-profile-name:focus,
+.emp-profile-title:focus {
+  background: #fff;
+  border-color: #dee2e6;
+}
+.emp-section + .emp-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #eef0f4;
+}
+.emp-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6c757d;
+  margin-bottom: 10px;
+}
+@media (max-width: 640px) {
+  .emp-profile {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Nút đổi ảnh đại diện (biểu tượng máy ảnh ở góc avatar) */
+.emp-avatar-edit {
+  position: relative;
+  display: inline-block;
+}
+.emp-avatar-btn {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: #0d6efd;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+}
+.emp-avatar-btn:hover {
+  background: #0b5ed7;
+}
+
+/* Nhật ký thay đổi chấm công của 1 ngày (components/hr/DayDetail.jsx): đường
+   dọc nối các mốc, mốc do admin sửa tô màu khác */
+.change-log {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0 0 0 16px;
+  border-left: 2px solid #e5e7eb;
+}
+.change-log-item {
+  position: relative;
+  padding: 8px 0 10px 12px;
+}
+.change-log-item::before {
+  content: "";
+  position: absolute;
+  left: -23px;
+  top: 16px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #9ca3af;
+}
+.change-log-item.admin::before {
+  border-color: #0dcaf0;
+  background: #e7fbff;
+}
+.change-log-item.voided {
+  opacity: 0.6;
+}
+.change-log-meta {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: #6c757d;
 }

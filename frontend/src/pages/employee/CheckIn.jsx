@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
 import { useNotification } from "../../context/NotificationContext.jsx";
 import { CLOCKING_ACTION, CLOCKING_ACTION_LABEL, CLOCKING_SOURCE } from "../../constants/enums.js";
-import { fmtTime, fmtDateLong, getDeviceId, vnDateKey } from "../../utils/format.js";
+import { fmtTime, fmtDateLong, fmtMinutes, fmtMoney, getDeviceId, vnDateKey } from "../../utils/format.js";
 import { getCurrentPosition } from "../../utils/geo.js";
 import QrScanner from "../../components/QrScanner.jsx";
 
@@ -86,6 +86,10 @@ export default function CheckIn() {
 
   const isCheckIn = today.nextActionType === CLOCKING_ACTION.CHECK_IN;
   const dateKey = vnDateKey(now);
+  const c = today.clocking;
+  const hasCheckedOut = Boolean(c?.checkOutTime);
+  const offMinutes = c ? c.lateMinutes + c.earlyLeaveMinutes : 0;
+  const penalty = offMinutes * (today.store.penaltyAmountPerMinute || 0);
 
   return (
     <div>
@@ -113,16 +117,45 @@ export default function CheckIn() {
             <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
             <rect x="7" y="7" width="10" height="10" rx="1" />
           </svg>
-          <span>{busy ? "Đang chấm công..." : isCheckIn ? "Check-in" : "Check-out"}</span>
+          <span>{busy ? "Đang chấm công..." : isCheckIn ? "Check-in" : hasCheckedOut ? "Check-out lại" : "Check-out"}</span>
         </button>
         <div className="text-muted small mt-2 text-center">
-          Bấm để mở camera, quét mã QR dán tại quầy. Cần bật định vị (GPS).
+          {hasCheckedOut
+            ? "Đã check-out. Nếu về muộn hơn, bấm lại — lần check-out cuối cùng được tính là giờ ra."
+            : "Bấm để mở camera, quét mã QR dán tại quầy. Cần bật định vị (GPS)."}
         </div>
       </div>
 
+      {c && (
+        <div className="card border-0 shadow-sm mb-3">
+          <div className="card-body">
+            <h2 className="h6 mb-3">Công hôm nay</h2>
+            <div className="today-stats">
+              <TodayStat label="Giờ vào" value={fmtTime(c.checkInTime)} />
+              <TodayStat label="Giờ ra" value={hasCheckedOut ? fmtTime(c.checkOutTime) : "Đang làm"} />
+              <TodayStat label="Giờ làm" value={hasCheckedOut ? fmtMinutes(c.workedMinutes) : "—"} />
+            </div>
+            <div className="today-flags">
+              <span className={c.lateMinutes > 0 ? "flag warn" : "flag ok"}>
+                {c.lateMinutes > 0 ? `Đi muộn ${c.lateMinutes} phút` : "Đúng giờ vào"}
+              </span>
+              {hasCheckedOut && (
+                <span className={c.earlyLeaveMinutes > 0 ? "flag warn" : "flag ok"}>
+                  {c.earlyLeaveMinutes > 0 ? `Về sớm ${c.earlyLeaveMinutes} phút` : "Đủ giờ ra"}
+                </span>
+              )}
+              {penalty > 0 && <span className="flag bad">Phạt tạm tính {fmtMoney(penalty)}</span>}
+            </div>
+            {!hasCheckedOut && (
+              <div className="small text-muted mt-2">Tan ca lúc {today.store.shiftEndTime} — nhớ check-out trước khi về.</div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="card border-0 shadow-sm">
         <div className="card-body">
-          <h2 className="h6 mb-2">Hôm nay</h2>
+          <h2 className="h6 mb-2">Lịch sử chấm hôm nay</h2>
           {today.histories.length === 0 && <p className="text-muted small mb-0">Chưa có lần chấm công nào.</p>}
           {today.histories.map((h) => (
             <div key={h.id} className="event-row">
@@ -142,6 +175,15 @@ export default function CheckIn() {
           onClose={() => setScanning(false)}
         />
       )}
+    </div>
+  );
+}
+
+function TodayStat({ label, value }) {
+  return (
+    <div className="today-stat">
+      <div className="small text-muted">{label}</div>
+      <div className="fw-semibold">{value}</div>
     </div>
   );
 }

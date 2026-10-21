@@ -28,25 +28,22 @@ export function summarizeClockingDay({ workDate, shiftStartTime, shiftEndTime, h
     .map((h) => ({ ...h, t: new Date(h.clock_time).getTime() }))
     .sort((a, b) => a.t - b.t);
 
-  let open = null;
-  let workedMs = 0;
-  let firstIn = null;
-  let lastOut = null;
+  // 1 ngày = lần check-in ĐẦU TIÊN tới lần check-out CUỐI CÙNG sau đó (bấm
+  // check-out nhiều lần thì lần sau thay lần trước). Giờ làm chỉ tính phần
+  // nằm trong ca.
+  const firstIn = sorted.find((h) => h.action_type === CLOCKING_ACTION.CHECK_IN) || null;
+  const lastOut = firstIn
+    ? [...sorted].reverse().find((h) => h.action_type === CLOCKING_ACTION.CHECK_OUT && h.t > firstIn.t) || null
+    : null;
 
-  for (const h of sorted) {
-    if (h.action_type === CLOCKING_ACTION.CHECK_IN) {
-      if (!open) open = h; // check-in trùng liên tiếp: giữ lần đầu
-      if (!firstIn) firstIn = h;
-    } else if (open) {
-      const from = Math.max(open.t, shiftStart);
-      const to = Math.min(h.t, shiftEnd);
-      if (to > from) workedMs += to - from;
-      lastOut = h;
-      open = null;
-    }
+  let workedMs = 0;
+  if (firstIn && lastOut) {
+    const from = Math.max(firstIn.t, shiftStart);
+    const to = Math.min(lastOut.t, shiftEnd);
+    if (to > from) workedMs = to - from;
   }
 
-  const isMissingCheckOut = open !== null;
+  const isMissingCheckOut = Boolean(firstIn) && !lastOut;
   const lateMinutes = firstIn
     ? Math.min(shiftMinutes, Math.max(0, Math.floor((firstIn.t - shiftStart) / MINUTE_MS)))
     : 0;

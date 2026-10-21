@@ -65,6 +65,7 @@ import { createAdminRouter } from "./routes/admin.routes.js";
 import { createDocumentsRouter } from "./routes/documents.routes.js";
 import { createDocumentFilesRouter } from "./routes/documentFiles.routes.js";
 import { createChatRouter } from "./routes/chat.routes.js";
+import { createAvatarsRouter } from "./routes/avatars.routes.js";
 
 export function createContainer() {
   // ---------- Hạ tầng ----------
@@ -102,6 +103,7 @@ export function createContainer() {
     employeeRepository,
     passwordHasher,
     storePlanService,
+    fileStorage,
   });
 
   // ---------- Services: chấm công & lương ----------
@@ -165,6 +167,7 @@ export function createContainer() {
     documents: createDocumentsRouter({ regulationDocumentService }),
     "doc-files": createDocumentFilesRouter({ regulationDocumentService }),
     chat: createChatRouter({ chatService }),
+    avatars: createAvatarsRouter({ fileStorage }),
   };
 
   return {
