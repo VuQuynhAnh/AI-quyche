@@ -62,6 +62,13 @@ export function monthDateRange(monthKey) {
   return { firstDate: `${monthKey}-01`, lastDate: `${monthKey}-${pad(daysInMonth(monthKey))}` };
 }
 
+// Cộng/trừ n ngày cho 'YYYY-MM-DD'
+export function addDays(dateKey, n) {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
+}
+
 // Tháng liền trước 1 'YYYY-MM'
 export function prevMonthKey(monthKey) {
   const [y, m] = monthKey.split("-").map(Number);

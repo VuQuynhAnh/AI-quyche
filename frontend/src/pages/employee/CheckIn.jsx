@@ -6,6 +6,9 @@ import { fmtTime, fmtDateLong, fmtMinutes, fmtMoney, getDeviceId, vnDateKey } fr
 import { getCurrentPosition } from "../../utils/geo.js";
 import QrScanner from "../../components/QrScanner.jsx";
 
+// Màu nhãn VÀO / RA
+const EVENT_BADGE = { [CLOCKING_ACTION.CHECK_IN]: "text-bg-success", [CLOCKING_ACTION.CHECK_OUT]: "text-bg-warning" };
+
 // Lấy id cửa hàng từ nội dung mã QR dán tại quầy: "https://<web>/s/<id>"
 // (xem Thiết lập cửa hàng) — chấp nhận cả trường hợp QR chỉ chứa id.
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
@@ -95,7 +98,7 @@ export default function CheckIn() {
     <div>
       <div className="text-center mb-3">
         <div className="text-muted small">{fmtDateLong(dateKey)}</div>
-        <div className="emp-clock">
+        <div className="display-5 fw-bold font-monospace">
           {now.toLocaleTimeString("vi-VN", { hour12: false, timeZone: "Asia/Ho_Chi_Minh" })}
         </div>
         <div className="mt-1">
@@ -109,7 +112,7 @@ export default function CheckIn() {
       <div className="my-4">
         <button
           type="button"
-          className={`check-btn ${isCheckIn ? "in" : "out"}`}
+          className={`btn btn-lg w-100 py-3 fw-semibold shadow d-flex align-items-center justify-content-center gap-2 ${isCheckIn ? "btn-success" : "btn-warning"}`}
           onClick={startCheck}
           disabled={busy}
         >
@@ -130,21 +133,21 @@ export default function CheckIn() {
         <div className="card border-0 shadow-sm mb-3">
           <div className="card-body">
             <h2 className="h6 mb-3">Công hôm nay</h2>
-            <div className="today-stats">
+            <div className="row g-2 text-center">
               <TodayStat label="Giờ vào" value={fmtTime(c.checkInTime)} />
               <TodayStat label="Giờ ra" value={hasCheckedOut ? fmtTime(c.checkOutTime) : "Đang làm"} />
               <TodayStat label="Giờ làm" value={hasCheckedOut ? fmtMinutes(c.workedMinutes) : "—"} />
             </div>
-            <div className="today-flags">
-              <span className={c.lateMinutes > 0 ? "flag warn" : "flag ok"}>
+            <div className="d-flex flex-wrap gap-2 mt-3">
+              <span className={`badge rounded-pill ${c.lateMinutes > 0 ? FLAG.warn : FLAG.ok}`}>
                 {c.lateMinutes > 0 ? `Đi muộn ${c.lateMinutes} phút` : "Đúng giờ vào"}
               </span>
               {hasCheckedOut && (
-                <span className={c.earlyLeaveMinutes > 0 ? "flag warn" : "flag ok"}>
+                <span className={`badge rounded-pill ${c.earlyLeaveMinutes > 0 ? FLAG.warn : FLAG.ok}`}>
                   {c.earlyLeaveMinutes > 0 ? `Về sớm ${c.earlyLeaveMinutes} phút` : "Đủ giờ ra"}
                 </span>
               )}
-              {penalty > 0 && <span className="flag bad">Phạt tạm tính {fmtMoney(penalty)}</span>}
+              {penalty > 0 && <span className={`badge rounded-pill ${FLAG.bad}`}>Phạt tạm tính {fmtMoney(penalty)}</span>}
             </div>
             {!hasCheckedOut && (
               <div className="small text-muted mt-2">Tan ca lúc {today.store.shiftEndTime} — nhớ check-out trước khi về.</div>
@@ -158,8 +161,8 @@ export default function CheckIn() {
           <h2 className="h6 mb-2">Lịch sử chấm hôm nay</h2>
           {today.histories.length === 0 && <p className="text-muted small mb-0">Chưa có lần chấm công nào.</p>}
           {today.histories.map((h) => (
-            <div key={h.id} className="event-row">
-              <span className={`event-badge ${h.actionType}`}>{CLOCKING_ACTION_LABEL[h.actionType]}</span>
+            <div key={h.id} className="d-flex align-items-center gap-2 py-2 border-bottom">
+              <span className={`badge ${EVENT_BADGE[h.actionType]}`}>{CLOCKING_ACTION_LABEL[h.actionType]}</span>
               <span className="fw-semibold">{fmtTime(h.clockTime)}</span>
               {h.source === CLOCKING_SOURCE.ADMIN && <span className="badge text-bg-secondary ms-auto">Admin chỉnh</span>}
               {h.isOutOfRange && <span className="badge text-bg-warning ms-auto">Ngoài phạm vi</span>}
@@ -179,11 +182,20 @@ export default function CheckIn() {
   );
 }
 
+// Màu nhãn tóm tắt công hôm nay
+const FLAG = {
+  ok: "bg-success-subtle text-success-emphasis",
+  warn: "bg-warning-subtle text-warning-emphasis",
+  bad: "bg-danger-subtle text-danger-emphasis",
+};
+
 function TodayStat({ label, value }) {
   return (
-    <div className="today-stat">
-      <div className="small text-muted">{label}</div>
-      <div className="fw-semibold">{value}</div>
+    <div className="col-4">
+      <div className="bg-body-tertiary rounded-3 p-2">
+        <div className="small text-muted">{label}</div>
+        <div className="fw-semibold">{value}</div>
+      </div>
     </div>
   );
 }

@@ -3,11 +3,12 @@
 import { CLOCKING_ACTION, CLOCKING_SOURCE } from "../constants/enums.js";
 import { AppError } from "../utils/AppError.js";
 import { assertUuid, TIME_RE } from "../utils/validators.js";
-import { daysInMonth, isValidDateKey, isValidMonthKey, monthDateRange, vnDayStart, vnMonthKey } from "../utils/vnTime.js";
+import { addDays, isValidDateKey, isValidMonthKey, monthDateRange, vnDayStart, vnMonthKey } from "../utils/vnTime.js";
 import { hasAttendance } from "./payrollCalculator.js";
 import { serializeClocking, serializeClockingHistory } from "./serializers.js";
 
 const MINUTE_MS = 60 * 1000;
+const MAX_OVERVIEW_DAYS = 31;
 
 export function createClockingManagementService({
   transaction,
@@ -22,22 +23,41 @@ export function createClockingManagementService({
     return employee;
   }
 
-  // Bảng công tháng: mỗi nhân viên 1 dòng, mỗi ngày số phút làm + cờ muộn/sớm/thiếu check-out
-  async function getMonthOverview(actor, { month: monthParam } = {}) {
-    const month = monthParam || vnMonthKey(new Date());
-    if (!isValidMonthKey(month)) throw AppError.badRequest("Tháng không hợp lệ (YYYY-MM).");
-    const { firstDate, lastDate } = monthDateRange(month);
+  // Bảng công theo khoảng ngày (tuần/tháng): mỗi nhân viên 1 dòng, mỗi ngày số
+  // phút làm + cờ muộn/sớm/thiếu check-out. Truyền `month` (YYYY-MM) hoặc
+  // `from` + `to` (YYYY-MM-DD, tối đa 31 ngày); không truyền gì = tháng hiện tại.
+  async function getOverview(actor, { month, from, to } = {}) {
+    let firstDate;
+    let lastDate;
+    if (from || to) {
+      if (!isValidDateKey(from) || !isValidDateKey(to)) throw AppError.badRequest("Ngày không hợp lệ (YYYY-MM-DD).");
+      if (from > to) throw AppError.badRequest("Ngày bắt đầu phải trước ngày kết thúc.");
+      if (addDays(from, MAX_OVERVIEW_DAYS - 1) < to) {
+        throw AppError.badRequest(`Chỉ xem tối đa ${MAX_OVERVIEW_DAYS} ngày một lần.`);
+      }
+      [firstDate, lastDate] = [from, to];
+    } else {
+      const monthKey = month || vnMonthKey(new Date());
+      if (!isValidMonthKey(monthKey)) throw AppError.badRequest("Tháng không hợp lệ (YYYY-MM).");
+      ({ firstDate, lastDate } = monthDateRange(monthKey));
+    }
 
-    const [employees, clockings, locked] = await Promise.all([
+    const dates = [];
+    for (let d = firstDate; d <= lastDate; d = addDays(d, 1)) dates.push(d);
+    // Khoảng ngày có thể vắt qua 2 tháng (tuần cuối/đầu tháng) — mỗi tháng chốt lương riêng
+    const months = [...new Set(dates.map((d) => d.slice(0, 7)))];
+
+    const [employees, clockings, lockFlags] = await Promise.all([
       employeeRepository.listForPeriod({ storeId: actor.storeId, firstDate, lastDate }),
       clockingRepository.listByStoreAndPeriod({ storeId: actor.storeId, firstDate, lastDate }),
-      timesheetService.isMonthFinalized(actor.storeId, month),
+      Promise.all(months.map((m) => timesheetService.isMonthFinalized(actor.storeId, m))),
     ]);
 
     return {
-      month,
-      daysInMonth: daysInMonth(month),
-      locked,
+      from: firstDate,
+      to: lastDate,
+      dates,
+      lockedMonths: months.filter((_, i) => lockFlags[i]),
       rows: employees.map((e) => {
         const days = clockings.filter((c) => c.employee_id === e.id && hasAttendance(c)).map(serializeClocking);
         const sum = (field) => days.reduce((s, d) => s + d[field], 0);
@@ -150,5 +170,5 @@ export function createClockingManagementService({
     return getDayDetail(actor, { employeeId, date });
   }
 
-  return { getMonthOverview, getDayDetail, editDay };
+  return { getOverview, getDayDetail, editDay };
 }

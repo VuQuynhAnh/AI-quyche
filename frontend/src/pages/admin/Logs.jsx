@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Tooltip as BsTooltip } from "bootstrap";
 import { api } from "../../api/client.js";
 import { CONVERSATION_STATUS, MESSAGE_SENDER } from "../../constants/enums.js";
 
@@ -32,18 +33,21 @@ const STATUS_BADGE = {
   [CONVERSATION_STATUS.NORMAL]: {
     text: "Bình thường",
     cls: "bg-secondary",
+    dot: "bg-secondary",
     desc:
       'Trạng thái mặc định của mọi hội thoại mới. Chatbot tự trả lời được câu hỏi của nhân viên bằng dữ liệu quy chế không nhạy cảm — không có gì bất thường, admin không cần làm gì.',
   },
   [CONVERSATION_STATUS.FLAGGED]: {
     text: "Cần trả lời",
     cls: "bg-warning text-dark",
+    dot: "bg-warning",
     desc:
       'Cần admin trả lời trực tiếp. Hội thoại tự chuyển sang trạng thái này khi: (1) câu hỏi trùng chủ đề 1 quy chế đã đánh dấu "nhạy cảm" nên chatbot không tự trả lời mà chuyển cho admin (tự động), hoặc (2) chính nhân viên bấm nút đánh dấu "câu hỏi khó, cần admin hỗ trợ".',
   },
   [CONVERSATION_STATUS.RESOLVED]: {
     text: "Đã trả lời",
     cls: "bg-success",
+    dot: "bg-success",
     desc:
       'Admin đã gửi ít nhất 1 câu trả lời trực tiếp cho hội thoại này — tự chuyển từ "Cần trả lời" ngay sau khi admin bấm Gửi ở khung trả lời.',
   },
@@ -53,10 +57,6 @@ const STATUS_BADGE = {
 // tác dữ liệu) — ở đây muốn đi từ trạng thái "bình thường" trước để dễ hiểu.
 const STATUS_LEGEND_ORDER = [CONVERSATION_STATUS.NORMAL, CONVERSATION_STATUS.FLAGGED, CONVERSATION_STATUS.RESOLVED];
 
-// Icon "i" tròn nhỏ — dấu hiệu bằng mắt là "còn có thêm giải thích khi rê
-// chuột/focus vào đây", đặt riêng trong 1 nút bấm nhỏ (status-chip-info) để
-// tooltip chỉ neo vào đúng icon này, không phải cả khối chip (tên trạng thái
-// + số lượng không cần tooltip, chỉ icon "i" mới cần).
 function InfoIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -67,51 +67,37 @@ function InfoIcon() {
   );
 }
 
-// Component tooltip TỰ THIẾT KẾ (không dùng thuộc tính "title" của trình
-// duyệt nữa — mỗi hệ điều hành/trình duyệt hiện title khác nhau, chậm, không
-// tự xuống dòng đẹp) — bong bóng chữ trắng trên nền tối, có mũi nhọn chỉ lên
-// phía trigger, hiện/ẩn bằng CSS thuần qua ":hover"/":focus-within" trên
-// wrapper (không cần state hay tính toạ độ bằng JS vì trigger luôn ở khu vực
-// đầu trang, còn nhiều khoảng trống phía dưới để bong bóng hiện ra mà không
-// bị cắt). Dùng "children" làm trigger để tái sử dụng cho bất kỳ phần tử nào.
-function Tooltip({ text, children }) {
+// Nút "i" mở tooltip Bootstrap (hiện khi rê chuột hoặc focus bằng bàn phím)
+function InfoTip({ text, label }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const tip = new BsTooltip(ref.current, { title: text, placement: "bottom" });
+    return () => tip.dispose();
+  }, [text]);
   return (
-    <span className="ui-tooltip-wrap">
-      {children}
-      <span className="ui-tooltip-bubble" role="tooltip">
-        {text}
-      </span>
-    </span>
+    <button ref={ref} type="button" className="btn btn-link p-0 lh-1 link-secondary" aria-label={label}>
+      <InfoIcon />
+    </button>
   );
 }
 
-// Chú giải 3 trạng thái hội thoại + số lượng từng trạng thái (đếm từ toàn bộ
-// hội thoại đang có trong danh sách "Tất cả hội thoại") — đặt cố định ở đầu
-// trang (trước cả 2 cột danh sách/chi tiết) để admin luôn thấy được, không
-// phải cuộn hay mở gì thêm. Mỗi trạng thái là 1 "chip" tròn (chấm màu + tên +
-// số lượng) kèm 1 icon "i" riêng — rê chuột/focus vào ĐÚNG icon đó để xem
-// Tooltip giải thích tiêu chí của trạng thái (STATUS_BADGE[key].desc).
+// Chú giải 3 trạng thái hội thoại + số lượng, đặt cố định ở đầu trang. Icon "i"
+// cạnh mỗi trạng thái mở tooltip giải thích tiêu chí (STATUS_BADGE[key].desc).
 function StatusLegend({ counts }) {
   return (
-    <div className="status-legend-bar">
-      <span className="status-legend-label">Trạng thái hội thoại:</span>
-      <div className="status-legend-list">
-        {STATUS_LEGEND_ORDER.map((key) => {
-          const s = STATUS_BADGE[key];
-          return (
-            <div key={key} className={`status-chip status-chip-${key}`}>
-              <span className="status-chip-dot" aria-hidden="true" />
-              <span className="status-chip-text">{s.text}</span>
-              <span className="status-chip-count">{counts[key] || 0}</span>
-              <Tooltip text={s.desc}>
-                <button type="button" className="status-chip-info" aria-label={`Vì sao 1 hội thoại được coi là "${s.text}"?`}>
-                  <InfoIcon />
-                </button>
-              </Tooltip>
-            </div>
-          );
-        })}
-      </div>
+    <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <span className="small text-muted fw-medium">Trạng thái hội thoại:</span>
+      {STATUS_LEGEND_ORDER.map((key) => {
+        const s = STATUS_BADGE[key];
+        return (
+          <span key={key} className="badge rounded-pill bg-light text-body border fw-medium d-inline-flex align-items-center gap-2">
+            <span className={`rounded-circle ${s.dot}`} style={{ width: 8, height: 8 }} aria-hidden="true" />
+            {s.text}
+            <span className="badge rounded-pill bg-white text-body-secondary border">{counts[key] || 0}</span>
+            <InfoTip text={s.desc} label={`Vì sao 1 hội thoại được coi là "${s.text}"?`} />
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -378,7 +364,10 @@ export default function Logs() {
                     className={`d-flex align-items-end gap-2 ${m.role === MESSAGE_SENDER.USER ? "" : "justify-content-end"}`}
                   >
                     {m.role === MESSAGE_SENDER.USER && (
-                      <div className="msg-avatar user">
+                      <div
+                        className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0 bg-secondary"
+                        style={{ width: 26, height: 26, fontSize: 11 }}
+                      >
                         {conversation.userName?.trim()?.charAt(0)?.toUpperCase() || "NV"}
                       </div>
                     )}
@@ -388,7 +377,7 @@ export default function Logs() {
                           ? "user bg-primary text-white"
                           : m.role === MESSAGE_SENDER.USER
                           ? "assistant bg-white border"
-                          : "user ai-reply-bubble border"
+                          : "user bg-primary-subtle border border-primary-subtle"
                       } ${m.isDeleted ? "opacity-50" : ""}`}
                     >
                       {m.role === MESSAGE_SENDER.ADMIN && <div className="fw-semibold small mb-1">Bạn (quản trị viên)</div>}
@@ -400,7 +389,7 @@ export default function Logs() {
                         </div>
                       )}
                       {m.createdAt && (
-                        <div className={`chat-bubble-time ${m.role === MESSAGE_SENDER.ADMIN ? "text-white-50" : "text-muted"}`}>
+                        <div className={`mt-1 lh-1 ${m.role === MESSAGE_SENDER.ADMIN ? "text-white-50" : "text-muted"}`} style={{ fontSize: "0.7rem" }}>
                           {new Date(m.createdAt).toLocaleString("vi-VN", {
                             day: "2-digit",
                             month: "2-digit",
@@ -442,7 +431,10 @@ export default function Logs() {
           // Trạng thái "chưa chọn hội thoại nào" — chỉ hiện ở màn hình máy
           // tính (bố cục 2 cột), vì ở điện thoại không có cột chi tiết trống
           // nào để hiển thị placeholder cả (danh sách chiếm toàn màn hình).
-          <div className="logs-empty-state d-none d-lg-flex flex-column align-items-center justify-content-center text-muted">
+          <div
+            className="h-100 bg-white border border-2 rounded-3 d-none d-lg-flex flex-column align-items-center justify-content-center text-muted"
+            style={{ minHeight: 320, "--bs-border-style": "dashed" }}
+          >
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
             </svg>

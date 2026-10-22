@@ -1,25 +1,18 @@
-import { addMonths, monthLabel, vnMonthKey } from "../../utils/format.js";
+import { addMonths, vnMonthKey } from "../../utils/format.js";
+import PeriodNav from "./PeriodNav.jsx";
 
-// Thanh chọn tháng: < Tháng 10/2026 > (không cho đi quá tháng hiện tại)
-export default function MonthNav({ month, onChange, className = "" }) {
-  const current = vnMonthKey();
+// Thanh chọn tháng: [ ‹  Th. 10 2026  › ] (không cho đi quá tháng hiện tại)
+export default function MonthNav({ month, onChange, className }) {
+  const [y, m] = month.split("-").map(Number);
   return (
-    <div className={`d-inline-flex align-items-center gap-2 ${className}`}>
-      <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => onChange(addMonths(month, -1))} aria-label="Tháng trước">
-        ‹
-      </button>
-      <span className="fw-semibold text-center" style={{ minWidth: 118 }}>
-        {monthLabel(month)}
-      </span>
-      <button
-        type="button"
-        className="btn btn-outline-secondary btn-sm"
-        onClick={() => onChange(addMonths(month, 1))}
-        disabled={month >= current}
-        aria-label="Tháng sau"
-      >
-        ›
-      </button>
-    </div>
+    <PeriodNav
+      className={className}
+      label={`Th. ${m} ${y}`}
+      onPrev={() => onChange(addMonths(month, -1))}
+      onNext={() => onChange(addMonths(month, 1))}
+      nextDisabled={month >= vnMonthKey()}
+      prevLabel="Tháng trước"
+      nextLabel="Tháng sau"
+    />
   );
 }

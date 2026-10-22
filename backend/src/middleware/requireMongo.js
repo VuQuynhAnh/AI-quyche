@@ -9,7 +9,7 @@ export function requireMongo(req, res, next) {
     return res.status(503).json({
       error:
         "Chưa kết nối được MongoDB (dùng để lưu lịch sử hội thoại). " +
-        "Kiểm tra MONGODB_URI trong .env và đảm bảo MongoDB đang chạy, sau đó khởi động lại backend.",
+        "Kiểm tra MONGODB_URI trong .env và đảm bảo MongoDB đang chạy — backend tự kết nối lại, không cần khởi động lại.",
     });
   }
   next();

@@ -273,70 +273,73 @@ export default function Employees() {
         >
           {/* Người đã nghỉ: chỉ xem — phải "Nhận lại" trước rồi mới sửa được */}
           <form id="emp-form" onSubmit={save}>
-          <fieldset disabled={readOnly} className="emp-profile">
+          <fieldset disabled={readOnly} className="row g-3">
             {/* Cột trái: thẻ hồ sơ (avatar, họ tên, chức danh, vai trò, trạng thái) */}
-            <aside className="emp-profile-card">
-              <div className="emp-avatar-edit">
-                <Avatar name={form.fullName} src={form.pendingAvatarUrl || assetUrl(form.orig?.avatarUrl)} size={96} />
-                {!readOnly && (
-                  <button
-                    type="button"
-                    className="emp-avatar-btn"
-                    title="Đổi ảnh đại diện"
-                    aria-label="Đổi ảnh đại diện"
-                    onClick={() => avatarInputRef.current?.click()}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                      <circle cx="12" cy="13" r="4" />
-                    </svg>
-                  </button>
+            <aside className="col-sm-4">
+              <div className="bg-body-tertiary border rounded-3 px-3 py-4 d-flex flex-column align-items-center text-center gap-2">
+                <div className="position-relative d-inline-block mb-1">
+                  <Avatar name={form.fullName} src={form.pendingAvatarUrl || assetUrl(form.orig?.avatarUrl)} size={96} className="shadow" />
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      className="btn btn-primary rounded-circle position-absolute bottom-0 end-0 p-0 d-flex align-items-center justify-content-center border border-2 border-white shadow-sm"
+                      style={{ width: 32, height: 32 }}
+                      title="Đổi ảnh đại diện"
+                      aria-label="Đổi ảnh đại diện"
+                      onClick={() => avatarInputRef.current?.click()}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                        <circle cx="12" cy="13" r="4" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={pickAvatar} />
+                {!readOnly && (form.pendingAvatarUrl || form.orig?.avatarUrl) && (
+                  <button type="button" className="btn btn-link btn-sm text-danger p-0" onClick={deleteAvatar}>Xoá ảnh</button>
+                )}
+                <input
+                  className="form-control text-center fw-bold emp-profile-input"
+                  required
+                  placeholder="Họ và tên"
+                  aria-label="Họ tên"
+                  value={form.fullName}
+                  onChange={set("fullName")}
+                />
+                <input
+                  className="form-control form-control-sm text-center text-body-secondary emp-profile-input"
+                  placeholder="Chức danh (VD: Thu ngân)"
+                  aria-label="Chức danh"
+                  value={form.jobTitle}
+                  onChange={set("jobTitle")}
+                />
+                <div className="d-flex flex-wrap justify-content-center gap-1 mt-2">
+                  {form.role === ROLE.ADMIN && <span className="badge text-bg-primary">Admin</span>}
+                  {form.id &&
+                    (form.orig.isActive
+                      ? <span className="badge text-bg-success">Đang làm</span>
+                      : <span className="badge text-bg-secondary">Đã nghỉ</span>)}
+                </div>
+                {form.startWorkDate && (
+                  <div className="small text-muted mt-2">Bắt đầu làm từ {dmy(form.startWorkDate)}</div>
+                )}
+                {form.id && form.orig.createdAt && (
+                  <div className="small text-muted" style={{ fontSize: "0.72rem" }}>
+                    Tạo tài khoản {new Date(form.orig.createdAt).toLocaleDateString("vi-VN")}
+                  </div>
                 )}
               </div>
-              <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={pickAvatar} />
-              {!readOnly && (form.pendingAvatarUrl || form.orig?.avatarUrl) && (
-                <button type="button" className="btn btn-link btn-sm text-danger p-0" onClick={deleteAvatar}>Xoá ảnh</button>
-              )}
-              <input
-                className="form-control emp-profile-name"
-                required
-                placeholder="Họ và tên"
-                aria-label="Họ tên"
-                value={form.fullName}
-                onChange={set("fullName")}
-              />
-              <input
-                className="form-control form-control-sm emp-profile-title"
-                placeholder="Chức danh (VD: Thu ngân)"
-                aria-label="Chức danh"
-                value={form.jobTitle}
-                onChange={set("jobTitle")}
-              />
-              <div className="d-flex flex-wrap justify-content-center gap-1 mt-2">
-                {form.role === ROLE.ADMIN && <span className="badge text-bg-primary">Admin</span>}
-                {form.id &&
-                  (form.orig.isActive
-                    ? <span className="badge text-bg-success">Đang làm</span>
-                    : <span className="badge text-bg-secondary">Đã nghỉ</span>)}
-              </div>
-              {form.startWorkDate && (
-                <div className="small text-muted mt-2">Bắt đầu làm từ {dmy(form.startWorkDate)}</div>
-              )}
-              {form.id && form.orig.createdAt && (
-                <div className="small text-muted" style={{ fontSize: "0.72rem" }}>
-                  Tạo tài khoản {new Date(form.orig.createdAt).toLocaleDateString("vi-VN")}
-                </div>
-              )}
             </aside>
 
             {/* Cột phải: thông tin chia theo nhóm */}
-            <div className="emp-profile-body">
+            <div className="col-sm-8">
               {form.id && !form.orig.isActive && (
                 <div className="alert alert-secondary small py-2 mb-3">Người này đã nghỉ việc — không đăng nhập, chấm công được. Bấm <strong>Nhận lại</strong> nếu muốn sửa thông tin.</div>
               )}
 
-              <section className="emp-section">
-                <h3 className="emp-section-title">Liên hệ</h3>
+              <section>
+                <h3 className={SECTION_TITLE}>Liên hệ</h3>
                 <div className="row g-2">
                   <div className="col-sm-6">
                     <label className="form-label small mb-1">Số điện thoại</label>
@@ -350,8 +353,8 @@ export default function Employees() {
                 </div>
               </section>
 
-              <section className="emp-section">
-                <h3 className="emp-section-title">Công việc & lương</h3>
+              <section className="border-top pt-3 mt-3">
+                <h3 className={SECTION_TITLE}>Công việc & lương</h3>
                 <div className="row g-2">
                   <div className="col-sm-6">
                     <label className="form-label small mb-1">Vai trò</label>
@@ -381,8 +384,8 @@ export default function Employees() {
                 </div>
               </section>
 
-              <section className="emp-section">
-                <h3 className="emp-section-title">Tài khoản đăng nhập</h3>
+              <section className="border-top pt-3 mt-3">
+                <h3 className={SECTION_TITLE}>Tài khoản đăng nhập</h3>
                 <label className="form-label small mb-1">{form.id ? "Đặt lại mật khẩu" : "Mật khẩu"}</label>
                 <input
                   type="text"
@@ -404,13 +407,16 @@ export default function Employees() {
   );
 }
 
+// Tiêu đề nhóm thông tin trong hồ sơ
+const SECTION_TITLE = "small fw-bold text-uppercase text-body-secondary mb-2";
+
 // Avatar chữ cái đầu (chưa có ảnh đại diện): chữ đầu của họ + tên gọi, màu nền
 // cố định theo tên để mỗi người 1 màu.
 const AVATAR_COLORS = ["#2563eb", "#16a34a", "#ea580c", "#9333ea", "#0891b2", "#db2777", "#ca8a04", "#4f46e5"];
 
-function Avatar({ name, src, size = 40 }) {
+function Avatar({ name, src, size = 40, className = "" }) {
   if (src) {
-    return <img className="emp-avatar" src={src} alt="" style={{ width: size, height: size, objectFit: "cover" }} />;
+    return <img className={`rounded-circle flex-shrink-0 object-fit-cover ${className}`} src={src} alt="" style={{ width: size, height: size }} />;
   }
   const words = String(name || "").trim().split(/\s+/).filter(Boolean);
   const initials = words.length === 0
@@ -420,7 +426,7 @@ function Avatar({ name, src, size = 40 }) {
   for (const ch of String(name || "")) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
   return (
     <span
-      className="emp-avatar"
+      className={`d-inline-flex align-items-center justify-content-center flex-shrink-0 rounded-circle text-white fw-bold user-select-none ${className}`}
       style={{ width: size, height: size, fontSize: size * 0.38, background: AVATAR_COLORS[hash % AVATAR_COLORS.length] }}
       aria-hidden="true"
     >

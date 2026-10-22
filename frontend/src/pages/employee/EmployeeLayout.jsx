@@ -16,11 +16,11 @@ export default function EmployeeLayout() {
   }
 
   return (
-    <div className="emp-shell">
-      <div className="emp-topbar px-3 pb-2 d-flex justify-content-between align-items-center">
+    <div className="min-vh-100 bg-body-tertiary">
+      <div className="emp-topbar bg-primary bg-gradient text-white px-3 pb-2 d-flex justify-content-between align-items-center">
         <div className="min-w-0">
           <div className="fw-bold text-truncate">{user?.fullName}</div>
-          <div className="small" style={{ opacity: 0.85 }}>Chấm công</div>
+          <div className="small opacity-75">Chấm công</div>
         </div>
         <div className="d-flex gap-2 flex-shrink-0">
           {/* Admin cửa hàng vừa chấm công vừa quản trị */}
@@ -37,11 +37,11 @@ export default function EmployeeLayout() {
         <Outlet />
       </div>
 
-      <nav className="bottom-tabs d-flex flex-row border-top">
-        <NavLink to="/work" end className="nav-link text-center flex-fill py-3">
+      <nav className="bottom-tabs fixed-bottom bg-white border-top d-flex">
+        <NavLink to="/work" end className={({ isActive }) => `nav-link text-center flex-fill py-3 ${isActive ? "text-primary fw-semibold" : "text-body-secondary"}`}>
           Chấm công
         </NavLink>
-        <NavLink to="/work/history" className="nav-link text-center flex-fill py-3">
+        <NavLink to="/work/history" className={({ isActive }) => `nav-link text-center flex-fill py-3 ${isActive ? "text-primary fw-semibold" : "text-body-secondary"}`}>
           Lịch sử
         </NavLink>
       </nav>

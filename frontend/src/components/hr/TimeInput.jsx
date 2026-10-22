@@ -55,7 +55,7 @@ export default function TimeInput({ value, onChange, required = false, disabled 
   // Cuộn tới giá trị đang chọn khi vừa mở
   useEffect(() => {
     if (!open || !pos) return;
-    panelRef.current?.querySelectorAll(".time-option.active").forEach((el) => el.scrollIntoView({ block: "center" }));
+    panelRef.current?.querySelectorAll(".dropdown-item.active").forEach((el) => el.scrollIntoView({ block: "center" }));
   }, [open, pos]);
 
   return (
@@ -63,7 +63,8 @@ export default function TimeInput({ value, onChange, required = false, disabled 
       <button
         ref={triggerRef}
         type="button"
-        className={`time-input ${value ? "" : "is-empty"} ${open ? "is-open" : ""}`}
+        className={`form-control form-control-sm w-auto d-inline-flex align-items-center gap-1 fw-semibold ${value ? "" : "text-body-tertiary"} ${open ? "border-primary" : ""}`}
+        style={{ fontVariantNumeric: "tabular-nums" }}
         disabled={disabled}
         aria-label={label ? `${label}: ${value || "chưa chọn"}` : value || "Chọn giờ"}
         aria-haspopup="dialog"
@@ -71,27 +72,40 @@ export default function TimeInput({ value, onChange, required = false, disabled 
         onClick={() => setOpen((o) => !o)}
       >
         <span>{hour || "--"}</span>
-        <span className="time-input-sep">:</span>
+        <span className="text-secondary">:</span>
         <span>{minute || "--"}</span>
       </button>
       {/* Giữ ràng buộc "required" cho form: ô ẩn rỗng khi chưa chọn */}
-      {required && <input tabIndex={-1} className="time-input-required" required value={value || ""} onChange={() => {}} />}
+      {required && <input tabIndex={-1} className="visually-hidden" required value={value || ""} onChange={() => {}} />}
 
       {open && pos &&
         createPortal(
-          <div ref={panelRef} className="time-panel" style={{ left: pos.left, top: pos.top, height: PANEL_HEIGHT }} role="dialog" aria-label={label || "Chọn giờ"}>
-            <TimeColumn title="Giờ" options={HOURS} selected={hour} onPick={(h) => change(h, minute)} />
-            <TimeColumn
-              title="Phút"
-              options={MINUTES}
-              selected={minute}
-              onPick={(m) => {
-                change(hour, m);
-                setOpen(false); // chọn phút xong là xong
-              }}
-            />
+          <div
+            ref={panelRef}
+            className="dropdown-menu show d-flex flex-column p-2 shadow"
+            // fixed + z-index trên modal (1090), dưới lớp phủ đang tải (1200)
+            style={{ position: "fixed", zIndex: 1150, left: pos.left, top: pos.top, height: PANEL_HEIGHT, width: 152, minWidth: 0 }}
+            role="dialog"
+            aria-label={label || "Chọn giờ"}
+          >
+            <div className="d-flex gap-1 flex-grow-1" style={{ minHeight: 0 }}>
+              <TimeColumn title="Giờ" options={HOURS} selected={hour} onPick={(h) => change(h, minute)} />
+              <TimeColumn
+                title="Phút"
+                options={MINUTES}
+                selected={minute}
+                onPick={(m) => {
+                  change(hour, m);
+                  setOpen(false); // chọn phút xong là xong
+                }}
+              />
+            </div>
             {!required && value && (
-              <button type="button" className="time-panel-clear" onClick={() => { onChange(""); setOpen(false); }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-link text-danger text-decoration-none border-top rounded-0 mt-1 pb-0"
+                onClick={() => { onChange(""); setOpen(false); }}
+              >
                 Bỏ trống
               </button>
             )}
@@ -104,11 +118,17 @@ export default function TimeInput({ value, onChange, required = false, disabled 
 
 function TimeColumn({ title, options, selected, onPick }) {
   return (
-    <div className="time-column">
-      <div className="time-column-title">{title}</div>
-      <div className="time-column-list">
+    <div className="d-flex flex-column flex-fill" style={{ minHeight: 0 }}>
+      <div className="small fw-bold text-uppercase text-body-tertiary text-center pb-1">{title}</div>
+      <div className="thin-scroll overflow-y-auto flex-grow-1 d-flex flex-column gap-1 pe-1">
         {options.map((o) => (
-          <button key={o} type="button" className={`time-option ${o === selected ? "active" : ""}`} onClick={() => onPick(o)}>
+          <button
+            key={o}
+            type="button"
+            className={`dropdown-item text-center rounded py-1 flex-shrink-0 ${o === selected ? "active fw-semibold" : ""}`}
+            style={{ fontVariantNumeric: "tabular-nums" }}
+            onClick={() => onPick(o)}
+          >
             {o}
           </button>
         ))}

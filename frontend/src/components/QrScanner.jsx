@@ -69,21 +69,24 @@ export default function QrScanner({ title = "Quét mã QR tại cửa hàng", on
   }, []);
 
   return createPortal(
-    <div className="qr-scanner" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="qr-scanner-head">
+    <div
+      className="position-fixed top-0 start-0 w-100 h-100 bg-black text-white d-flex flex-column"
+      style={{ zIndex: 1150 }}
+      role="dialog" aria-modal="true" aria-label={title}>
+      <div className="d-flex justify-content-between align-items-center px-3 py-3 fw-semibold">
         <span>{title}</span>
         <button type="button" className="btn-close btn-close-white" aria-label="Đóng" onClick={onClose} />
       </div>
       {error ? (
-        <div className="qr-scanner-error">
+        <div className="flex-grow-1 d-flex flex-column align-items-center justify-content-center gap-3 p-4 text-center">
           <p>{error}</p>
           <button type="button" className="btn btn-light btn-sm" onClick={onClose}>Đóng</button>
         </div>
       ) : (
-        <div className="qr-scanner-view">
-          <video ref={videoRef} playsInline muted />
+        <div className="position-relative flex-grow-1 overflow-hidden">
+          <video ref={videoRef} className="w-100 h-100 object-fit-cover" playsInline muted />
           <div className="qr-scanner-frame" />
-          <div className="qr-scanner-hint">Đưa mã QR dán tại quầy vào giữa khung</div>
+          <div className="position-absolute start-0 end-0 text-center small opacity-75" style={{ bottom: 32 }}>Đưa mã QR dán tại quầy vào giữa khung</div>
         </div>
       )}
       <canvas ref={canvasRef} hidden />

@@ -20,79 +20,108 @@
 export default function StackedBarChart({ title, caption, segments, emptyText = "Chưa có dữ liệu." }) {
   const total = segments.reduce((sum, s) => sum + s.value, 0);
   const visibleSegments = segments.filter((s) => s.value > 0);
+  const pct = (v) => (total > 0 ? ((v / total) * 100).toFixed(0) : 0);
 
   return (
-    <div className="chart-card">
-      <div className="chart-card-title">{title}</div>
-      {caption && <div className="chart-card-caption">{caption}</div>}
-
+    <ChartCard title={title} caption={caption}>
       {total === 0 ? (
         <p className="text-muted small mb-0 mt-2">{emptyText}</p>
       ) : (
         <>
-          <div className="stacked-bar" role="img" aria-label={`${title}: ${segments.map((s) => `${s.label} ${s.value}`).join(", ")}`}>
+          {/* Thanh xếp chồng của Bootstrap (.progress-stacked); khe 2px giữa các phần = viền màu nền */}
+          <div
+            className="progress-stacked rounded-pill"
+            style={{ height: 22 }}
+            role="img"
+            aria-label={`${title}: ${segments.map((s) => `${s.label} ${s.value}`).join(", ")}`}
+          >
             {visibleSegments.map((s, i) => {
               const percent = (s.value / total) * 100;
               return (
                 <div
                   key={s.key}
-                  className="stacked-bar-segment"
+                  className="progress"
                   style={{
                     width: `${percent}%`,
-                    backgroundColor: s.color,
-                    borderRight: i < visibleSegments.length - 1 ? "2px solid var(--chart-surface)" : "none",
+                    height: 22,
+                    minWidth: 2,
+                    borderRight: i < visibleSegments.length - 1 ? "2px solid var(--bs-body-bg)" : "none",
                   }}
                   title={`${s.label}: ${s.value} (${percent.toFixed(0)}%)`}
                 >
-                  {percent >= 15 && <span className="stacked-bar-segment-label">{percent.toFixed(0)}%</span>}
+                  <div className="progress-bar fw-semibold" style={{ backgroundColor: s.color, fontSize: "0.68rem" }}>
+                    {percent >= 15 && `${percent.toFixed(0)}%`}
+                  </div>
                 </div>
               );
             })}
           </div>
 
-          <div className="chart-legend">
+          <div className="d-flex flex-wrap column-gap-3 row-gap-2 mt-3 small">
             {segments.map((s) => (
-              <div key={s.key} className="chart-legend-item">
+              <div key={s.key} className="d-flex align-items-center gap-2">
                 {s.icon ? (
-                  <span className="chart-legend-icon" style={{ color: s.color }}>
+                  <span className="d-inline-flex flex-shrink-0" style={{ color: s.color }}>
                     {s.icon}
                   </span>
                 ) : (
-                  <span className="chart-legend-dot" style={{ backgroundColor: s.color }} />
+                  <span className="rounded-circle flex-shrink-0" style={{ width: 10, height: 10, backgroundColor: s.color }} />
                 )}
                 <span>{s.label}</span>
                 <span className="text-muted">
-                  {s.value} ({total > 0 ? ((s.value / total) * 100).toFixed(0) : 0}%)
+                  {s.value} ({pct(s.value)}%)
                 </span>
               </div>
             ))}
           </div>
 
-          {/* "Bảng số liệu" — bản tương đương WCAG-clean của biểu đồ, đảm bảo
-              số liệu luôn đọc được kể cả khi không phân biệt được màu sắc. */}
-          <details className="chart-table-toggle">
-            <summary>Xem dạng bảng</summary>
-            <table className="table table-sm mt-2 mb-0">
-              <thead>
-                <tr>
-                  <th>Trạng thái</th>
-                  <th className="text-end">Số lượng</th>
-                  <th className="text-end">Tỷ lệ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {segments.map((s) => (
-                  <tr key={s.key}>
-                    <td>{s.label}</td>
-                    <td className="text-end">{s.value}</td>
-                    <td className="text-end">{total > 0 ? ((s.value / total) * 100).toFixed(0) : 0}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </details>
+          {/* "Bảng số liệu" — đọc được kể cả khi không phân biệt được màu sắc */}
+          <DataTable
+            head={["Trạng thái", "Số lượng", "Tỷ lệ"]}
+            rows={segments.map((s) => [s.label, s.value, `${pct(s.value)}%`])}
+          />
         </>
       )}
+    </ChartCard>
+  );
+}
+
+// Khung chung của mọi biểu đồ trang Dashboard
+export function ChartCard({ title, caption, children }) {
+  return (
+    <div className="card h-100">
+      <div className="card-body">
+        <div className="fw-semibold">{title}</div>
+        {caption && <div className="small text-body-secondary mb-3">{caption}</div>}
+        {children}
+      </div>
     </div>
+  );
+}
+
+// "Xem dạng bảng": cột đầu là nhãn, các cột sau là số (căn phải)
+export function DataTable({ head, rows }) {
+  return (
+    <details className="mt-3">
+      <summary className="small link-primary" role="button">Xem dạng bảng</summary>
+      <table className="table table-sm small mt-2 mb-0">
+        <thead>
+          <tr>
+            {head.map((h, i) => (
+              <th key={h} className={i ? "text-end" : ""}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, ri) => (
+            <tr key={ri}>
+              {r.map((c, i) => (
+                <td key={i} className={i ? "text-end" : ""}>{c}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </details>
   );
 }

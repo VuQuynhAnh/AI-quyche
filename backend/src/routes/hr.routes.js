@@ -53,7 +53,7 @@ export function createHrRouter({ storeSettingService, employeeService, clockingM
 
   // ---------- Chấm công ----------
   router.get("/clockings/overview", asyncHandler(async (req, res) => {
-    res.json(await clockingManagementService.getMonthOverview(req.user, req.query));
+    res.json(await clockingManagementService.getOverview(req.user, req.query));
   }));
 
   router.get("/clockings/day", asyncHandler(async (req, res) => {

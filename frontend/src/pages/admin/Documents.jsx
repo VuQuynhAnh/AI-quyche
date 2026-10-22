@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../../api/client.js";
+import Modal from "../../components/hr/Modal.jsx";
 import { useNotification } from "../../context/NotificationContext.jsx";
 import { DOCUMENT_PROCESSING_STATUS } from "../../constants/enums.js";
 
@@ -96,9 +97,7 @@ export default function Documents() {
   // "..." khi rê chuột vào thẻ quy chế (giống popover tuỳ chọn tin nhắn ở
   // trang Chat.jsx): toạ độ "fixed" được TÍNH SẴN bằng JS lúc bấm (dựa trên vị
   // trí nút "..."), render qua Portal thẳng ra <body>, tự lật lên trên nếu
-  // không đủ chỗ hiện xuống dưới. Dùng lại ĐÚNG các class
-  // .msg-context-menu/.msg-context-menu-item đã có trong custom.css (định
-  // nghĩa cho popover tin nhắn) để 2 nơi có giao diện giống hệt nhau.
+  // không đủ chỗ hiện xuống dưới. Dùng .dropdown-menu của Bootstrap.
   const [docMenu, setDocMenu] = useState(null); // { id, status, left, top, openUp }
 
   async function loadDocuments({ silent = false } = {}) {
@@ -121,7 +120,7 @@ export default function Documents() {
     if (!docMenu) return;
 
     function handleDocMouseDown(e) {
-      if (e.target.closest(".doc-menu-trigger") || e.target.closest(".msg-context-menu")) {
+      if (e.target.closest("[data-doc-menu]")) {
         return;
       }
       setDocMenu(null);
@@ -144,8 +143,8 @@ export default function Documents() {
   }, [docMenu]);
 
   // Mở popover tuỳ chọn cho 1 quy chế — xem giải thích cách tính toạ độ ở
-  // openMessageMenu (Chat.jsx). menuWidth phải khớp với "width" khai báo cho
-  // .msg-context-menu trong custom.css (220px) để tính toạ độ "left" đúng.
+  // openMessageMenu (Chat.jsx). menuWidth phải khớp với "width" của popover
+  // bên dưới (220px) để tính toạ độ "left" đúng.
   function openDocMenu(e, doc) {
     const rect = e.currentTarget.getBoundingClientRect();
     const menuWidth = 220;
@@ -265,10 +264,8 @@ export default function Documents() {
           const status = STATUS_LABEL[doc.processingStatus] || STATUS_LABEL[DOCUMENT_PROCESSING_STATUS.PROCESSING];
           return (
             <div key={doc.id} className="col">
-              {/* Class "doc-card" (thêm bên cạnh "card") chỉ để CSS biết khi
-                  nào cần hiện nút "..." — xem ".doc-card:hover .doc-menu-trigger"
-                  trong custom.css. */}
-              <div className="card doc-card h-100">
+              {/* hover-reveal-parent: nút "..." chỉ hiện rõ khi rê chuột vào thẻ */}
+              <div className="card hover-reveal-parent h-100">
                 <div className="card-body d-flex justify-content-between align-items-start gap-3">
                   <div className="text-truncate">
                     <div className="fw-semibold text-truncate">{doc.title}</div>
@@ -280,7 +277,9 @@ export default function Documents() {
                   </div>
                   <button
                     type="button"
-                    className={`doc-menu-trigger flex-shrink-0 ${docMenu?.id === doc.id ? "is-open" : ""}`}
+                    className={`btn btn-sm btn-light rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0 hover-reveal ${docMenu?.id === doc.id ? "is-open" : ""}`}
+                    style={{ width: 28, height: 28 }}
+                    data-doc-menu
                     title="Tuỳ chọn quy chế"
                     onClick={(e) => openDocMenu(e, doc)}
                   >
@@ -299,21 +298,23 @@ export default function Documents() {
       )}
 
       {/* Popover tuỳ chọn quy chế (Xem / Tải xuống / Xoá) — render qua Portal
-          thẳng vào <body>, dùng lại đúng class .msg-context-menu/-item của
-          popover tin nhắn ở Chat.jsx nên giao diện giống hệt. */}
+          thẳng vào <body>, cùng kiểu với popover tin nhắn ở Chat.jsx. */}
       {docMenu &&
         createPortal(
           <div
-            className="msg-context-menu"
+            className="dropdown-menu show shadow position-fixed"
+            data-doc-menu
             style={{
               top: docMenu.top,
               left: docMenu.left,
+              width: 220,
+              zIndex: 1080,
               transform: docMenu.openUp ? "translateY(-100%)" : "none",
             }}
           >
             <button
               type="button"
-              className="msg-context-menu-item"
+              className="dropdown-item d-flex align-items-center gap-2"
               disabled={docMenu.status !== DOCUMENT_PROCESSING_STATUS.READY}
               title={
                 docMenu.status === DOCUMENT_PROCESSING_STATUS.READY
@@ -331,7 +332,7 @@ export default function Documents() {
             </button>
             <button
               type="button"
-              className="msg-context-menu-item"
+              className="dropdown-item d-flex align-items-center gap-2"
               title="Tải file gốc đã tải lên về máy"
               onClick={() => {
                 const doc = documents.find((d) => d.id === docMenu.id);
@@ -344,7 +345,7 @@ export default function Documents() {
             </button>
             <button
               type="button"
-              className="msg-context-menu-item text-danger"
+              className="dropdown-item d-flex align-items-center gap-2 text-danger"
               onClick={() => {
                 const id = docMenu.id;
                 closeDocMenu();
@@ -358,118 +359,82 @@ export default function Documents() {
           document.body
         )}
 
-      {/* Popup "Thêm quy chế mới" — cùng khung modal (Portal + backdrop) với
-          modal "xem trước" bên dưới, để 2 popup trên trang này có giao diện
-          đồng nhất. Bấm ra ngoài khung nội dung hoặc nút "Đóng" đều đóng popup;
-          tải lên thành công cũng tự đóng (xem handleUpload). */}
-      {showUploadModal &&
-        createPortal(
-          <div
-            className="doc-preview-backdrop"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setShowUploadModal(false);
-            }}
-          >
-            <div className="doc-preview-modal">
-              <div className="d-flex justify-content-between align-items-start gap-3 mb-2">
-                <h2 className="h6 mb-0">Thêm quy chế mới</h2>
-                <button
-                  type="button"
-                  className="btn-close"
-                  aria-label="Đóng"
-                  onClick={() => setShowUploadModal(false)}
-                />
-              </div>
-              <div className="doc-preview-body">
-                <form onSubmit={handleUpload}>
-                  <div className="mb-3">
-                    <label className="form-label">Tiêu đề</label>
-                    <input
-                      className="form-control"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="VD: Quy chế nghỉ phép"
-                    />
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="form-label">Danh mục</label>
-                    <input
-                      className="form-control"
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      placeholder="VD: Nhân sự"
-                    />
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="form-label">File (PDF, DOCX, TXT)</label>
-                    <input
-                      type="file"
-                      className="form-control"
-                      accept=".pdf,.docx,.txt,.md"
-                      onChange={(e) => setFile(e.target.files[0])}
-                    />
-                  </div>
-
-                  {/* Tài liệu nhạy cảm: vẫn được nạp vào hệ thống để admin tìm kiếm nội bộ,
-                      nhưng chatbot sẽ KHÔNG dùng nội dung này để tự trả lời nhân viên —
-                      thay vào đó sẽ hướng dẫn liên hệ trực tiếp admin (xem README, mục
-                      "Tài liệu nhạy cảm"). */}
-                  <div className="form-check mb-3">
-                    <input
-                      type="checkbox"
-                      className="form-check-input"
-                      id="isSensitive"
-                      checked={isSensitive}
-                      onChange={(e) => setIsSensitive(e.target.checked)}
-                    />
-                    <label className="form-check-label" htmlFor="isSensitive">
-                      Tài liệu nhạy cảm (VD: lương thưởng cá nhân, kỷ luật, dữ liệu khách hàng...)
-                      <br />
-                      <span className="text-muted small">
-                        Chatbot sẽ không tự trả lời dựa trên tài liệu này — câu hỏi liên quan sẽ được
-                        chuyển cho quản trị viên.
-                      </span>
-                    </label>
-                  </div>
-
-                  {error && <div className="alert alert-danger py-2">{error}</div>}
-
-                  <button className="btn btn-primary" type="submit" disabled={uploading}>
-                    {uploading ? "Đang tải lên..." : "Tải lên"}
-                  </button>
-                </form>
-              </div>
+      {/* Popup "Thêm quy chế mới" — tải lên thành công thì tự đóng (xem handleUpload) */}
+      {showUploadModal && (
+        <Modal title="Thêm quy chế mới" onClose={() => setShowUploadModal(false)} width={720}>
+          <form onSubmit={handleUpload}>
+            <div className="mb-3">
+              <label className="form-label">Tiêu đề</label>
+              <input
+                className="form-control"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="VD: Quy chế nghỉ phép"
+              />
             </div>
-          </div>,
-          document.body
-        )}
 
-      {/* Modal "xem trước" — render qua Portal thẳng vào <body>, phủ toàn màn
-          hình, để không bị ảnh hưởng bởi bố cục/overflow của trang. Bấm ra
-          ngoài khung nội dung (lớp phủ nền) hoặc nút "Đóng" đều đóng modal. */}
-      {preview &&
-        createPortal(
-          <div
-            className="doc-preview-backdrop"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) closePreview();
-            }}
-          >
-            <div className="doc-preview-modal">
-              <div className="d-flex justify-content-between align-items-start gap-3 mb-2">
-                <h2 className="h6 mb-0">{preview.title}</h2>
-                <button type="button" className="btn-close" aria-label="Đóng" onClick={closePreview} />
-              </div>
-              <div className="doc-preview-body">
-                {/* Đang tải: để trống — lớp phủ "Đang xử lý" toàn màn hình đang hiện */}
-                {!previewLoading && <pre className="doc-preview-content">{preview.content}</pre>}
-              </div>
+            <div className="mb-3">
+              <label className="form-label">Danh mục</label>
+              <input
+                className="form-control"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder="VD: Nhân sự"
+              />
             </div>
-          </div>,
-          document.body
-        )}
+
+            <div className="mb-3">
+              <label className="form-label">File (PDF, DOCX, TXT)</label>
+              <input
+                type="file"
+                className="form-control"
+                accept=".pdf,.docx,.txt,.md"
+                onChange={(e) => setFile(e.target.files[0])}
+              />
+            </div>
+
+            {/* Tài liệu nhạy cảm: vẫn được nạp vào hệ thống để admin tìm kiếm nội bộ,
+                nhưng chatbot sẽ KHÔNG dùng nội dung này để tự trả lời nhân viên —
+                thay vào đó sẽ hướng dẫn liên hệ trực tiếp admin (xem README, mục
+                "Tài liệu nhạy cảm"). */}
+            <div className="form-check mb-3">
+              <input
+                type="checkbox"
+                className="form-check-input"
+                id="isSensitive"
+                checked={isSensitive}
+                onChange={(e) => setIsSensitive(e.target.checked)}
+              />
+              <label className="form-check-label" htmlFor="isSensitive">
+                Tài liệu nhạy cảm (VD: lương thưởng cá nhân, kỷ luật, dữ liệu khách hàng...)
+                <br />
+                <span className="text-muted small">
+                  Chatbot sẽ không tự trả lời dựa trên tài liệu này — câu hỏi liên quan sẽ được
+                  chuyển cho quản trị viên.
+                </span>
+              </label>
+            </div>
+
+            {error && <div className="alert alert-danger py-2">{error}</div>}
+
+            <button className="btn btn-primary" type="submit" disabled={uploading}>
+              {uploading ? "Đang tải lên..." : "Tải lên"}
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {/* Modal "xem trước" nội dung đã trích xuất */}
+      {preview && (
+        <Modal title={preview.title} onClose={closePreview} width={720}>
+          {/* Đang tải: để trống — lớp phủ "Đang xử lý" toàn màn hình đang hiện */}
+          {!previewLoading && (
+            <pre className="mb-0 small" style={{ whiteSpace: "pre-wrap", fontFamily: "inherit" }}>
+              {preview.content}
+            </pre>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }

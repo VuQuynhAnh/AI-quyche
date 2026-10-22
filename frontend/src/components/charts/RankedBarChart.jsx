@@ -1,3 +1,5 @@
+import { ChartCard, DataTable } from "./StackedBarChart.jsx";
+
 // Biểu đồ CỘT NGANG xếp hạng — dùng cho "so sánh độ lớn" (magnitude), ở đây
 // là số lần mỗi câu hỏi được hỏi. Tất cả các thanh dùng CHUNG 1 màu (không tô
 // màu riêng từng câu hỏi) vì đây là 1 phép đo DUY NHẤT (số lần hỏi) lặp lại
@@ -10,53 +12,35 @@ export default function RankedBarChart({ title, caption, items, color = "var(--s
   const max = Math.max(1, ...items.map((i) => i.value));
 
   return (
-    <div className="chart-card">
-      <div className="chart-card-title">{title}</div>
-      {caption && <div className="chart-card-caption">{caption}</div>}
-
+    <ChartCard title={title} caption={caption}>
       {items.length === 0 ? (
         <p className="text-muted small mb-0 mt-2">{emptyText}</p>
       ) : (
         <>
-          <div className="ranked-bar-list">
+          <div className="vstack gap-2">
             {items.map((item, i) => (
-              <div className="ranked-bar-row" key={i}>
-                <div className="ranked-bar-label text-truncate" title={item.label}>
+              <div className="d-flex align-items-center gap-2 small" key={i}>
+                {/* Nhãn cố định 42% chiều rộng, thanh co giãn, số căn phải thẳng cột */}
+                <div className="text-truncate flex-shrink-0" style={{ width: "42%" }} title={item.label}>
                   {item.label}
                 </div>
-                <div className="ranked-bar-track">
+                <div className="progress flex-grow-1 min-w-0" style={{ height: 18 }}>
                   <div
-                    className="ranked-bar-fill"
-                    style={{ width: `${(item.value / max) * 100}%`, backgroundColor: color }}
+                    className="progress-bar"
+                    style={{ width: `${(item.value / max) * 100}%`, minWidth: 4, backgroundColor: color }}
                     title={`${item.label}: ${item.value} lần`}
                   />
                 </div>
-                <div className="ranked-bar-value">{item.value}</div>
+                <div className="text-end text-body-secondary" style={{ minWidth: "1.5em", fontVariantNumeric: "tabular-nums" }}>
+                  {item.value}
+                </div>
               </div>
             ))}
           </div>
 
-          <details className="chart-table-toggle">
-            <summary>Xem dạng bảng</summary>
-            <table className="table table-sm mt-2 mb-0">
-              <thead>
-                <tr>
-                  <th>Câu hỏi</th>
-                  <th className="text-end">Số lần hỏi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, i) => (
-                  <tr key={i}>
-                    <td>{item.label}</td>
-                    <td className="text-end">{item.value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </details>
+          <DataTable head={["Câu hỏi", "Số lần hỏi"]} rows={items.map((item) => [item.label, item.value])} />
         </>
       )}
-    </div>
+    </ChartCard>
   );
 }

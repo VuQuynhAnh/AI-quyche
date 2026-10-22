@@ -3,13 +3,14 @@ import { api } from "../../api/client.js";
 import Modal from "./Modal.jsx";
 import { useNotification } from "../../context/NotificationContext.jsx";
 import {
-  CLOCKING_ACTION, CLOCKING_ACTION_LABEL, CLOCKING_HISTORY_STATUS, CLOCKING_SOURCE,
+  CLOCKING_ACTION, CLOCKING_HISTORY_STATUS, CLOCKING_SOURCE,
 } from "../../constants/enums.js";
-import { fmtDateLong, fmtDateTime, fmtMinutes, fmtTime, vnDateKey } from "../../utils/format.js";
+import { fmtDateLong, fmtMinutes, fmtTime, vnDateKey } from "../../utils/format.js";
 import TimeInput from "./TimeInput.jsx";
 
-// Chi tiết 1 ngày của 1 nhân viên (admin): giờ vào, giờ ra và lịch sử các lần
-// chấm công. Lịch sử KHÔNG sửa/xoá được; nút "Chỉnh sửa" đặt lại giờ vào
+// Chi tiết 1 ngày của 1 nhân viên (admin): giờ vào, giờ ra và bảng lịch sử
+// chấm công (mỗi dòng = 1 lần ghi nhận: trạng thái sau lần đó, hình thức,
+// nội dung giờ vào/ra). Lịch sử KHÔNG sửa/xoá được; nút "Chỉnh sửa" đặt lại giờ vào
 // và/hoặc giờ ra — lần cũ được giữ (đánh dấu đã thay), lần mới ghi "Admin chỉnh".
 // Tháng đã chốt lương: không chỉnh sửa được.
 export default function DayDetail({ employeeId, fullName, date, onClose, onChanged }) {
@@ -39,7 +40,6 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
         .filter((h) => h.status === CLOCKING_HISTORY_STATUS.VALID)
         .sort((a, b) => new Date(a.clockTime) - new Date(b.clockTime))
     : [];
-  const byId = new Map((data?.histories || []).map((h) => [h.id, h]));
   const firstIn = valid.find((h) => h.actionType === CLOCKING_ACTION.CHECK_IN);
   const lastOut = [...valid].reverse().find((h) => h.actionType === CLOCKING_ACTION.CHECK_OUT);
   const hhmm = (iso) => (iso ? fmtTime(iso) : "");
@@ -78,7 +78,7 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
   const isToday = date === vnDateKey();
 
   return (
-    <Modal title={`${fullName} — ${fmtDateLong(date)}`} onClose={onClose} width={520}>
+    <Modal title={`${fullName} — ${fmtDateLong(date)}`} onClose={onClose} width={760}>
       {error && <div className="alert alert-danger py-2">{error}</div>}
 
       {data && (
@@ -110,7 +110,7 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
           )}
 
           {editing && (
-            <form onSubmit={save} className="day-edit mt-3">
+            <form onSubmit={save} className="border-top pt-3 mt-3">
               <div className="d-flex flex-wrap align-items-center gap-2">
                 <span className="small text-muted">Vào</span>
                 <TimeInput label="Giờ vào" value={editing.checkInTime} onChange={(v) => setEditing({ ...editing, checkInTime: v })} />
@@ -129,51 +129,40 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
           )}
 
           {data.histories.length === 0 && <p className="text-muted small mt-2">Chưa có lần chấm công nào.</p>}
-          {/* Nhật ký thay đổi: xếp theo lúc ghi nhận — lần chấm gốc trước, các lần admin sửa sau */}
-          <ol className="change-log">
-            {data.histories.map((h) => {
-              const voided = h.status === CLOCKING_HISTORY_STATUS.VOIDED;
-              const byAdmin = h.source === CLOCKING_SOURCE.ADMIN;
-              const replaced = h.replacedHistoryId ? byId.get(h.replacedHistoryId) : null;
-              const label = CLOCKING_ACTION_LABEL[h.actionType];
-              return (
-                <li key={h.id} className={`change-log-item ${byAdmin ? "admin" : ""} ${voided ? "voided" : ""}`}>
-                  <div className="d-flex align-items-center gap-2">
-                    <span className={`event-badge ${h.actionType}`}>{label}</span>
-                    {replaced ? (
-                      <span className="fw-semibold">
-                        <span className="text-muted text-decoration-line-through">{fmtTime(replaced.clockTime)}</span>
-                        <span className="text-muted mx-1">→</span>
-                        <span className={voided ? "text-decoration-line-through" : ""}>{fmtTime(h.clockTime)}</span>
-                      </span>
-                    ) : (
-                      <span className={`fw-semibold ${voided ? "text-decoration-line-through" : ""}`}>{fmtTime(h.clockTime)}</span>
-                    )}
-                    <span className="ms-auto small text-end">
-                      {voided ? (
-                        <span className="badge text-bg-light border">Đã được thay</span>
-                      ) : byAdmin ? (
-                        <span className="badge text-bg-info">Admin sửa</span>
-                      ) : (
-                        h.latitude != null && (
-                          <a href={`https://www.google.com/maps?q=${h.latitude},${h.longitude}`} target="_blank" rel="noreferrer">
-                            Vị trí{h.isOutOfRange && <span className="text-danger"> (ngoài phạm vi)</span>}
-                          </a>
-                        )
-                      )}
-                    </span>
-                  </div>
-                  <div className="change-log-meta">
-                    {byAdmin
-                      ? `${h.createdByName || "Admin"} ${replaced ? `sửa giờ ${label.toLowerCase()}` : `thêm giờ ${label.toLowerCase()}`}`
-                      : `${h.createdByName || "Nhân viên"} tự chấm công`}
-                    {" · "}
-                    {fmtDateTime(h.createdAt)}
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
+          {data.histories.length > 0 && (
+            <div className="table-responsive mt-2">
+              <table className="table table-sm table-hover align-middle small mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th>Thời gian</th>
+                    <th>Trạng thái</th>
+                    <th>Hình thức</th>
+                    <th>Nội dung</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {buildChangeLog(data.histories, clocking).map((row) => (
+                    <tr key={row.key}>
+                      <td className="text-nowrap">{fmtLogTime(row.createdAt)}</td>
+                      <td>{row.status}</td>
+                      <td>
+                        {row.method}
+                        {row.byName && <div className="small text-muted">{row.byName}</div>}
+                        {row.location && (
+                          <div className="small">
+                            <a href={`https://www.google.com/maps?q=${row.location.latitude},${row.location.longitude}`} target="_blank" rel="noreferrer">
+                              Vị trí{row.location.isOutOfRange && <span className="text-danger"> (ngoài phạm vi)</span>}
+                            </a>
+                          </div>
+                        )}
+                      </td>
+                      <td>{row.content}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       )}
     </Modal>
@@ -189,4 +178,80 @@ function Box({ label, value }) {
       </div>
     </div>
   );
+}
+
+// ---------- Lịch sử chấm công dạng bảng ----------
+// Phát lại các lần ghi nhận theo thứ tự created_at, giữ trạng thái giờ vào/ra
+// hiện hành sau mỗi lần. Các dòng admin tạo trong cùng 1 lần "Lưu" có cùng
+// created_at (cùng transaction) nên gộp thành 1 dòng. Kết quả: mới nhất trước.
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const vnMinuteOfDay = (iso) => Math.floor((((new Date(iso).getTime() + VN_OFFSET_MS) % DAY_MS) + DAY_MS) % DAY_MS / 60000);
+const hmToMinutes = (hm) => {
+  const [h, m] = hm.split(":").map(Number);
+  return h * 60 + m;
+};
+// "22/10/2026 10:21"
+const fmtLogTime = (iso) => `${fmtDateLong(vnDateKey(new Date(iso))).split(", ")[1]} ${fmtTime(iso)}`;
+// 60 -> "1 giờ 0 phút", 15 -> "15 phút"
+const fmtDuration = (min) => (min >= 60 ? `${Math.floor(min / 60)} giờ ${min % 60} phút` : `${min} phút`);
+
+function describeIn(iso, clocking) {
+  if (!iso) return "Giờ vào: --:--";
+  let text = `Giờ vào: ${fmtTime(iso)}`;
+  if (clocking) {
+    const diff = hmToMinutes(clocking.shiftStartTime) - vnMinuteOfDay(iso);
+    if (diff > 0) text += `, làm thêm trước ca: ${fmtDuration(diff)}`;
+    else if (diff < 0) text += `, đi muộn: ${fmtDuration(-diff)}`;
+  }
+  return text;
+}
+
+function describeOut(iso, clocking) {
+  if (!iso) return "Giờ ra: --:--";
+  let text = `Giờ ra: ${fmtTime(iso)}`;
+  if (clocking) {
+    const diff = vnMinuteOfDay(iso) - hmToMinutes(clocking.shiftEndTime);
+    if (diff > 0) text += `, làm thêm sau ca: ${fmtDuration(diff)}`;
+    else if (diff < 0) text += `, về sớm: ${fmtDuration(-diff)}`;
+  }
+  return text;
+}
+
+function buildChangeLog(histories, clocking) {
+  const groups = [];
+  for (const h of histories) {
+    const last = groups[groups.length - 1];
+    const sameBatch =
+      last && h.source === CLOCKING_SOURCE.ADMIN && last.source === CLOCKING_SOURCE.ADMIN &&
+      new Date(last.createdAt).getTime() === new Date(h.createdAt).getTime();
+    if (sameBatch) last.items.push(h);
+    else groups.push({ source: h.source, createdAt: h.createdAt, items: [h] });
+  }
+
+  const state = { in: null, out: null };
+  const rows = groups.map((g) => {
+    const changedIn = g.items.find((h) => h.actionType === CLOCKING_ACTION.CHECK_IN);
+    const changedOut = [...g.items].reverse().find((h) => h.actionType === CLOCKING_ACTION.CHECK_OUT);
+    if (changedIn) state.in = changedIn.clockTime;
+    if (changedOut) state.out = changedOut.clockTime;
+
+    // Chỉ nêu phần thay đổi; phía còn trống thì ghi --:-- cho rõ
+    const parts = [];
+    if (changedIn || !state.in) parts.push(describeIn(state.in, clocking));
+    if (changedOut || !state.out) parts.push(describeOut(state.out, clocking));
+
+    const byAdmin = g.source === CLOCKING_SOURCE.ADMIN;
+    const first = g.items[0];
+    return {
+      key: first.id,
+      createdAt: g.createdAt,
+      status: state.out ? "Đã chấm công ra" : "Đã chấm công vào",
+      method: byAdmin ? (g.items.some((h) => h.replacedHistoryId) ? "Điều chỉnh" : "Thủ công") : "Chấm công QR",
+      byName: byAdmin ? first.createdByName || "Admin" : null,
+      location: !byAdmin && first.latitude != null ? first : null,
+      content: parts.join(". "),
+    };
+  });
+  return rows.reverse();
 }

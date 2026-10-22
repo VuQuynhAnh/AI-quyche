@@ -42,7 +42,7 @@ export default function StoreLanding() {
     <div className="auth-page container d-flex align-items-center">
       <div className="card border-0 shadow-sm mx-auto text-center" style={{ maxWidth: 400, width: "100%" }}>
         <div className="card-body p-4">
-          <img src="/logo.svg" alt="" className="auth-logo mb-3" />
+          <img src="/logo.svg" alt="" className="rounded-4 shadow mb-3" width={60} height={60} />
           {error && <div className="alert alert-danger">{error}</div>}
           {!error && !store && <p className="text-muted mb-0">Đang nhận diện cửa hàng...</p>}
           {store && (

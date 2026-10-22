@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import { connectMongo } from "./config/mongodb.js";
+import { connectMongoInBackground } from "./config/mongodb.js";
 import { createContainer } from "./container.js";
 import { createApp } from "./app.js";
 
@@ -13,8 +13,9 @@ process.on("unhandledRejection", (reason) => {
 
 const PORT = process.env.PORT || 4000;
 
-connectMongo().finally(() => {
-  app.listen(PORT, () => {
-    console.log(`✅ Backend đang chạy tại http://localhost:${PORT}`);
-  });
+app.listen(PORT, () => {
+  console.log(`✅ Backend đang chạy tại http://localhost:${PORT}`);
 });
+
+// MongoDB chỉ dùng cho lịch sử chat — kết nối ở nền, không chặn khởi động
+connectMongoInBackground();

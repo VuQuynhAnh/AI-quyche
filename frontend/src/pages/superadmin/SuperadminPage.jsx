@@ -157,7 +157,7 @@ export default function SuperadminPage() {
     <div className="container py-4" style={{ maxWidth: 1180 }}>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div className="d-flex align-items-center gap-2">
-          <img src="/logo.svg" alt="" className="brand-icon" />
+          <img src="/logo.svg" alt="" className="rounded-3 flex-shrink-0" width={36} height={36} />
           <div>
             <h1 className="h5 mb-0">Quản trị hệ thống</h1>
             <div className="small text-muted">{user?.fullName}</div>

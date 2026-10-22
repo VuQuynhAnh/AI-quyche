@@ -45,7 +45,7 @@ export default function Login() {
     <div className="auth-page container d-flex align-items-center py-4">
       <div className="card border-0 shadow-sm mx-auto" style={{ maxWidth: 440, width: "100%" }}>
         <div className="card-body p-4">
-          <img src="/logo.svg" alt="" className="auth-logo mb-3" />
+          <img src="/logo.svg" alt="" className="rounded-4 shadow mb-3" width={60} height={60} />
           <h1 className="h4 mb-1">Chấm công & Trợ lý AI</h1>
           <p className="text-muted mb-4">Đăng nhập để tiếp tục</p>
 
@@ -86,14 +86,14 @@ export default function Login() {
           </p>
 
           {SHOW_DEMO_ACCOUNTS && (
-            <div className="demo-accounts mt-4">
+            <div className="border-top pt-3 mt-4">
               <div className="small fw-semibold mb-1">Tài khoản mẫu</div>
               <div className="small text-muted mb-2">
                 Bấm để điền sẵn (có sau khi chạy <code>npm run db:reset</code>).
               </div>
               {DEMO_ACCOUNT_GROUPS.map((group) => (
                 <div key={group.title} className="mb-2">
-                  <div className="demo-accounts-group">{group.title}</div>
+                  <div className="small text-uppercase fw-semibold text-body-secondary my-1" style={{ fontSize: "0.72rem", letterSpacing: "0.04em" }}>{group.title}</div>
                   <div className="list-group list-group-flush">
                     {group.accounts.map((account) => (
                       <button

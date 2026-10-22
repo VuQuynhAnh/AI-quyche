@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Tooltip as BsTooltip } from "bootstrap";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -21,17 +22,17 @@ import { CONVERSATION_STATUS, MESSAGE_FEEDBACK, MESSAGE_SENDER, ROLE } from "../
 // đăng nhập — phía client không cần tự quản lý/truyền conversationId.
 
 // "desc" giải thích cho CHÍNH NHÂN VIÊN vì sao đoạn chat đang ở trạng thái đó —
-// hiển thị qua Tooltip (component tự thiết kế, xem bên dưới) khi rê chuột/
-// chạm vào icon "i" cạnh chip trạng thái, thay cho dải màu chiếm hết chiều
-// rộng như thiết kế cũ. Không cần mục "normal" vì trạng thái đó không hiện
-// chip nào cả (xem "statusBadge" bên dưới).
+// hiển thị qua tooltip khi rê chuột/chạm vào icon "i" cạnh chip trạng thái.
+// Không cần mục "normal" vì trạng thái đó không hiện chip nào cả.
 const STATUS_BADGE = {
   [CONVERSATION_STATUS.FLAGGED]: {
     text: "Đang chờ admin trả lời",
+    cls: "bg-warning-subtle text-warning-emphasis border-warning-subtle",
     desc: "Câu hỏi này cần quản trị viên hỗ trợ trực tiếp — do liên quan tài liệu nhạy cảm (tự động), hoặc do bạn đã bấm \"Cần admin hỗ trợ\". Quản trị viên sẽ trả lời ngay trong đoạn chat này.",
   },
   [CONVERSATION_STATUS.RESOLVED]: {
     text: "Admin đã trả lời",
+    cls: "bg-success-subtle text-success-emphasis border-success-subtle",
     desc: "Quản trị viên đã gửi câu trả lời trực tiếp cho câu hỏi cần hỗ trợ ở trên.",
   },
 };
@@ -50,7 +51,7 @@ function KebabIcon() {
 
 function PencilIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="15" height="15" className="flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
     </svg>
@@ -59,7 +60,7 @@ function PencilIcon() {
 
 function TrashIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="15" height="15" className="flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <polyline points="3 6 5 6 21 6" />
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
       <path d="M10 11v6" />
@@ -73,7 +74,7 @@ function TrashIcon() {
 // phong cách với DocumentIcon bên trang quản trị (AdminLayout.jsx).
 function DocumentIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="15" height="15" className="flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <path d="M14 2v6h6" />
       <path d="M9 13h6" />
@@ -84,7 +85,7 @@ function DocumentIcon() {
 
 function LogoutIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="15" height="15" className="flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <polyline points="16 17 21 12 16 7" />
       <line x1="21" y1="12" x2="9" y2="12" />
@@ -134,23 +135,37 @@ function InfoIcon() {
   );
 }
 
-// Component tooltip tự thiết kế — giống hệt Tooltip ở Logs.jsx (bong bóng chữ
-// nền tối, mũi nhọn chỉ lên trigger, hiện/ẩn bằng CSS thuần), dùng lại đúng
-// class .ui-tooltip-wrap/.ui-tooltip-bubble trong custom.css. Chip trạng thái
-// ở đây chỉ có 1 mình (không phải 1 dãy nhiều chip như bên trang quản trị)
-// và thường nằm giữa màn hình chat hẹp, nên căn GIỮA bong bóng theo trigger
-// (center=true) thay vì lệch trái, để không bị tràn lố sang 1 bên trên màn
-// hình điện thoại.
-function Tooltip({ text, children, center }) {
+// Nút "i" mở tooltip Bootstrap (hiện khi rê chuột hoặc focus bằng bàn phím)
+function InfoTip({ text, label }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const tip = new BsTooltip(ref.current, { title: text, placement: "bottom" });
+    return () => tip.dispose();
+  }, [text]);
   return (
-    <span className={`ui-tooltip-wrap ${center ? "ui-tooltip-wrap-center" : ""}`}>
-      {children}
-      <span className="ui-tooltip-bubble" role="tooltip">
-        {text}
-      </span>
-    </span>
+    <button ref={ref} type="button" className="btn btn-link p-0 lh-1 text-reset opacity-75" aria-label={label}>
+      <InfoIcon />
+    </button>
   );
 }
+
+// Avatar tròn nhỏ trước tin nhắn của chatbot/admin
+function MsgAvatar({ role }) {
+  const isAdmin = role === MESSAGE_SENDER.ADMIN;
+  return (
+    <div
+      className={`rounded-circle d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0 ${isAdmin ? "bg-success" : "bg-primary bg-gradient"}`}
+      style={{ width: 26, height: 26, fontSize: 11 }}
+    >
+      {isAdmin ? "QT" : "AI"}
+    </div>
+  );
+}
+
+// Nút tròn trong suốt trên thanh tiêu đề chat
+const HEADER_BTN =
+  "btn btn-sm rounded-circle p-0 d-flex align-items-center justify-content-center text-white bg-white bg-opacity-25 border-0 flex-shrink-0";
+const HEADER_BTN_SIZE = { width: 32, height: 32 };
 
 // Định dạng giờ gửi hiện dưới mỗi tin nhắn — chỉ "HH:mm" nếu gửi trong hôm
 // nay (trường hợp phổ biến nhất), kèm thêm ngày/tháng nếu tin nhắn từ hôm
@@ -293,7 +308,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
     const sources = m.sources || [];
     // Ước lượng chiều cao popover để quyết định lật lên trên hay không — chỉ
     // cần TƯƠNG ĐỐI đúng (popover có max-height + tự cuộn riêng nếu quá dài,
-    // xem .msg-context-menu trong custom.css, nên sai số nhỏ không ảnh hưởng).
+    // nên sai số nhỏ không ảnh hưởng).
     const actionRows = m.role === MESSAGE_SENDER.USER ? 2 : 1; // "Sửa & hỏi lại" + "Xoá tin nhắn", hoặc chỉ "Xoá tin nhắn"
     const estimatedHeight =
       actionRows * 40 + 12 + (sources.length > 0 ? 26 + sources.length * 36 : 0);
@@ -321,12 +336,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
     if (!menu && !headerMenuOpen) return;
 
     function handleDocMouseDown(e) {
-      if (
-        e.target.closest(".msg-menu-trigger") ||
-        e.target.closest(".msg-context-menu") ||
-        e.target.closest(".header-menu-trigger") ||
-        e.target.closest(".header-menu-dropdown")
-      ) {
+      if (e.target.closest("[data-chat-menu]")) {
         return;
       }
       closeMenu();
@@ -515,12 +525,13 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
 
   return (
     <div className={`chat-container d-flex flex-column ${embedded ? "chat-embedded" : ""}`}>
-      <div className="chat-header d-flex justify-content-between align-items-center px-3 py-2">
+      <div className="bg-primary bg-gradient text-white d-flex justify-content-between align-items-center px-3 py-2">
         <div className="d-flex align-items-center gap-2 min-w-0">
           {!embedded && (user?.role === ROLE.USER || user?.role === ROLE.ADMIN) && (
             <button
               type="button"
-              className="header-menu-trigger"
+              className={HEADER_BTN}
+              style={HEADER_BTN_SIZE}
               title="Quay lại chấm công"
               aria-label="Quay lại chấm công"
               onClick={() => navigate("/work")}
@@ -531,25 +542,27 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
           <img src="/logo.svg" alt="" className="brand-icon" />
           <div className="min-w-0">
             <div className="fw-bold text-truncate">Trợ lý AI</div>
-            <div className="text-muted small text-truncate">
+            <div className="small text-truncate opacity-75">
               {embedded ? "Hỏi về lương, đi muộn, quy chế" : `Xin chào, ${user?.fullName}`}
             </div>
           </div>
         </div>
         <div className="position-relative d-flex align-items-center gap-1">
           {embedded && onExpand && (
-            <button type="button" className="header-menu-trigger" title="Mở toàn màn hình" aria-label="Mở toàn màn hình" onClick={onExpand}>
+            <button type="button" className={HEADER_BTN} style={HEADER_BTN_SIZE} title="Mở toàn màn hình" aria-label="Mở toàn màn hình" onClick={onExpand}>
               ⤢
             </button>
           )}
           {embedded && onClose && (
-            <button type="button" className="header-menu-trigger" title="Đóng" aria-label="Đóng" onClick={onClose}>
+            <button type="button" className={HEADER_BTN} style={HEADER_BTN_SIZE} title="Đóng" aria-label="Đóng" onClick={onClose}>
               ✕
             </button>
           )}
           <button
             type="button"
-            className={`header-menu-trigger ${headerMenuOpen ? "is-open" : ""}`}
+            className={HEADER_BTN}
+            style={HEADER_BTN_SIZE}
+            data-chat-menu
             title="Tuỳ chọn"
             onClick={() => setHeaderMenuOpen((v) => !v)}
           >
@@ -557,10 +570,10 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
           </button>
 
           {headerMenuOpen && (
-            <div className="header-menu-dropdown msg-context-menu">
+            <div className="dropdown-menu show shadow position-absolute top-100 end-0 mt-2" data-chat-menu>
               <button
                 type="button"
-                className="msg-context-menu-item text-danger"
+                className="dropdown-item d-flex align-items-center gap-2 text-danger"
                 onClick={handleDeleteThread}
                 disabled={deletingThread || messages.length === 0}
               >
@@ -568,7 +581,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
                 Xoá đoạn chat
               </button>
               {!embedded && (
-                <button type="button" className="msg-context-menu-item" onClick={handleLogout}>
+                <button type="button" className="dropdown-item d-flex align-items-center gap-2" onClick={handleLogout}>
                   <LogoutIcon />
                   Đăng xuất
                 </button>
@@ -578,24 +591,13 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
         </div>
       </div>
 
-      {/* Chip trạng thái đoạn chat — thay cho dải màu chiếm hết chiều rộng
-          trước đây, cùng phong cách "chip tròn + icon i mở Tooltip" với chú
-          giải trạng thái ở trang quản trị (StatusLegend trong Logs.jsx). */}
+      {/* Chip trạng thái đoạn chat + icon "i" giải thích (tooltip) */}
       {statusBadge && (
         <div className="px-3 py-2 d-flex justify-content-center">
-          <div className={`status-chip status-chip-${status}`}>
-            <span className="status-chip-dot" aria-hidden="true" />
-            <span className="status-chip-text">{statusBadge.text}</span>
-            <Tooltip text={statusBadge.desc} center>
-              <button
-                type="button"
-                className="status-chip-info"
-                aria-label={`Vì sao đoạn chat đang ở trạng thái "${statusBadge.text}"?`}
-              >
-                <InfoIcon />
-              </button>
-            </Tooltip>
-          </div>
+          <span className={`badge rounded-pill border d-inline-flex align-items-center gap-2 fw-medium ${statusBadge.cls}`}>
+            {statusBadge.text}
+            <InfoTip text={statusBadge.desc} label={`Vì sao đoạn chat đang ở trạng thái "${statusBadge.text}"?`} />
+          </span>
         </div>
       )}
 
@@ -612,13 +614,9 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
         {messages.map((m) => (
           <div
             key={m._id}
-            className={`msg-row d-flex align-items-end gap-2 ${m.role === MESSAGE_SENDER.USER ? "flex-row-reverse align-self-end" : "align-self-start"}`}
+            className={`hover-reveal-parent d-flex align-items-end gap-2 ${m.role === MESSAGE_SENDER.USER ? "flex-row-reverse align-self-end" : "align-self-start"}`}
           >
-            {m.role !== MESSAGE_SENDER.USER && (
-              <div className={`msg-avatar ${m.role === MESSAGE_SENDER.ADMIN ? "admin" : "assistant"}`}>
-                {m.role === MESSAGE_SENDER.ADMIN ? "QT" : "AI"}
-              </div>
-            )}
+            {m.role !== MESSAGE_SENDER.USER && <MsgAvatar role={m.role} />}
             <div
               className={`chat-bubble p-2 px-3 ${m.role === MESSAGE_SENDER.USER
                   ? "user bg-primary text-white"
@@ -643,10 +641,11 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
                   "đánh giá chất lượng câu trả lời" hơn. Bấm lại đúng lựa chọn
                   đang bật sẽ huỷ đánh giá — xem handleFeedback(). */}
               {m.role === MESSAGE_SENDER.ASSISTANT && !String(m._id).startsWith("tmp-") && (
-                <div className="msg-feedback d-flex align-items-center gap-1 mt-1">
+                <div className="d-flex align-items-center gap-1 mt-1">
                   <button
                     type="button"
-                    className={`msg-feedback-btn ${m.feedback === MESSAGE_FEEDBACK.HELPFUL ? "active-up" : ""}`}
+                    className={`btn btn-sm rounded-pill py-0 px-2 d-inline-flex align-items-center gap-1 ${m.feedback === MESSAGE_FEEDBACK.HELPFUL ? "btn-success" : "btn-outline-secondary"}`}
+                    style={{ fontSize: "0.72rem" }}
                     title="Đánh giá câu trả lời này là hữu ích"
                     aria-pressed={m.feedback === MESSAGE_FEEDBACK.HELPFUL}
                     onClick={() => handleFeedback(m._id, MESSAGE_FEEDBACK.HELPFUL)}
@@ -656,7 +655,8 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
                   </button>
                   <button
                     type="button"
-                    className={`msg-feedback-btn ${m.feedback === MESSAGE_FEEDBACK.UNHELPFUL ? "active-down" : ""}`}
+                    className={`btn btn-sm rounded-pill py-0 px-2 d-inline-flex align-items-center gap-1 ${m.feedback === MESSAGE_FEEDBACK.UNHELPFUL ? "btn-danger" : "btn-outline-secondary"}`}
+                    style={{ fontSize: "0.72rem" }}
                     title="Đánh giá câu trả lời này là không hữu ích"
                     aria-pressed={m.feedback === MESSAGE_FEEDBACK.UNHELPFUL}
                     onClick={() => handleFeedback(m._id, MESSAGE_FEEDBACK.UNHELPFUL)}
@@ -667,7 +667,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
                 </div>
               )}
               {m.createdAt && (
-                <div className={`chat-bubble-time ${m.role === MESSAGE_SENDER.USER ? "text-white-50" : "text-muted"}`}>
+                <div className={`mt-1 lh-1 ${m.role === MESSAGE_SENDER.USER ? "text-white-50" : "text-muted"}`} style={{ fontSize: "0.7rem" }}>
                   {formatMessageTime(m.createdAt)}
                 </div>
               )}
@@ -675,7 +675,9 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
             {!String(m._id).startsWith("tmp-") && (
               <button
                 type="button"
-                className={`msg-menu-trigger ${menu?.id === m._id ? "is-open" : ""}`}
+                className={`btn btn-sm btn-light rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0 hover-reveal ${menu?.id === m._id ? "is-open" : ""}`}
+                style={{ width: 26, height: 26 }}
+                data-chat-menu
                 title="Tuỳ chọn tin nhắn"
                 onClick={(e) => openMessageMenu(e, m)}
               >
@@ -686,7 +688,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
         ))}
         {sending && (
           <div className="d-flex align-items-end gap-2 align-self-start">
-            <div className="msg-avatar assistant">AI</div>
+            <MsgAvatar role={MESSAGE_SENDER.ASSISTANT} />
             <div className="chat-bubble assistant bg-white border p-2 px-3 text-muted">
               Đang soạn câu trả lời...
             </div>
@@ -696,14 +698,12 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
 
       {error && <div className="alert alert-danger py-2 mx-3">{error}</div>}
 
-      {/* Nút "cần admin hỗ trợ" — thu gọn thành 1 pill nhỏ căn phải thay vì
-          chiếm hẳn 1 hàng ngang toàn bộ chiều rộng với chữ dài như trước, cho
-          gọn gàng hơn. Vẫn giữ đủ ý nghĩa qua "title" (tooltip) khi rê chuột. */}
+      {/* Nút "cần admin hỗ trợ" — pill nhỏ căn phải, ý nghĩa đầy đủ ở "title" */}
       {conversationId && (!status || status !== CONVERSATION_STATUS.FLAGGED) && (
         <div className="px-3 pb-2 d-flex justify-content-end">
           <button
             type="button"
-            className="flag-help-btn"
+            className="btn btn-sm rounded-pill d-inline-flex align-items-center gap-2 px-3 bg-warning-subtle text-warning-emphasis border-warning-subtle"
             onClick={handleFlag}
             disabled={flagging}
             title="Câu hỏi khó hoặc trả lời chưa thoả đáng? Đánh dấu để quản trị viên hỗ trợ trực tiếp"
@@ -714,10 +714,15 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
         </div>
       )}
 
-      <form className="chat-input-bar d-flex gap-2 p-2 border-top bg-white" onSubmit={handleSend}>
+      <form
+        className="d-flex gap-2 p-2 border-top bg-white"
+        style={{ paddingBottom: "calc(0.5rem + var(--safe-bottom))" }}
+        onSubmit={handleSend}
+      >
         <textarea
           ref={textareaRef}
           className="form-control rounded-pill px-3"
+          style={{ resize: "none", maxHeight: 120 }}
           rows={1}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -740,22 +745,26 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
       {menu &&
         createPortal(
           <div
-            className="msg-context-menu"
+            className="dropdown-menu show shadow position-fixed overflow-auto"
+            data-chat-menu
             style={{
               top: menu.top,
               left: menu.left,
+              width: 220,
+              maxHeight: "min(420px, 70vh)",
+              zIndex: 1080,
               transform: menu.openUp ? "translateY(-100%)" : "none",
             }}
           >
             {menu.role === MESSAGE_SENDER.USER && (
-              <button type="button" className="msg-context-menu-item" onClick={handleAskAgain}>
+              <button type="button" className="dropdown-item d-flex align-items-center gap-2" onClick={handleAskAgain}>
                 <PencilIcon />
                 Sửa & hỏi lại
               </button>
             )}
             <button
               type="button"
-              className="msg-context-menu-item text-danger"
+              className="dropdown-item d-flex align-items-center gap-2 text-danger"
               onClick={() => {
                 const id = menu.id;
                 closeMenu();
@@ -768,13 +777,13 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
 
             {menu.sources?.length > 0 && (
               <>
-                <div className="msg-context-menu-divider" />
-                <div className="msg-context-menu-label">Nguồn trích dẫn — bấm để tải</div>
+                <div className="dropdown-divider" />
+                <h6 className="dropdown-header">Nguồn trích dẫn — bấm để tải</h6>
                 {menu.sources.map((s) => (
                   <button
                     key={s.documentId}
                     type="button"
-                    className="msg-context-menu-item"
+                    className="dropdown-item d-flex align-items-center gap-2"
                     onClick={() => {
                       closeMenu();
                       handleDownloadSource(s);

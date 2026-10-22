@@ -37,6 +37,9 @@ const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
 const PAGE_TITLES = Object.fromEntries(NAV_ITEMS.map((i) => [i.to, i.label]));
 
+// Trang nhiều cột dữ liệu: dùng hết chiều ngang, không giới hạn 1240px
+const FULL_WIDTH_PAGES = new Set(["/admin/clockings"]);
+
 export default function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -52,21 +55,25 @@ export default function AdminLayout() {
   return (
     <div className="admin-shell d-flex">
       {/* Sidebar — CHỈ hiện ở màn hình máy tính (>= lg) */}
-      <aside className="admin-sidebar d-none d-lg-flex flex-column">
+      <aside className="admin-sidebar bg-dark d-none d-lg-flex flex-column">
         <div className="d-flex align-items-center gap-2 px-3 py-3">
-          <img src="/logo.svg" alt="" className="brand-icon" />
+          <img src="/logo.svg" alt="" className="rounded-3 flex-shrink-0" width={36} height={36} />
           <div className="fw-bold text-white">Trang quản trị</div>
         </div>
 
-        <nav className="d-flex flex-column gap-1 px-2 flex-grow-1 overflow-auto">
+        <nav className="nav nav-pills flex-column flex-nowrap gap-1 px-2 flex-grow-1 overflow-auto">
           {NAV_GROUPS.map((group) => (
             <div key={group.title} className="d-flex flex-column gap-1">
-              <div className="admin-nav-group">{group.title}</div>
+              <div className="small text-uppercase text-white-50 px-2 pt-3 pb-1" style={{ fontSize: "0.68rem", letterSpacing: "0.08em" }}>
+                {group.title}
+              </div>
               {group.items.map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
                   to={to}
-                  className={({ isActive }) => `admin-nav-link ${isActive ? "active" : ""}`}
+                  className={({ isActive }) =>
+                    `nav-link d-flex align-items-center gap-2 ${isActive ? "active fw-semibold" : "text-white-50"}`
+                  }
                 >
                   <Icon />
                   <span>{label}</span>
@@ -76,7 +83,7 @@ export default function AdminLayout() {
           ))}
         </nav>
 
-        <div className="admin-sidebar-footer px-3 py-3">
+        <div className="border-top border-secondary px-3 py-3">
           <div className="text-white small text-truncate mb-2" title={user?.fullName}>
             {user?.fullName}
           </div>
@@ -93,9 +100,9 @@ export default function AdminLayout() {
       <div className="admin-content with-bottom-tabs flex-grow-1 min-w-0">
         {/* Thanh tiêu đề trên cùng — hiện ở MỌI kích thước màn hình; nút đăng
             xuất chỉ hiện ở đây trên mobile/tablet (desktop đã có ở sidebar). */}
-        <div className="admin-topbar d-flex justify-content-between align-items-center px-3 px-lg-4 py-3 border-bottom bg-white">
+        <div className="sticky-top d-flex justify-content-between align-items-center px-3 px-lg-4 py-3 border-bottom bg-white">
           <div className="d-flex align-items-center gap-2">
-            <img src="/logo.svg" alt="" className="brand-icon d-lg-none" style={{ width: 30, height: 30 }} />
+            <img src="/logo.svg" alt="" className="rounded-3 d-lg-none" width={30} height={30} />
             <h1 className="h5 mb-0">{pageTitle}</h1>
           </div>
           <div className="d-flex align-items-center gap-2">
@@ -107,15 +114,21 @@ export default function AdminLayout() {
           </div>
         </div>
 
-        <div className="admin-page-wrap p-3 p-lg-4">
+        <div className={`admin-page-wrap p-3 p-lg-4 ${FULL_WIDTH_PAGES.has(location.pathname) ? "mw-100" : ""}`}>
           <Outlet />
         </div>
       </div>
 
       {/* Thanh tab dưới cùng — CHỈ hiện ở điện thoại/máy tính bảng (< lg) */}
-      <nav className="bottom-tabs scrollable d-flex d-lg-none flex-row border-top">
+      <nav className="bottom-tabs fixed-bottom bg-white border-top d-flex d-lg-none flex-nowrap overflow-x-auto">
         {NAV_ITEMS.map(({ to, label }) => (
-          <NavLink key={to} to={to} className="nav-link text-center flex-fill">
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) =>
+              `nav-link text-center text-nowrap flex-fill px-3 ${isActive ? "text-primary fw-semibold" : "text-body-secondary"}`
+            }
+          >
             {label}
           </NavLink>
         ))}

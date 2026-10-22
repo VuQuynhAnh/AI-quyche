@@ -77,61 +77,63 @@ export function NotificationProvider({ children }) {
     <NotificationContext.Provider value={{ notifySuccess, notifyError, confirm: confirmDialog }}>
       {children}
 
-      {/* Toast — render qua Portal thẳng vào <body> để không bị ảnh hưởng bởi
-          overflow/z-index của bất kỳ trang nào đang hiện. */}
+      {/* Toast (Bootstrap .toast) — render qua Portal thẳng vào <body> để không
+          bị ảnh hưởng bởi overflow/z-index của bất kỳ trang nào đang hiện. */}
       {toasts.length > 0 &&
         createPortal(
-          <div className="toast-stack" role="status" aria-live="polite">
-            {toasts.map((t) => (
-              <div key={t.id} className={`app-toast app-toast-${t.type}`}>
-                <span className="app-toast-icon" aria-hidden="true">
-                  {t.type === "success" ? <CheckIcon /> : <ErrorIcon />}
-                </span>
-                <span className="app-toast-message">{t.message}</span>
-                <button
-                  type="button"
-                  className="app-toast-close"
-                  aria-label="Đóng thông báo"
-                  onClick={() => dismissToast(t.id)}
-                >
-                  <CloseIcon />
-                </button>
-              </div>
-            ))}
+          <div className="toast-container position-fixed bottom-0 end-0 p-3" style={{ zIndex: 1100 }} role="status" aria-live="polite">
+            {toasts.map((t) => {
+              const color = t.type === "success" ? "success" : "danger";
+              return (
+                <div key={t.id} className={`toast show border-0 border-start border-4 border-${color} shadow`}>
+                  <div className="d-flex align-items-start gap-2 p-2 ps-3 small">
+                    <span className={`text-${color} flex-shrink-0`} aria-hidden="true">
+                      {t.type === "success" ? <CheckIcon /> : <ErrorIcon />}
+                    </span>
+                    <span className="flex-grow-1">{t.message}</span>
+                    <button type="button" className="btn-close flex-shrink-0" style={{ fontSize: "0.6rem" }} aria-label="Đóng thông báo" onClick={() => dismissToast(t.id)} />
+                  </div>
+                </div>
+              );
+            })}
           </div>,
           document.body
         )}
 
-      {/* Hộp thoại xác nhận — chỉ 1 cái tại 1 thời điểm (đủ dùng cho toàn app,
-          chưa có nơi nào cần xác nhận 2 việc cùng lúc). */}
+      {/* Hộp thoại xác nhận (markup modal Bootstrap, hiện tĩnh) — chỉ 1 cái tại
+          1 thời điểm, nổi trên mọi modal khác. */}
       {confirmState &&
         createPortal(
-          <div
-            className="confirm-dialog-backdrop"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) answerConfirm(false);
-            }}
-          >
-            <div className="confirm-dialog-modal" role="alertdialog" aria-modal="true">
-              <p className="confirm-dialog-message">{confirmState.message}</p>
-              <div className="confirm-dialog-actions">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary btn-sm"
-                  onClick={() => answerConfirm(false)}
-                >
-                  {confirmState.cancelText || "Huỷ"}
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${confirmState.danger ? "btn-danger" : "btn-primary"}`}
-                  onClick={() => answerConfirm(true)}
-                >
-                  {confirmState.confirmText || "Đồng ý"}
-                </button>
+          <>
+            <div className="modal-backdrop show" style={{ zIndex: 1115 }} />
+            <div
+              className="modal d-block"
+              style={{ zIndex: 1120 }}
+              role="alertdialog"
+              aria-modal="true"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) answerConfirm(false);
+              }}
+            >
+              <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: 400 }}>
+                <div className="modal-content border-0 shadow">
+                  <div className="modal-body" style={{ whiteSpace: "pre-line" }}>{confirmState.message}</div>
+                  <div className="modal-footer border-0 pt-0">
+                    <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => answerConfirm(false)}>
+                      {confirmState.cancelText || "Huỷ"}
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${confirmState.danger ? "btn-danger" : "btn-primary"}`}
+                      onClick={() => answerConfirm(true)}
+                    >
+                      {confirmState.confirmText || "Đồng ý"}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>,
+          </>,
           document.body
         )}
     </NotificationContext.Provider>
@@ -160,15 +162,6 @@ function ErrorIcon() {
       <circle cx="12" cy="12" r="10" />
       <line x1="12" y1="8" x2="12" y2="13" />
       <line x1="12" y1="16" x2="12" y2="16.01" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   );
 }

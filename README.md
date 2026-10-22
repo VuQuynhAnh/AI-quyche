@@ -142,7 +142,10 @@ npm run dev      # chạy tại http://localhost:4000
 Nếu quên bật MongoDB, backend vẫn khởi động bình thường (chấm công, lương, văn
 bản vẫn dùng được vì chỉ cần PostgreSQL) — riêng các API hội thoại (`/chat/*`,
 `/admin/stats*`, `/admin/conversations*`) trả lỗi **503** ngay kèm thông báo rõ
-ràng (`middleware/requireMongo.js`) thay vì bị "treo" chờ kết nối.
+ràng (`middleware/requireMongo.js`) thay vì bị "treo" chờ kết nối. Server mở
+cổng ngay, không đợi Mongo; kết nối thất bại thì tự thử lại mỗi 30 giây
+(`config/mongodb.js#connectMongoInBackground`), nên bật Mongo / whitelist IP
+trên Atlas xong là chat dùng được mà không cần khởi động lại backend.
 
 Tài khoản mẫu sau khi `npm run db:reset` (màn đăng nhập có sẵn danh sách này,
 bấm để điền nhanh — ẩn khi deploy bằng `VITE_HIDE_DEMO_ACCOUNTS=true`):
@@ -188,8 +191,10 @@ trang phải chạy qua **HTTPS** (hoặc `localhost`).
   mỗi phút, vị trí + bán kính (tuỳ chọn); in **mã QR** dán tại quầy (trỏ tới
   `/s/:storeId`).
 - **Admin → Nhân viên** (`/admin/employees`): tạo tài khoản nhân viên, đặt lương giờ.
-- **Admin → Chấm công** (`/admin/clockings`): bảng công theo tháng; bấm 1 ô ngày
-  → "Chỉnh sửa" để sửa giờ vào/ra (tháng chưa chốt lương).
+- **Admin → Chấm công** (`/admin/clockings`): bảng công xem theo **tuần**
+  (mặc định, ô có thêm giờ vào–ra) hoặc **tháng**; bấm 1 ô ngày → "Chỉnh sửa"
+  để sửa giờ vào/ra (tháng chưa chốt lương). Tuần tính từ Thứ Hai, thuộc tháng
+  chứa ngày Thứ Năm của nó (VD 28/9–4/10/2026 là "Tuần 1 - Th. 10 2026").
 - **Admin → Bảng lương** (`/admin/paysheets`): tạo / tính lại / chốt / huỷ bảng
   lương tháng, xem chi tiết từng ngày, xuất CSV.
 - **Nhân viên**: quét QR → đăng nhập → bấm CHECK-IN / CHECK-OUT (cần bật GPS)
@@ -223,7 +228,21 @@ Tạo bảng lương ──▶ draft ──(Tính lại)──▶ draft ──(C
   nên đổi giờ ca không làm sai các ngày đã qua.
 - Lịch sử chấm công **không sửa/xoá được** (`clocking_history` có trigger).
   Admin "Chỉnh sửa" 1 ngày = huỷ lần cũ + thêm lần mới (`source = admin`) trỏ
-  về lần cũ; giờ gốc vẫn hiện (gạch ngang) trong chi tiết ngày.
+  về lần cũ.
+- Chi tiết ngày (admin) hiện **bảng lịch sử chấm công**, mới nhất trước, mỗi
+  dòng là 1 lần ghi nhận:
+  - *Thời gian*: lúc ghi nhận (không phải giờ chấm).
+  - *Trạng thái*: "Đã chấm công vào" / "Đã chấm công ra" — trạng thái của ngày
+    ngay sau lần đó.
+  - *Hình thức*: "Chấm công QR" (nhân viên tự chấm, kèm link vị trí), "Điều
+    chỉnh" (admin sửa giờ đã có) hoặc "Thủ công" (admin thêm giờ còn thiếu),
+    kèm tên admin.
+  - *Nội dung*: phần giờ thay đổi, so với ca (VD `Giờ vào: 07:00, làm thêm
+    trước ca: 1 giờ 0 phút`; đi muộn / về sớm / làm thêm sau ca tương tự); giờ
+    chưa có ghi `--:--`.
+  Bảng được dựng ở frontend (`DayDetail.jsx#buildChangeLog`) bằng cách phát lại
+  các dòng `clocking_history` theo `created_at`; các dòng admin tạo trong cùng
+  1 lần lưu (cùng transaction nên cùng `created_at`) gộp thành 1 dòng.
 - Chỉ lưu vị trí GPS, không lưu IP. Vị trí ngoài bán kính chỉ gắn cờ cho admin,
   không chặn chấm công.
 
@@ -244,7 +263,8 @@ RAG tra văn bản **của cửa hàng** như mô tả bên dưới.
 | `GET/POST /api/superadmin/accounts` | superadmin | Tài khoản superadmin |
 | `GET/PATCH /api/hr/setting` | admin | Thiết lập cửa hàng |
 | `GET/POST/PATCH /api/hr/employees[/:id]` | admin | Nhân viên, lương giờ |
-| `GET /api/hr/clockings/overview`, `/day` | admin | Bảng công tháng / chi tiết ngày |
+| `GET /api/hr/clockings/overview?from=&to=` hoặc `?month=` | admin | Bảng công theo khoảng ngày (tối đa 31 ngày, dùng cho xem theo tuần) hoặc theo tháng; trả `dates`, `rows`, `lockedMonths` (tháng đã chốt lương trong khoảng) |
+| `GET /api/hr/clockings/day` | admin | Chi tiết 1 ngày |
 | `POST /api/hr/clockings/day-edit` | admin | Sửa giờ vào/ra 1 ngày |
 | `GET /api/hr/paysheets?month=` | admin | Bảng lương của tháng + các bảng đã huỷ |
 | `POST /api/hr/paysheets` | admin | Tạo bảng lương (`{ payMonth }`) |
@@ -520,7 +540,7 @@ backend/
                   service → router và truyền vào nhau (xem mục "Kiến trúc
                   phân tầng")
     app.js        tạo Express app từ các router của container
-    index.js      kết nối MongoDB, khởi động server
+    index.js      khởi động server, kết nối MongoDB ở nền (không chặn)
     routes/       TẦNG ROUTER — chỉ đọc req, gọi service, trả res
       auth.routes.js          /api/auth        đăng nhập
       superadmin.routes.js    /api/superadmin  cửa hàng, tài khoản superadmin
@@ -573,8 +593,11 @@ frontend/
       charts/     StackedBarChart.jsx, RankedBarChart.jsx — 2 component biểu đồ
                   dùng chung cho trang Dashboard, xem mục "Biểu đồ trang
                   Dashboard" phía trên
-      hr/         DayDetail.jsx, Modal.jsx, MonthNav.jsx — dùng chung cho các
-                  trang chấm công/lương
+      hr/         DayDetail.jsx (chi tiết 1 ngày + bảng lịch sử chấm công),
+                  Modal.jsx (hộp thoại Bootstrap dùng chung), PeriodNav.jsx
+                  (khung ‹ kỳ › dùng chung + WeekNav), MonthNav.jsx,
+                  TimeInput.jsx (chọn giờ 24h), MoneyInput.jsx — dùng chung cho
+                  các trang chấm công/lương
       ChatPopup.jsx  cửa sổ chat nổi trong trang nhân viên (bọc Chat.jsx)
     utils/        format.js (định dạng tiền/giờ), geo.js (lấy vị trí GPS)
     pages/
@@ -587,12 +610,11 @@ frontend/
       client/Chat.jsx                trang client: 1 đoạn chat liên tục, tự
                                      tải thêm tin nhắn cũ khi kéo lên; rê chuột
                                      (hoặc chạm) vào 1 tin nhắn hiện nút "..."
-                                     mở popover "Sửa & hỏi lại" / "Xoá tin
+                                     mở menu "Sửa & hỏi lại" / "Xoá tin
                                      nhắn" / tải tài liệu nguồn (nếu tin nhắn
                                      có trích dẫn); nút "..." ở thanh tiêu đề
-                                     gộp "Xoá đoạn chat" + "Đăng xuất"; bong
-                                     bóng chat co giãn tới ~10 dòng rồi tự cuộn
-                                     riêng; tự đánh dấu cần admin
+                                     gộp "Xoá đoạn chat" + "Đăng xuất"; tự
+                                     đánh dấu cần admin
       admin/AdminLayout.jsx          khung sườn trang quản trị: sidebar riêng
                                      cho máy tính (>= lg), thanh tab dưới cùng
                                      cho điện thoại/máy tính bảng
@@ -606,58 +628,62 @@ frontend/
                                      hình máy tính, xếp chồng ở điện thoại
       admin/Accounts.jsx             tài khoản của cửa hàng: tạo (chọn vai trò),
                                      thăng/hạ quyền, xoá
-    styles/       custom.css — CHỈ phần Bootstrap không có sẵn: thanh tab dưới
-                  cùng, khung chat, hoạ tiết nền/gradient thương hiệu, popover
-                  tuỳ chọn tin nhắn, sidebar + bố cục 2 cột của trang quản trị
-                  trên máy tính; mọi layout/màu sắc khác dùng thẳng class
-                  Bootstrap trong JSX (container, card, btn, form-control,
-                  badge, ...)
+    styles/       custom.css (~300 dòng) — CHỈ phần Bootstrap không có sẵn: bố
+                  cục admin cao đúng 100dvh + 2 cột trang Hội thoại, khung chat
+                  (hoạ tiết nền, bong bóng, cửa sổ chat nổi), lưới lịch tháng,
+                  bảng công có cột ghim, khung ngắm QR, thanh cuộn mảnh,
+                  safe-area điện thoại, bảng màu biểu đồ. Mọi thứ khác dùng
+                  thẳng class/component Bootstrap trong JSX (xem mục "Giao
+                  diện" bên dưới)
 ```
 
-## Giao diện: thương hiệu, popover tin nhắn, bố cục riêng cho máy tính
+## Giao diện: Bootstrap trước, CSS riêng sau cùng
 
 Vài điểm về giao diện đáng chú ý khi đọc code (không phải yêu cầu nghiệp vụ,
 nhưng giúp hiểu vì sao 1 số file có cấu trúc như vậy):
 
+- **Ưu tiên Bootstrap 5.3:** layout, màu, spacing và các thành phần giao diện
+  đều dùng class/component có sẵn của Bootstrap ngay trong JSX — chỉ viết CSS
+  riêng (`styles/custom.css`) khi Bootstrap thật sự không có. Thêm giao diện
+  mới thì tìm utility/component Bootstrap trước. Cụ thể:
+
+  | Thành phần | Dùng của Bootstrap |
+  |---|---|
+  | Hộp thoại (`Modal.jsx`), hộp xác nhận | `.modal` render bằng React (Portal), không dùng JS của Bootstrap |
+  | Thông báo (`NotificationContext`) | `.toast-container` + `.toast` |
+  | Menu "..." (tin nhắn, thanh tiêu đề chat, thẻ quy chế) | `.dropdown-menu` + `.dropdown-item` |
+  | Giải thích trạng thái (Chat, Logs) | `Tooltip` (`import { Tooltip } from "bootstrap"`) |
+  | Chi tiết ngày của nhân viên (`History.jsx`) | `.offcanvas-bottom` |
+  | Chip trạng thái, nhãn VÀO/RA, cờ muộn/sớm | `badge` + `bg-*-subtle` |
+  | Biểu đồ Dashboard | `card`, `.progress` / `.progress-stacked` |
+  | Sidebar admin | `nav nav-pills flex-column` trên nền `bg-dark` |
+  | Đang tải toàn màn hình | `.spinner-border` |
+
 - **Logo & hoạ tiết nền:** `frontend/public/logo.svg` là logo minh hoạ (dự án
-  demo nên chưa có logo thật) dùng ở trang đăng nhập/đăng ký/header;
+  demo nên chưa có logo thật) dùng ở trang đăng nhập/header;
   `logo-watermark.svg` là bản đơn sắc, độ mờ thấp, LẶP LẠI làm hình nền khung
-  chat (`background-repeat: repeat` trong `.chat-messages`) — muốn đổi sang
-  logo thật của công ty chỉ cần thay 2 file này.
-- **Popover tuỳ chọn tin nhắn** (`Chat.jsx`): thay vì 1 icon "✕" cố định, mỗi
-  tin nhắn có nút "..." chỉ hiện rõ khi rê chuột vào dòng tin nhắn (`.msg-row`
-  + CSS `:hover`). Bấm vào mở 1 popover nhỏ (render qua `createPortal` thẳng
-  ra `<body>`, vị trí tính bằng JS lúc mở — xem `openMessageMenu`) với: "Sửa &
-  hỏi lại" (chỉ có ở tin nhắn của chính nhân viên — điền lại nội dung câu hỏi
-  cũ vào ô nhập để sửa rồi gửi lại, không tự động gửi), "Xoá tin nhắn" (xoá
-  mềm như đã mô tả ở mục "Mô hình 1 nhân viên = 1 đoạn chat"), và — nếu tin
-  nhắn trả lời có kèm `sources` — mục "Nguồn trích dẫn" liệt kê từng tài liệu
-  đã dùng để trả lời, bấm vào sẽ tải file gốc (`GET /api/doc-files/:id/download`,
-  xem `api/client.js#downloadFile` — tải bằng `fetch()` + Blob thay vì thẻ
-  `<a href>` thường vì route này yêu cầu JWT trong header). Dùng Portal thay
-  vì dropdown thường để popover không bao giờ bị cắt bởi `overflow: auto` của
-  khung chat.
-- **Popover "..." ở thanh tiêu đề:** gộp 2 nút "Xoá đoạn chat" / "Đăng xuất"
-  trước đây thành 1 nút "..." mở dropdown — dùng lại style của
-  `.msg-context-menu` nhưng định vị bằng CSS thường (`position: absolute`,
-  xem `.header-menu-dropdown`) thay vì tính toạ độ bằng JS, vì vị trí nút này
-  cố định trong bố cục và không bị khung cuộn nào che khuất.
-- **Bong bóng chat co giãn có giới hạn:** nội dung câu trả lời nằm trong
-  `.chat-bubble-content` với `max-height: 15em` (~10 dòng, `line-height` cố
-  định để tính đúng) + `overflow-y: auto` — bong bóng co giãn tự nhiên theo độ
-  dài câu trả lời như bình thường, nhưng câu trả lời RẤT dài (VD: liệt kê
-  nhiều điều khoản) sẽ tự cuộn RIÊNG bên trong thay vì kéo dài cả khung chat.
-  Dòng "Nguồn: ..." nằm ngoài phần tử này nên luôn hiển thị đầy đủ.
+  chat (`.chat-messages`) — muốn đổi sang logo thật chỉ cần thay 2 file này.
+- **Menu tuỳ chọn tin nhắn** (`Chat.jsx`): mỗi tin nhắn có nút "..." chỉ hiện
+  rõ khi rê chuột vào dòng tin nhắn (`.hover-reveal` trong `custom.css`; máy
+  cảm ứng thì luôn hiện mờ). Bấm vào mở 1 `.dropdown-menu` (render qua
+  `createPortal` ra `<body>`, vị trí `fixed` tính bằng JS lúc mở — xem
+  `openMessageMenu`) để không bị `overflow: auto` của khung chat cắt mất. Các
+  mục: "Sửa & hỏi lại" (chỉ tin của chính nhân viên — điền lại câu hỏi cũ vào
+  ô nhập, không tự gửi), "Xoá tin nhắn" (xoá mềm, xem mục "Mô hình 1 nhân viên
+  = 1 đoạn chat"), và — nếu câu trả lời có `sources` — danh sách tài liệu
+  nguồn, bấm để tải file gốc (`GET /api/doc-files/:id/download`, tải bằng
+  `fetch()` + Blob trong `api/client.js#downloadFile` vì route cần JWT).
+- **Nút "..." ở thanh tiêu đề chat:** gộp "Xoá đoạn chat" / "Đăng xuất" vào 1
+  dropdown, định vị bình thường (`position-absolute`) vì nút này không nằm
+  trong khung cuộn.
+- **Bong bóng chat** hiện đầy đủ nội dung câu trả lời (không cuộn riêng bên
+  trong); việc cuộn xem tin khác do khung `.chat-messages` đảm nhiệm.
 - **Trang quản trị — ưu tiên máy tính, vẫn responsive:** `AdminLayout.jsx` có
-  2 bố cục riêng biệt theo kích thước màn hình thay vì cố "ép" 1 bộ khung dùng
-  chung: dưới `lg` (992px) là thanh tab ngang cố định dưới cùng như thiết kế
-  mobile-first ban đầu; từ `lg` trở lên là sidebar cố định bên trái (logo,
-  icon cho từng mục, trạng thái đang chọn, khu vực đăng xuất ghim ở cuối).
-  Trang "Hội thoại" (`Logs.jsx`) ở máy tính dùng bố cục "danh sách + chi tiết"
-  2 cột tự cuộn riêng — tham khảo cách các app hộp thư/nhắn tin (Gmail,
-  WhatsApp Web) tổ chức màn hình rộng; ở điện thoại, 2 phần này xếp chồng như
-  cũ (không có code riêng cho mobile ở đây — chỉ là bố cục mặc định khi cột
-  chi tiết bị ẩn bớt CSS của màn hình lớn).
+  2 bố cục riêng: dưới `lg` (992px) là thanh tab cố định dưới cùng
+  (`fixed-bottom`, cuộn ngang khi nhiều mục); từ `lg` trở lên là sidebar cố
+  định bên trái. Ở máy tính khung admin cao đúng `100dvh` và chỉ vùng nội dung
+  tự cuộn; trang "Hội thoại" (`Logs.jsx`) dùng bố cục "danh sách + chi tiết" 2
+  cột tự cuộn riêng (giống Gmail/WhatsApp Web), ở điện thoại 2 phần xếp chồng.
 
 ## Hướng phát triển tiếp (gợi ý cho học viên mở rộng)
 

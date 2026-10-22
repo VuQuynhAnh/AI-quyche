@@ -31,6 +31,25 @@ export function daysInMonth(monthKey) {
   return new Date(Date.UTC(y, m, 0)).getUTCDate();
 }
 
+// Cộng/trừ n ngày cho 'YYYY-MM-DD'
+export function addDays(dateKey, n) {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
+}
+
+// Thứ Hai của tuần chứa ngày 'YYYY-MM-DD' (tuần bắt đầu từ Thứ Hai)
+export function weekStart(dateKey) {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0 = CN
+  return addDays(dateKey, -((dow + 6) % 7));
+}
+
+// '2026-10-19' -> '19/10'
+export function fmtDayMonth(dateKey) {
+  return `${dateKey.slice(8, 10)}/${dateKey.slice(5, 7)}`;
+}
+
 // Thứ của ngày 1 trong tháng, quy về 0 = Thứ Hai ... 6 = Chủ Nhật
 export function firstWeekdayMonFirst(monthKey) {
   const [y, m] = monthKey.split("-").map(Number);

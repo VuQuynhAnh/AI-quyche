@@ -24,8 +24,13 @@ export default function GlobalLoading() {
 
   if (!visible) return null;
   return createPortal(
-    <div className="global-loading" role="status" aria-live="polite">
-      <div className="global-loading-box">
+    <div
+      className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+      style={{ zIndex: 1200, background: "rgba(15, 23, 42, 0.25)", cursor: "progress" }}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="d-flex align-items-center gap-3 bg-white rounded-3 shadow px-4 py-3 fw-medium">
         <span className="spinner-border text-primary" aria-hidden="true" />
         <span>Đang xử lý...</span>
       </div>

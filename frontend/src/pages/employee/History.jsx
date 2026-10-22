@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.js";
 import MonthNav from "../../components/hr/MonthNav.jsx";
 import {
-  CLOCKING_ACTION_LABEL, CLOCKING_HISTORY_STATUS, CLOCKING_SOURCE, PAYSHEET_STATUS,
+  CLOCKING_ACTION, CLOCKING_ACTION_LABEL, CLOCKING_HISTORY_STATUS, CLOCKING_SOURCE, PAYSHEET_STATUS,
 } from "../../constants/enums.js";
 import {
   daysInMonth, firstWeekdayMonFirst, fmtDateLong, fmtMinutes, fmtMoney, fmtTime, vnDateKey, vnMonthKey,
@@ -14,6 +14,15 @@ const SALARY_SOURCE_LABEL = {
   [PAYSHEET_STATUS.DRAFT]: "Lương theo bảng lương nháp (chưa chốt)",
 };
 const ESTIMATE_LABEL = "Lương tạm tính (tới hiện tại)";
+
+// Màu ô lịch theo tình trạng ngày (dùng chung cho chú thích)
+const DAY_COLOR = {
+  ok: "bg-success-subtle border-success-subtle",
+  warn: "bg-warning-subtle border-warning-subtle",
+  bad: "bg-danger-subtle border-danger-subtle",
+  working: "bg-primary-subtle border-primary-subtle",
+};
+const EVENT_BADGE = { [CLOCKING_ACTION.CHECK_IN]: "text-bg-success", [CLOCKING_ACTION.CHECK_OUT]: "text-bg-warning" };
 
 // Lịch sử chấm công theo tháng: lưới lịch (màu theo tình trạng ngày) + tổng
 // kết tháng. Bấm vào 1 ngày để xem từng lần chấm công của ngày đó.
@@ -51,9 +60,9 @@ export default function History() {
   function cls(info) {
     if (!info) return "";
     // Hôm nay đã check-in nhưng chưa check-out = đang làm, chưa phải lỗi
-    if (info.isMissingCheckOut) return info.workDate === todayKey ? "working" : "bad";
-    if (info.lateMinutes > 0 || info.earlyLeaveMinutes > 0) return "warn";
-    return "ok";
+    if (info.isMissingCheckOut) return DAY_COLOR[info.workDate === todayKey ? "working" : "bad"];
+    if (info.lateMinutes > 0 || info.earlyLeaveMinutes > 0) return DAY_COLOR.warn;
+    return DAY_COLOR.ok;
   }
 
   const salary = result?.salary;
@@ -90,7 +99,7 @@ export default function History() {
 
           <div className="cal-grid mb-1">
             {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((n) => (
-              <div key={n} className="cal-dow">
+              <div key={n} className="text-center small text-muted">
                 {n}
               </div>
             ))}
@@ -98,17 +107,17 @@ export default function History() {
           <div className="cal-grid">
             {cells.map((c) =>
               c.empty ? (
-                <div key={c.key} className="cal-cell empty" />
+                <div key={c.key} />
               ) : (
                 <button
                   key={c.key}
                   type="button"
-                  className={`cal-cell ${cls(c.info)} ${c.key === todayKey ? "today" : ""}`}
+                  className={`cal-cell ${cls(c.info)} ${c.key === todayKey ? "border-primary border-2" : ""}`}
                   onClick={() => setSelected(c.key)}
                 >
                   <span>{c.day}</span>
                   {c.info && (
-                    <span className="cal-hours">
+                    <span className="small fw-semibold">
                       {c.info.isMissingCheckOut ? (c.key === todayKey ? "…" : "!") : (c.info.workedMinutes / 60).toFixed(1)}
                     </span>
                   )}
@@ -117,9 +126,9 @@ export default function History() {
             )}
           </div>
           <div className="small text-muted mt-2 d-flex flex-wrap gap-3">
-            <span><i className="legend-dot" style={{ background: "#e7f7ec" }} />Đủ giờ</span>
-            <span><i className="legend-dot" style={{ background: "#fff5db" }} />Muộn/về sớm</span>
-            <span><i className="legend-dot" style={{ background: "#fde8e8" }} />! Thiếu check-out</span>
+            <span><LegendDot color={DAY_COLOR.ok} />Đủ giờ</span>
+            <span><LegendDot color={DAY_COLOR.warn} />Muộn/về sớm</span>
+            <span><LegendDot color={DAY_COLOR.bad} />! Thiếu check-out</span>
             <span>Số trong ô = giờ làm</span>
           </div>
         </>
@@ -128,6 +137,10 @@ export default function History() {
       {selected && <DaySheet workDate={selected} info={dayMap.get(selected)} onClose={() => setSelected(null)} />}
     </div>
   );
+}
+
+function LegendDot({ color }) {
+  return <i className={`d-inline-block rounded-1 border me-1 align-middle ${color}`} style={{ width: 10, height: 10 }} />;
 }
 
 function Stat({ label, value }) {
@@ -143,7 +156,7 @@ function Stat({ label, value }) {
   );
 }
 
-// Chi tiết từng lần chấm công của 1 ngày
+// Chi tiết từng lần chấm công của 1 ngày — offcanvas trượt từ dưới lên
 function DaySheet({ workDate, info, onClose }) {
   const [histories, setHistories] = useState(null);
   const [error, setError] = useState("");
@@ -160,12 +173,19 @@ function DaySheet({ workDate, info, onClose }) {
   }, [workDate]);
 
   return (
-    <div className="sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="sheet" role="dialog" aria-modal="true">
-        <div className="d-flex justify-content-between align-items-start mb-2">
-          <h2 className="h6 mb-0">{fmtDateLong(workDate)}</h2>
+    <>
+      <div className="offcanvas-backdrop fade show" onMouseDown={onClose} />
+      <div
+        className="offcanvas offcanvas-bottom show rounded-top-4"
+        style={{ height: "auto", maxHeight: "80dvh", maxWidth: 560, marginInline: "auto" }}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="offcanvas-header pb-2">
+          <h2 className="offcanvas-title h6">{fmtDateLong(workDate)}</h2>
           <button type="button" className="btn-close" aria-label="Đóng" onClick={onClose} />
         </div>
+        <div className="offcanvas-body pt-0" style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}>
 
         {info && (
           <div className="small text-muted mb-2">
@@ -183,13 +203,14 @@ function DaySheet({ workDate, info, onClose }) {
         {error && <div className="alert alert-danger py-2">{error}</div>}
         {histories && histories.length === 0 && <p className="text-muted mb-0">Không có lần chấm công nào trong ngày này.</p>}
         {histories?.map((h) => (
-          <div key={h.id} className="event-row">
-            <span className={`event-badge ${h.actionType}`}>{CLOCKING_ACTION_LABEL[h.actionType]}</span>
+          <div key={h.id} className="d-flex align-items-center gap-2 py-2 border-bottom">
+            <span className={`badge ${EVENT_BADGE[h.actionType]}`}>{CLOCKING_ACTION_LABEL[h.actionType]}</span>
             <span className="fw-semibold">{fmtTime(h.clockTime)}</span>
             {h.source === CLOCKING_SOURCE.ADMIN && <span className="ms-auto small text-muted">Đã thay đổi bởi admin</span>}
           </div>
         ))}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

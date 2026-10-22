@@ -12,7 +12,7 @@ import "dotenv/config";
 // khi chưa kết nối được, dễ nhận biết và debug hơn nhiều.
 mongoose.set("bufferCommands", false);
 
-export async function connectMongo() {
+export async function connectMongo({ quiet = false } = {}) {
   const uri = process.env.MONGODB_URI || "mongodb://localhost:27017/ai_quyche_chat";
   try {
     // serverSelectionTimeoutMS ngắn (mặc định Mongoose là 30s) để lúc demo/dạy học,
@@ -20,9 +20,26 @@ export async function connectMongo() {
     await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
     console.log("✅ Đã kết nối MongoDB (lưu lịch sử chat)");
   } catch (err) {
+    if (quiet) return;
     console.error("[mongodb] Kết nối thất bại:", err.message);
     console.error(
       "  → Kiểm tra MONGODB_URI trong .env và đảm bảo MongoDB đang chạy (mongod / Docker / Atlas)."
     );
   }
+}
+
+// Dùng khi chạy server: KHÔNG chặn việc khởi động — các phần khác (chấm công,
+// lương... trên PostgreSQL) vẫn chạy khi Mongo lỗi. Kết nối thất bại thì tự
+// thử lại định kỳ (không log nữa cho đỡ rối), nên bật Mongo / whitelist IP xong
+// là chat dùng được ngay mà không phải khởi động lại backend.
+const RETRY_MS = 30 * 1000;
+
+export function connectMongoInBackground() {
+  const attempt = async (quiet) => {
+    await connectMongo({ quiet });
+    if (mongoose.connection.readyState === 1) return;
+    if (!quiet) console.error(`  → Server vẫn chạy (trừ phần chat); tự thử kết nối lại mỗi ${RETRY_MS / 1000}s.`);
+    setTimeout(() => attempt(true), RETRY_MS).unref();
+  };
+  attempt(false);
 }
