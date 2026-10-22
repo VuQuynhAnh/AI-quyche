@@ -36,6 +36,7 @@ import { createDocumentRepository } from "./repositories/document.repository.js"
 import { createConversationRepository } from "./repositories/conversation.repository.js";
 import { createMessageRepository } from "./repositories/message.repository.js";
 import { createFileStorage } from "./repositories/fileStorage.repository.js";
+import { createCloudinaryStorage, parseCloudinaryUrl } from "./repositories/cloudinaryStorage.repository.js";
 import { createAiProvider } from "./providers/ai.provider.js";
 import { createRedisCache } from "./cache/redisCache.js";
 import {
@@ -94,6 +95,9 @@ export function createContainer() {
   const conversationRepository = createConversationRepository({ Conversation, mongoose });
   const messageRepository = createMessageRepository({ Message });
   const fileStorage = createFileStorage();
+  // Ảnh đại diện: lên Cloudinary nếu có CLOUDINARY_URL, không thì lưu đĩa như file tài liệu
+  const cloudinaryConfig = parseCloudinaryUrl(process.env.CLOUDINARY_URL);
+  const imageStorage = cloudinaryConfig ? createCloudinaryStorage({ config: cloudinaryConfig }) : fileStorage;
   const aiProvider = createAiProvider({ chatModel, embeddingModel });
 
   // ---------- Services: tài khoản & cửa hàng ----------
@@ -113,7 +117,7 @@ export function createContainer() {
     employeeRepository,
     passwordHasher,
     storePlanService,
-    fileStorage,
+    fileStorage: imageStorage,
   }), cache);
 
   // ---------- Services: chấm công & lương ----------
@@ -177,7 +181,7 @@ export function createContainer() {
     documents: createDocumentsRouter({ regulationDocumentService }),
     "doc-files": createDocumentFilesRouter({ regulationDocumentService }),
     chat: createChatRouter({ chatService }),
-    avatars: createAvatarsRouter({ fileStorage }),
+    avatars: createAvatarsRouter({ imageStorage }),
   };
 
   return {
@@ -195,6 +199,7 @@ export function createContainer() {
       conversationRepository,
       messageRepository,
       fileStorage,
+      imageStorage,
     },
     providers: { aiProvider },
     cache,
