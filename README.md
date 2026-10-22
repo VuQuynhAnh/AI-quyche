@@ -509,10 +509,18 @@ VD `createPaysheetService({ paysheetRepository, timesheetService, ... })` — kh
 `import` repository. `src/container.js` là nơi duy nhất tạo và nối các thành
 phần với nhau. Nhờ vậy:
 
-- Muốn thêm Redis cache cho 1 repository, đổi lưu file sang S3... chỉ sửa
-  `container.js`, service không đổi.
+- Muốn thêm cache, đổi lưu file sang S3... chỉ sửa `container.js`, service
+  không đổi (VD Redis cache bên dưới).
 - Test service bằng repository giả, không cần DB:
   `createStoreSettingService({ storeRepository: { findSetting: async () => null, ... } })`.
+
+**Redis cache (tuỳ chọn):** đặt `REDIS_URL` trong `.env` để bật. Chỉ cache các
+API đọc dữ liệu lớn, ít thay đổi: bảng lương tháng đã chốt, file CSV bảng lương,
+bảng công khi mọi tháng trong khoảng đã chốt (1 giờ), số liệu dashboard (5 phút).
+Service được "bọc" trong `src/cache/cachedServices.js`; thao tác bảng lương /
+nhân viên tự bỏ cache của cửa hàng (tăng số phiên bản key, xem
+`src/cache/redisCache.js`). Không có Redis hoặc Redis lỗi thì API vẫn chạy
+thẳng vào DB.
 
 Lỗi nghiệp vụ: service `throw AppError.badRequest("...")` (hoặc
 `notFound`/`forbidden`/`conflict`), `middleware/errorHandler.js` trả về

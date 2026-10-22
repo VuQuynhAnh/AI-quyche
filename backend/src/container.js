@@ -19,6 +19,7 @@
 import mongoose from "mongoose";
 import { query, pool } from "./config/db.js";
 import { chatModel, embeddingModel } from "./config/gemini.js";
+import { redis } from "./config/redis.js";
 import { Conversation } from "./models/conversation.model.js";
 import { Message } from "./models/message.model.js";
 import { signToken, verifyToken } from "./utils/jwt.js";
@@ -36,6 +37,13 @@ import { createConversationRepository } from "./repositories/conversation.reposi
 import { createMessageRepository } from "./repositories/message.repository.js";
 import { createFileStorage } from "./repositories/fileStorage.repository.js";
 import { createAiProvider } from "./providers/ai.provider.js";
+import { createRedisCache } from "./cache/redisCache.js";
+import {
+  withClockingManagementCache,
+  withDashboardCache,
+  withEmployeeCache,
+  withPaysheetCache,
+} from "./cache/cachedServices.js";
 
 // Services
 import { createAuthService } from "./services/auth.service.js";
@@ -73,6 +81,8 @@ export function createContainer() {
   const transaction = createTransactionManager({ pool });
   const passwordHasher = createPasswordHasher();
   const tokenService = { sign: signToken, verify: verifyToken };
+  // Redis tắt (không có REDIS_URL) hoặc chưa kết nối -> cache tự bỏ qua
+  const cache = createRedisCache({ client: redis });
 
   // ---------- Repositories & providers ----------
   const storeRepository = createStoreRepository({ db });
@@ -97,24 +107,24 @@ export function createContainer() {
     passwordHasher,
   });
   const storeSettingService = createStoreSettingService({ storeRepository });
-  const employeeService = createEmployeeService({
+  const employeeService = withEmployeeCache(createEmployeeService({
     transaction,
     accountRepository,
     employeeRepository,
     passwordHasher,
     storePlanService,
     fileStorage,
-  });
+  }), cache);
 
   // ---------- Services: chấm công & lương ----------
   const timesheetService = createTimesheetService({ storeRepository, clockingRepository, paysheetRepository });
-  const paysheetService = createPaysheetService({
+  const paysheetService = withPaysheetCache(createPaysheetService({
     transaction,
     paysheetRepository,
     employeeRepository,
     clockingRepository,
     timesheetService,
-  });
+  }), cache);
   const clockingService = createClockingService({
     transaction,
     storeRepository,
@@ -123,19 +133,19 @@ export function createContainer() {
     timesheetService,
     paysheetService,
   });
-  const clockingManagementService = createClockingManagementService({
+  const clockingManagementService = withClockingManagementCache(createClockingManagementService({
     transaction,
     employeeRepository,
     clockingRepository,
     timesheetService,
-  });
+  }), cache);
 
   // ---------- Services: trợ lý AI ----------
-  const dashboardService = createDashboardService({
+  const dashboardService = withDashboardCache(createDashboardService({
     documentRepository,
     conversationRepository,
     messageRepository,
-  });
+  }), cache);
   const salaryInquiryService = createSalaryInquiryService({ employeeRepository, paysheetService });
   const assistantService = createAssistantService({ documentRepository, aiProvider, salaryInquiryService });
   const conversationSummaryService = createConversationSummaryService({ aiProvider });
@@ -187,6 +197,7 @@ export function createContainer() {
       fileStorage,
     },
     providers: { aiProvider },
+    cache,
     services: {
       superadminService,
       employeeService,
