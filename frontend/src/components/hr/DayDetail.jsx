@@ -7,6 +7,7 @@ import {
 } from "../../constants/enums.js";
 import { fmtDateLong, fmtMinutes, fmtTime, vnDateKey } from "../../utils/format.js";
 import TimeInput from "./TimeInput.jsx";
+import HelpTip from "../HelpTip.jsx";
 
 // Chi tiết 1 ngày của 1 nhân viên (admin): giờ vào, giờ ra và bảng lịch sử
 // chấm công (mỗi dòng = 1 lần ghi nhận: trạng thái sau lần đó, hình thức,
@@ -117,6 +118,7 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
                 <span className="text-muted">→</span>
                 <span className="small text-muted">Ra</span>
                 <TimeInput label="Giờ ra" value={editing.checkOutTime} onChange={(v) => setEditing({ ...editing, checkOutTime: v })} />
+                <HelpTip>Sửa một hoặc cả hai giờ. Lần chấm gốc vẫn được giữ trong lịch sử.</HelpTip>
                 <div className="ms-auto d-flex gap-2">
                   <button type="button" className="btn btn-light btn-sm" onClick={() => setEditing(null)}>Huỷ</button>
                   <button type="submit" className="btn btn-primary btn-sm" disabled={!changed || saving}>
@@ -124,7 +126,6 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
                   </button>
                 </div>
               </div>
-              <div className="form-text mt-1">Sửa một hoặc cả hai giờ. Lần chấm gốc vẫn được giữ trong lịch sử.</div>
             </form>
           )}
 

@@ -4,6 +4,7 @@ import { resizeImageToSquare } from "../../utils/image.js";
 import Modal from "../../components/hr/Modal.jsx";
 import MoneyInput from "../../components/hr/MoneyInput.jsx";
 import DateInput from "../../components/hr/DateInput.jsx";
+import HelpTip from "../../components/HelpTip.jsx";
 import { ROLE } from "../../constants/enums.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useNotification } from "../../context/NotificationContext.jsx";
@@ -209,7 +210,9 @@ export default function Employees() {
                 <th className="ps-3">Họ tên</th>
                 <th>Chức danh</th>
                 <th>SĐT</th>
-                <th className="text-end">Lương giờ</th>
+                <th className="text-end">
+                  Lương giờ<HelpTip>Đổi lương giờ chỉ ảnh hưởng các bảng lương chưa chốt.</HelpTip>
+                </th>
                 <th>Trạng thái</th>
                 <th className="pe-3" />
               </tr>
@@ -245,7 +248,6 @@ export default function Employees() {
           <p className="text-muted p-3 mb-0">{showActive ? "Chưa có nhân viên nào đang làm." : "Không có ai đã nghỉ việc."}</p>
         )}
       </div>
-      <div className="small text-muted mt-2">Đổi lương giờ chỉ ảnh hưởng các bảng lương chưa chốt.</div>
 
       {form && (
         <Modal
@@ -357,29 +359,30 @@ export default function Employees() {
                 <h3 className={SECTION_TITLE}>Công việc & lương</h3>
                 <div className="row g-2">
                   <div className="col-sm-6">
-                    <label className="form-label small mb-1">Vai trò</label>
+                    <label className="form-label small mb-1">
+                      Vai trò<HelpTip>Admin vào được trang quản trị và vẫn chấm công, nhận lương như nhân viên.</HelpTip>
+                    </label>
                     <select className="form-select" value={form.role} onChange={set("role")} disabled={isSelf}>
                       <option value={ROLE.USER}>Nhân viên</option>
                       <option value={ROLE.ADMIN}>Admin cửa hàng</option>
                     </select>
                   </div>
                   <div className="col-sm-6">
-                    <label className="form-label small mb-1">Lương mỗi giờ</label>
+                    <label className="form-label small mb-1">
+                      Lương mỗi giờ
+                      <HelpTip>Mức lương mới áp dụng cho các tháng chưa chốt lương (bảng nháp cần bấm "Tính lại"). Bảng lương đã chốt giữ nguyên.</HelpTip>
+                    </label>
                     <MoneyInput required value={form.hourlyWage} onChange={(v) => setForm((f) => ({ ...f, hourlyWage: v }))} />
                   </div>
                   <div className="col-sm-6">
-                    <label className="form-label small mb-1">Ngày bắt đầu làm</label>
+                    <label className="form-label small mb-1">
+                      Ngày bắt đầu làm{!form.id && <HelpTip>Để trống = hôm nay.</HelpTip>}
+                    </label>
                     <DateInput required={!!form.id} value={form.startWorkDate} onChange={(v) => setForm((f) => ({ ...f, startWorkDate: v }))} />
-                    {!form.id && <div className="form-text">Để trống = hôm nay.</div>}
                   </div>
                   {isSelf && <div className="col-12 form-text mt-0">Không thể tự đổi vai trò của chính mình.</div>}
-                  {!isSelf && form.role === ROLE.ADMIN && (
-                    <div className="col-12 form-text mt-0">Admin vào được trang quản trị và vẫn chấm công, nhận lương như nhân viên.</div>
-                  )}
                   {wageChanged && (
-                    <div className="col-12 form-text mt-0">
-                      Mức lương mới áp dụng cho các tháng chưa chốt lương (bảng lương nháp cần bấm "Tính lại"). Bảng lương đã chốt giữ nguyên.
-                    </div>
+                    <div className="col-12 form-text mt-0 text-warning-emphasis">Bảng lương nháp cần bấm "Tính lại" để dùng mức lương mới.</div>
                   )}
                 </div>
               </section>

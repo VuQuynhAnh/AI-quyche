@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../../api/client.js";
 import Modal from "../../components/hr/Modal.jsx";
 import DateInput from "../../components/hr/DateInput.jsx";
+import HelpTip from "../../components/HelpTip.jsx";
 import { fmtDate } from "../../utils/format.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useNotification } from "../../context/NotificationContext.jsx";
@@ -35,14 +36,16 @@ function PlanFields({ form, set }) {
         <input type="tel" className="form-control" required value={form.ownerPhoneNumber} onChange={set("ownerPhoneNumber")} placeholder="Dùng để chăm sóc khách hàng" />
       </div>
       <div className="col-6">
-        <label className="form-label small mb-1">Số nhân viên tối đa</label>
+        <label className="form-label small mb-1">
+          Số nhân viên tối đa<HelpTip>Tính cả admin, chỉ đếm tài khoản đang hoạt động. Để trống = không giới hạn.</HelpTip>
+        </label>
         <input type="number" min="1" className="form-control" value={form.maxEmployeeCount} onChange={set("maxEmployeeCount")} placeholder="Không giới hạn" />
-        <div className="form-text">Tính cả admin, chỉ tài khoản đang hoạt động.</div>
       </div>
       <div className="col-6">
-        <label className="form-label small mb-1">Ngày hết hạn</label>
+        <label className="form-label small mb-1">
+          Ngày hết hạn<HelpTip>Dùng được tới hết ngày này. Để trống = không thời hạn.</HelpTip>
+        </label>
         <DateInput value={form.expiryDate} onChange={(v) => set("expiryDate")({ target: { value: v } })} />
-        <div className="form-text">Dùng được tới hết ngày này. Để trống = không thời hạn.</div>
       </div>
     </>
   );
@@ -289,7 +292,9 @@ export default function SuperadminPage() {
                   <label className="form-label small mb-1">Mật khẩu</label>
                   <input type="text" autoComplete="new-password" className="form-control" required minLength={6} value={storeForm.adminPassword} onChange={setStore("adminPassword")} />
                 </div>
-                <div className="col-12 form-text">Thiết lập ca/phạt mặc định 08:00–17:00, 0đ/phút — admin cửa hàng tự chỉnh sau.</div>
+                <div className="col-12 small">
+                  <HelpTip label="Thiết lập mặc định">Ca 08:00–17:00, phạt 0đ/phút — admin cửa hàng tự chỉnh sau.</HelpTip>
+                </div>
               </>
             )}
           </form>

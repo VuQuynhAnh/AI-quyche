@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../api/client.js";
 import Modal from "../../components/hr/Modal.jsx";
 import MonthNav from "../../components/hr/MonthNav.jsx";
+import HelpTip from "../../components/HelpTip.jsx";
 import { useNotification } from "../../context/NotificationContext.jsx";
 import { PAYSHEET_STATUS, PAYSHEET_STATUS_LABEL } from "../../constants/enums.js";
 import { addMonths, fmtDate, fmtDateLong, fmtDateTime, fmtMinutes, fmtMoney, fmtTime, monthLabel, vnMonthKey } from "../../utils/format.js";
@@ -116,8 +117,10 @@ export default function Paysheets() {
       {data && !paysheet && (
         <div className="card">
           <div className="card-body text-center py-5">
-            <p className="mb-1">Chưa có bảng lương {monthLabel(month).toLowerCase()}.</p>
-            <p className="text-muted small">Bảng lương được tính từ chấm công, lương giờ và tiền phạt hiện tại của cửa hàng.</p>
+            <p className="mb-1">
+              Chưa có bảng lương {monthLabel(month).toLowerCase()}.
+              <HelpTip>Bảng lương được tính từ chấm công, lương giờ và tiền phạt hiện tại của cửa hàng.</HelpTip>
+            </p>
             {!data.isMonthEnded && (
               <p className="text-muted small">
                 Tháng chưa kết thúc: có thể tạo bảng lương nháp để xem trước, chốt lương được từ ngày {finalizableFrom}.
@@ -165,7 +168,13 @@ export default function Paysheets() {
                     <th className="text-end">Muộn/sớm</th>
                     <th className="text-end">Lương gộp</th>
                     <th className="text-end">Phạt</th>
-                    <th className="text-end pe-3">Thực nhận</th>
+                    <th className="text-end pe-3">
+                      Thực nhận
+                      <HelpTip>
+                        Lương ngày = lương giờ × giờ làm trong ca − (phút muộn + phút về sớm) × tiền phạt mỗi phút. Thực nhận
+                        cả tháng không âm. Bấm vào 1 dòng để xem từng ngày.
+                      </HelpTip>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -207,9 +216,6 @@ export default function Paysheets() {
             Tạo bởi {paysheet.createdByName || "—"} lúc {fmtDateTime(paysheet.createdAt)} · Tính gần nhất {fmtDateTime(paysheet.calculatedAt)} · Phạt {fmtMoney(paysheet.penaltyAmountPerMinute)}/phút
             {paysheet.finalizedAt && <> · Chốt bởi {paysheet.finalizedByName || "—"} lúc {fmtDateTime(paysheet.finalizedAt)}</>}
           </div>
-          <p className="small text-muted mt-1">
-            Lương ngày = lương giờ × giờ làm trong ca − (phút muộn + phút về sớm) × tiền phạt mỗi phút. Thực nhận cả tháng không âm. Bấm vào 1 dòng để xem từng ngày.
-          </p>
         </>
       )}
 

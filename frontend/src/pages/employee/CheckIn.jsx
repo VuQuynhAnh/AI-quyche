@@ -5,6 +5,7 @@ import { CLOCKING_ACTION, CLOCKING_ACTION_LABEL, CLOCKING_METHOD, CLOCKING_SOURC
 import { fmtTime, fmtDateLong, fmtMinutes, fmtMoney, getDeviceId, vnDateKey } from "../../utils/format.js";
 import { getCurrentPosition } from "../../utils/geo.js";
 import QrScanner from "../../components/QrScanner.jsx";
+import HelpTip from "../../components/HelpTip.jsx";
 
 // Màu nhãn VÀO / RA
 const EVENT_BADGE = { [CLOCKING_ACTION.CHECK_IN]: "text-bg-success", [CLOCKING_ACTION.CHECK_OUT]: "text-bg-warning" };
@@ -157,11 +158,13 @@ export default function CheckIn() {
           )}
         </div>
         <div className="text-muted small mt-2 text-center">
-          {hasCheckedOut
-            ? "Đã check-out. Nếu về muộn hơn, bấm lại — lần check-out cuối cùng được tính là giờ ra."
-            : onStoreWifi
-              ? "Đang dùng Wi-Fi cửa hàng: bấm nút Wi-Fi để chấm ngay, hoặc quét mã QR tại quầy. Cần bật định vị (GPS)."
-              : "Bấm để mở camera, quét mã QR dán tại quầy. Cần bật định vị (GPS)."}
+          <HelpTip label="Cách chấm công">
+            {hasCheckedOut
+              ? "Đã check-out. Nếu về muộn hơn, bấm lại — lần check-out cuối cùng được tính là giờ ra."
+              : onStoreWifi
+                ? "Đang dùng Wi-Fi cửa hàng: bấm nút Wi-Fi để chấm ngay, hoặc bấm nút kia để quét mã QR tại quầy. Cần bật định vị (GPS)."
+                : "Bấm để mở camera, quét mã QR dán tại quầy. Cần bật định vị (GPS)."}
+          </HelpTip>
         </div>
       </div>
 

@@ -6,6 +6,7 @@ import { getCurrentPosition } from "../../utils/geo.js";
 import { fmtDateTime } from "../../utils/format.js";
 import TimeInput from "../../components/hr/TimeInput.jsx";
 import MoneyInput from "../../components/hr/MoneyInput.jsx";
+import HelpTip from "../../components/HelpTip.jsx";
 
 // Thiết lập cửa hàng: giờ vào/tan ca, tiền phạt mỗi phút muộn/sớm, vị trí +
 // bán kính chấm công (tuỳ chọn), bật/tắt chấm công Wi-Fi, và mã QR dán tại quầy.
@@ -81,7 +82,10 @@ export default function StoreSetting() {
 
             <div className="row g-2">
               <div className="col-6">
-                <label className="form-label small mb-1">Giờ vào ca</label>
+                <label className="form-label small mb-1">
+                  Giờ vào ca
+                  <HelpTip>Giờ ca mới áp dụng từ ngày chấm công tiếp theo; các ngày đã có công giữ giờ ca cũ.</HelpTip>
+                </label>
                 <TimeInput required value={form.shiftStartTime} onChange={(v) => setForm((f) => ({ ...f, shiftStartTime: v }))} />
               </div>
               <div className="col-6">
@@ -89,14 +93,23 @@ export default function StoreSetting() {
                 <TimeInput required value={form.shiftEndTime} onChange={(v) => setForm((f) => ({ ...f, shiftEndTime: v }))} />
               </div>
               <div className="col-12">
-                <label className="form-label small mb-1">Tiền phạt mỗi phút đi muộn / về sớm</label>
+                <label className="form-label small mb-1">
+                  Tiền phạt mỗi phút đi muộn / về sớm
+                  <HelpTip>Mức phạt mới áp dụng cho các bảng lương chưa chốt khi bấm "Tính lại". Bảng lương đã chốt giữ nguyên.</HelpTip>
+                </label>
                 <div style={{ maxWidth: 260 }}>
                   <MoneyInput required value={form.penaltyAmountPerMinute} onChange={(v) => setForm((f) => ({ ...f, penaltyAmountPerMinute: v }))} />
                 </div>
               </div>
               <div className="col-12">
                 <div className="d-flex justify-content-between align-items-center">
-                  <label className="form-label small mb-1">Vị trí cửa hàng (tuỳ chọn)</label>
+                  <label className="form-label small mb-1">
+                    Vị trí cửa hàng (tuỳ chọn)
+                    <HelpTip>
+                      Vĩ độ, kinh độ và bán kính (mét). Nếu có vị trí, lần chấm công ngoài bán kính sẽ được gắn cờ cho admin
+                      xem — không chặn nhân viên chấm công.
+                    </HelpTip>
+                  </label>
                   <button type="button" className="btn btn-link btn-sm p-0" onClick={useMyLocation}>Lấy vị trí hiện tại</button>
                 </div>
                 <div className="row g-2">
@@ -104,7 +117,6 @@ export default function StoreSetting() {
                   <div className="col-4"><input className="form-control" placeholder="Kinh độ" value={form.longitude} onChange={set("longitude")} /></div>
                   <div className="col-4"><input type="number" min="10" max="5000" className="form-control" placeholder="Bán kính (m)" value={form.checkInRadiusMeters} onChange={set("checkInRadiusMeters")} /></div>
                 </div>
-                <div className="form-text">Nếu có vị trí, lần chấm công ngoài bán kính sẽ được gắn cờ cho admin xem (không chặn nhân viên).</div>
               </div>
               <div className="col-12">
                 <div className="form-check form-switch">
@@ -117,29 +129,29 @@ export default function StoreSetting() {
                     onChange={(e) => setForm((f) => ({ ...f, wifiClockingEnabled: e.target.checked }))}
                   />
                   <label className="form-check-label" htmlFor="wifi-clocking">Cho phép chấm công bằng Wi-Fi cửa hàng</label>
+                  <HelpTip>
+                    Nhân viên đang dùng Wi-Fi cửa hàng thấy thêm nút chấm công Wi-Fi cạnh nút quét QR (không cần quét mã).
+                    Wi-Fi cửa hàng được nhận theo mạng lúc admin đăng nhập gần nhất — hãy đăng nhập khi đang ở cửa hàng.
+                  </HelpTip>
                 </div>
-                <div className="form-text">
-                  Nhân viên đang dùng Wi-Fi cửa hàng thấy thêm nút chấm công Wi-Fi cạnh nút quét QR (không cần quét mã).
-                  Wi-Fi cửa hàng được nhận theo mạng lúc admin đăng nhập gần nhất — hãy đăng nhập khi đang ở cửa hàng.
-                </div>
-                <div className="small mt-1">
-                  {wifiNetwork ? (
-                    <>
-                      Wi-Fi cửa hàng hiện tại: <span className="font-monospace">{wifiNetwork.ipAddress}</span>
-                      <span className="text-muted">
-                        {" "}· nhận lúc {fmtDateTime(wifiNetwork.detectedAt)}{wifiNetwork.detectedByName ? ` (${wifiNetwork.detectedByName} đăng nhập)` : ""}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-warning-emphasis">Chưa có — admin cần đăng xuất rồi đăng nhập lại khi đang ở cửa hàng.</span>
-                  )}
-                </div>
+                {form.wifiClockingEnabled && (
+                  <div className="small text-muted mt-1">
+                    {wifiNetwork ? (
+                      <>
+                        Wi-Fi hiện tại: <span className="font-monospace text-body">{wifiNetwork.ipAddress}</span>
+                        <HelpTip>
+                          Nhận lúc {fmtDateTime(wifiNetwork.detectedAt)}
+                          {wifiNetwork.detectedByName ? `, khi ${wifiNetwork.detectedByName} đăng nhập` : ""}.
+                        </HelpTip>
+                      </>
+                    ) : (
+                      <span className="text-warning-emphasis">Chưa nhận được Wi-Fi — admin đăng nhập lại khi đang ở cửa hàng.</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="small text-muted mt-3">
-              Giờ ca mới áp dụng từ ngày chấm công tiếp theo (các ngày đã có công giữ giờ ca cũ). Tiền phạt mới áp dụng cho bảng lương chưa chốt khi bấm "Tính lại".
-            </div>
             <div className="d-flex justify-content-end mt-3">
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Đang lưu..." : "Lưu thiết lập"}</button>
             </div>
