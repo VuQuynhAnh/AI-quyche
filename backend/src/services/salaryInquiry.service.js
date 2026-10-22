@@ -62,7 +62,7 @@ const hm = (min) => {
   const m = n % 60;
   return h === 0 ? `${m} phút` : m === 0 ? `${h} giờ` : `${h} giờ ${m} phút`;
 };
-const dmy = (dateKey) => `${dateKey.slice(8, 10)}/${dateKey.slice(5, 7)}`;
+const dmy = (dateKey) => dateKey.split("-").reverse().join("/");
 const monthLabel = (mk) => `tháng ${Number(mk.slice(5, 7))}/${mk.slice(0, 4)}`;
 
 const STATUS_TEXT = {

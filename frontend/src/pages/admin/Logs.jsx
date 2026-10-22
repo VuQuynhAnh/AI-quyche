@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Tooltip as BsTooltip } from "bootstrap";
 import { api } from "../../api/client.js";
 import { CONVERSATION_STATUS, MESSAGE_SENDER } from "../../constants/enums.js";
+import { fmtDateTime } from "../../utils/format.js";
 
 // Trang admin xem lại lịch sử hỏi đáp của toàn bộ nhân viên — hữu ích để kiểm
 // tra chất lượng câu trả lời AI, và đặc biệt là XỬ LÝ các hội thoại "flagged"
@@ -230,7 +231,7 @@ export default function Logs() {
               <div className="fw-semibold text-truncate">
                 {c.title}
                 {c.isDeleted && (
-                  <span className="badge bg-secondary ms-2" title={`Nhân viên đã xoá lúc ${new Date(c.deletedAt).toLocaleString("vi-VN")}`}>
+                  <span className="badge bg-secondary ms-2" title={`Nhân viên đã xoá lúc ${fmtDateTime(c.deletedAt)}`}>
                     Đã xoá
                   </span>
                 )}
@@ -250,7 +251,7 @@ export default function Logs() {
               )}
               <div className="d-flex justify-content-between align-items-center">
                 <span className={selectedId === c._id ? "small" : "text-muted small"}>
-                  {c.userName || "Ẩn danh"} · {new Date(c.createdAt).toLocaleString("vi-VN")}
+                  {c.userName || "Ẩn danh"} · {fmtDateTime(c.createdAt)}
                 </span>
                 <span className={`badge ${badge.cls}`} title={badge.desc}>
                 {badge.text}
@@ -385,17 +386,12 @@ export default function Logs() {
                       {m.content}
                       {m.isDeleted && (
                         <div className="small fst-italic mt-1">
-                          (đã bị nhân viên xoá{m.deletedAt ? ` lúc ${new Date(m.deletedAt).toLocaleString("vi-VN")}` : ""})
+                          (đã bị nhân viên xoá{m.deletedAt ? ` lúc ${fmtDateTime(m.deletedAt)}` : ""})
                         </div>
                       )}
                       {m.createdAt && (
                         <div className={`mt-1 lh-1 ${m.role === MESSAGE_SENDER.ADMIN ? "text-white-50" : "text-muted"}`} style={{ fontSize: "0.7rem" }}>
-                          {new Date(m.createdAt).toLocaleString("vi-VN", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {fmtDateTime(m.createdAt)}
                         </div>
                       )}
                     </div>

@@ -6,6 +6,7 @@ import { api } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useNotification } from "../../context/NotificationContext.jsx";
 import { CONVERSATION_STATUS, MESSAGE_FEEDBACK, MESSAGE_SENDER, ROLE } from "../../constants/enums.js";
+import { fmtDateTime, fmtTime, vnDateKey } from "../../utils/format.js";
 
 // Trang chat của nhân viên — thiết kế theo mô hình "1 nhân viên = 1 đoạn chat
 // liên tục" (giống Messenger/Zalo), KHÔNG phải nhiều hội thoại tách rời:
@@ -168,17 +169,11 @@ const HEADER_BTN =
 const HEADER_BTN_SIZE = { width: 32, height: 32 };
 
 // Định dạng giờ gửi hiện dưới mỗi tin nhắn — chỉ "HH:mm" nếu gửi trong hôm
-// nay (trường hợp phổ biến nhất), kèm thêm ngày/tháng nếu tin nhắn từ hôm
-// trước trở về trước (VD: khi cuộn lên xem lại tin nhắn cũ).
+// nay (trường hợp phổ biến nhất), kèm thêm "dd/mm/yyyy" nếu tin nhắn từ hôm
+// trước trở về trước (VD: khi cuộn lên xem lại tin nhắn cũ). Theo giờ VN.
 function formatMessageTime(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const now = new Date();
-  const sameDay =
-    d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-  const time = d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-  return sameDay ? time : `${d.toLocaleDateString("vi-VN")} ${time}`;
+  if (!iso || Number.isNaN(new Date(iso).getTime())) return "";
+  return vnDateKey(new Date(iso)) === vnDateKey() ? fmtTime(iso) : fmtDateTime(iso);
 }
 
 // Khung chat dùng chung cho 2 nơi:

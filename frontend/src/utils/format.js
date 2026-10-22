@@ -67,11 +67,18 @@ export function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: TZ });
 }
 
+// Mọi ngày trong app hiện dạng dd/mm/yyyy. Nhận 'YYYY-MM-DD' (cột DATE) hoặc
+// ISO / Date (mốc thời gian, quy về ngày theo giờ VN).
+export function fmtDate(value) {
+  if (!value) return "—";
+  const key = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : vnDateKey(value);
+  return key.split("-").reverse().join("/");
+}
+
+// ISO -> "dd/mm/yyyy HH:mm" (giờ VN)
 export function fmtDateTime(iso) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("vi-VN", {
-    hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric", hour12: false, timeZone: TZ,
-  });
+  return `${fmtDate(iso)} ${fmtTime(iso)}`;
 }
 
 export function fmtDateLong(dateKey) {

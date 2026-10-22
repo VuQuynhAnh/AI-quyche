@@ -3,13 +3,13 @@ import { api, assetUrl } from "../../api/client.js";
 import { resizeImageToSquare } from "../../utils/image.js";
 import Modal from "../../components/hr/Modal.jsx";
 import MoneyInput from "../../components/hr/MoneyInput.jsx";
+import DateInput from "../../components/hr/DateInput.jsx";
 import { ROLE } from "../../constants/enums.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useNotification } from "../../context/NotificationContext.jsx";
-import { fmtMoney } from "../../utils/format.js";
+import { fmtDate, fmtMoney } from "../../utils/format.js";
 
 const EMPTY = { fullName: "", email: "", password: "", phoneNumber: "", jobTitle: "", hourlyWage: "", role: ROLE.USER, startWorkDate: "" };
-const dmy = (dateKey) => (dateKey ? dateKey.split("-").reverse().join("/") : "—");
 
 // Người của cửa hàng (admin + nhân viên) — nơi duy nhất admin quản lý người:
 // thông tin, lương giờ (1 mức duy nhất), tài khoản đăng nhập, thăng làm admin /
@@ -322,11 +322,11 @@ export default function Employees() {
                       : <span className="badge text-bg-secondary">Đã nghỉ</span>)}
                 </div>
                 {form.startWorkDate && (
-                  <div className="small text-muted mt-2">Bắt đầu làm từ {dmy(form.startWorkDate)}</div>
+                  <div className="small text-muted mt-2">Bắt đầu làm từ {fmtDate(form.startWorkDate)}</div>
                 )}
                 {form.id && form.orig.createdAt && (
                   <div className="small text-muted" style={{ fontSize: "0.72rem" }}>
-                    Tạo tài khoản {new Date(form.orig.createdAt).toLocaleDateString("vi-VN")}
+                    Tạo tài khoản {fmtDate(form.orig.createdAt)}
                   </div>
                 )}
               </div>
@@ -369,7 +369,7 @@ export default function Employees() {
                   </div>
                   <div className="col-sm-6">
                     <label className="form-label small mb-1">Ngày bắt đầu làm</label>
-                    <input type="date" className="form-control" required={!!form.id} value={form.startWorkDate} onChange={set("startWorkDate")} />
+                    <DateInput required={!!form.id} value={form.startWorkDate} onChange={(v) => setForm((f) => ({ ...f, startWorkDate: v }))} />
                     {!form.id && <div className="form-text">Để trống = hôm nay.</div>}
                   </div>
                   {isSelf && <div className="col-12 form-text mt-0">Không thể tự đổi vai trò của chính mình.</div>}

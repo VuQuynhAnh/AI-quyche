@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../api/client.js";
 import Modal from "../../components/hr/Modal.jsx";
+import DateInput from "../../components/hr/DateInput.jsx";
+import { fmtDate } from "../../utils/format.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useNotification } from "../../context/NotificationContext.jsx";
 
@@ -22,7 +24,7 @@ const PLAN_STATUS = {
   inactive: { text: "Tạm ngưng", cls: "text-bg-secondary" },
 };
 
-const dmy = (d) => (d ? d.split("-").reverse().join("/") : "Không thời hạn");
+const fmtExpiry = (d) => (d ? fmtDate(d) : "Không thời hạn");
 
 // Các trường gói dùng chung cho form tạo và form sửa
 function PlanFields({ form, set }) {
@@ -39,7 +41,7 @@ function PlanFields({ form, set }) {
       </div>
       <div className="col-6">
         <label className="form-label small mb-1">Ngày hết hạn</label>
-        <input type="date" className="form-control" value={form.expiryDate} onChange={set("expiryDate")} />
+        <DateInput value={form.expiryDate} onChange={(v) => set("expiryDate")({ target: { value: v } })} />
         <div className="form-text">Dùng được tới hết ngày này. Để trống = không thời hạn.</div>
       </div>
     </>
@@ -214,7 +216,7 @@ export default function SuperadminPage() {
                     <td className={`text-end ${full ? "text-danger fw-semibold" : ""}`} title={`${s.adminCount} admin, ${s.userCount} nhân viên (kể cả tài khoản đã khoá)`}>
                       {s.activeAccountCount} / {s.maxEmployeeCount ?? "∞"}
                     </td>
-                    <td className="text-nowrap">{dmy(s.expiryDate)}</td>
+                    <td className="text-nowrap">{fmtExpiry(s.expiryDate)}</td>
                     <td><span className={`badge ${status.cls}`}>{status.text}</span></td>
                     <td className="pe-3 text-end">
                       <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => openEdit(s)}>Sửa</button>

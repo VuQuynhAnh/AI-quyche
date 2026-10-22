@@ -1,9 +1,7 @@
 // Phiếu lương 1 nhân viên (chi tiết từng ngày trong bảng lương): xuất file CSV
 // (mở được bằng Excel) và in / lưu PDF qua hộp in của trình duyệt. Làm ngay ở
 // trình duyệt từ dữ liệu đã tải (serializePaysheetDetail) — không cần gọi API.
-import { fmtMinutes, fmtMoney, fmtTime, monthLabel } from "./format.js";
-
-const dmy = (dateKey) => dateKey.split("-").reverse().join("/");
+import { fmtDate, fmtMinutes, fmtMoney, fmtTime, monthLabel } from "./format.js";
 
 // Chống "CSV injection": ô bắt đầu bằng = + - @ bị Excel hiểu là công thức
 function csvCell(v) {
@@ -27,7 +25,7 @@ export function downloadPayslipCsv(detail, { month, statusLabel }) {
     [],
     ["Ngày", "Vào", "Ra", "Giờ làm (h)", "Muộn (phút)", "Về sớm (phút)", "Lương gộp", "Tiền phạt", "Thực nhận"],
     ...detail.dailyBreakdown.map((d) => [
-      dmy(d.workDate),
+      fmtDate(d.workDate),
       d.checkInTime ? fmtTime(d.checkInTime) : "",
       d.isMissingCheckOut ? "thiếu" : d.checkOutTime ? fmtTime(d.checkOutTime) : "",
       (d.workedMinutes / 60).toFixed(2),
@@ -63,7 +61,7 @@ export function printPayslip(detail, { month, statusLabel, storeName }) {
   const zeroBlank = (n, fmt) => (n > 0 ? fmt(n) : "");
   const rows = detail.dailyBreakdown
     .map((d) => `<tr>
-      <td>${esc(dmy(d.workDate))}</td>
+      <td>${esc(fmtDate(d.workDate))}</td>
       <td>${esc(d.checkInTime ? fmtTime(d.checkInTime) : "")}</td>
       <td>${d.isMissingCheckOut ? "thiếu" : esc(d.checkOutTime ? fmtTime(d.checkOutTime) : "")}</td>
       <td class="n">${esc(fmtMinutes(d.workedMinutes))}</td>
