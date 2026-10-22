@@ -1,29 +1,29 @@
 // THIẾT LẬP CỬA HÀNG (admin): giờ ca, tiền phạt mỗi phút muộn/về sớm, vị trí
-// và bán kính chấm công. Giờ ca được chụp vào từng ngày chấm công nên đổi giờ
-// ca không làm sai các ngày đã qua; tiền phạt mới áp dụng cho các bảng lương
-// chưa chốt khi tính lại.
+// và bán kính chấm công, bật/tắt chấm công bằng Wi-Fi. Giờ ca được chụp vào
+// từng ngày chấm công nên đổi giờ ca không làm sai các ngày đã qua; tiền phạt
+// mới áp dụng cho các bảng lương chưa chốt khi tính lại.
+// Lưu dạng key-value (store_setting) — danh sách key ở SETTING_KEY (constants/enums.js).
+import { SETTING_KEY } from "../constants/enums.js";
 import { AppError } from "../utils/AppError.js";
 import { TIME_RE, parseMoney } from "../utils/validators.js";
 import { serializeSetting, serializeStore } from "./serializers.js";
 
-const hhmm = (t) => String(t).slice(0, 5);
-
-// Kiểm tra & chuẩn hoá thành { tên_cột: giá_trị }
+// Kiểm tra & chuẩn hoá body (tên trường camelCase) thành { <SETTING_KEY>: giá_trị }
 function parseSettingBody(b) {
   const v = {};
-  for (const [key, col] of [["shiftStartTime", "shift_start_time"], ["shiftEndTime", "shift_end_time"]]) {
-    if (b[key] !== undefined) {
-      if (!TIME_RE.test(b[key])) throw AppError.badRequest("Giờ ca phải dạng HH:MM.");
-      v[col] = b[key];
+  for (const [field, key] of [["shiftStartTime", SETTING_KEY.SHIFT_START_TIME], ["shiftEndTime", SETTING_KEY.SHIFT_END_TIME]]) {
+    if (b[field] !== undefined) {
+      if (!TIME_RE.test(b[field])) throw AppError.badRequest("Giờ ca phải dạng HH:MM.");
+      v[key] = b[field];
     }
   }
   if (b.penaltyAmountPerMinute !== undefined) {
-    v.penalty_amount_per_minute = parseMoney(b.penaltyAmountPerMinute, "Tiền phạt mỗi phút không hợp lệ.");
+    v[SETTING_KEY.PENALTY_AMOUNT_PER_MINUTE] = parseMoney(b.penaltyAmountPerMinute, "Tiền phạt mỗi phút không hợp lệ.");
   }
   if (b.checkInRadiusMeters !== undefined) {
     const r = Number(b.checkInRadiusMeters);
     if (!Number.isInteger(r) || r < 10 || r > 5000) throw AppError.badRequest("Bán kính phải từ 10 đến 5000 mét.");
-    v.check_in_radius_meters = r;
+    v[SETTING_KEY.CHECK_IN_RADIUS_METERS] = r;
   }
   if (b.latitude !== undefined || b.longitude !== undefined) {
     const hasValue = (x) => x !== null && x !== "" && x !== undefined;
@@ -36,24 +36,30 @@ function parseSettingBody(b) {
       if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
         throw AppError.badRequest("Toạ độ không hợp lệ.");
       }
-      v.latitude = lat;
-      v.longitude = lng;
+      v[SETTING_KEY.LATITUDE] = lat;
+      v[SETTING_KEY.LONGITUDE] = lng;
     } else {
-      v.latitude = null;
-      v.longitude = null;
+      v[SETTING_KEY.LATITUDE] = null;
+      v[SETTING_KEY.LONGITUDE] = null;
     }
+  }
+  if (b.wifiClockingEnabled !== undefined) {
+    if (typeof b.wifiClockingEnabled !== "boolean") throw AppError.badRequest("Giá trị bật/tắt chấm công Wi-Fi không hợp lệ.");
+    v[SETTING_KEY.WIFI_CLOCKING_ENABLED] = b.wifiClockingEnabled;
   }
   return v;
 }
 
-export function createStoreSettingService({ storeRepository }) {
+export function createStoreSettingService({ storeRepository, storeNetworkService }) {
   async function get(actor) {
-    const [store, setting] = await Promise.all([
+    const [store, setting, wifiNetwork] = await Promise.all([
       storeRepository.findById(actor.storeId),
       storeRepository.findSetting(actor.storeId),
+      storeNetworkService.getCurrent(actor.storeId),
     ]);
-    if (!store || !setting) throw AppError.notFound("Không tìm thấy cửa hàng.");
-    return { store: serializeStore(store), setting: serializeSetting(setting) };
+    if (!store) throw AppError.notFound("Không tìm thấy cửa hàng.");
+    // wifiNetwork: IP Wi-Fi cửa hàng ghi từ lần admin đăng nhập gần nhất (null = chưa có)
+    return { store: serializeStore(store), setting: serializeSetting(setting), wifiNetwork };
   }
 
   async function update(actor, body = {}) {
@@ -61,8 +67,8 @@ export function createStoreSettingService({ storeRepository }) {
     if (!Object.keys(fields).length) throw AppError.badRequest("Không có thay đổi.");
 
     const current = await storeRepository.findSetting(actor.storeId);
-    const start = fields.shift_start_time ?? hhmm(current.shift_start_time);
-    const end = fields.shift_end_time ?? hhmm(current.shift_end_time);
+    const start = fields[SETTING_KEY.SHIFT_START_TIME] ?? current[SETTING_KEY.SHIFT_START_TIME];
+    const end = fields[SETTING_KEY.SHIFT_END_TIME] ?? current[SETTING_KEY.SHIFT_END_TIME];
     if (end <= start) throw AppError.badRequest("Giờ kết thúc ca phải sau giờ bắt đầu.");
 
     await storeRepository.updateSetting(actor.storeId, fields);

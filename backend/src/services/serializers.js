@@ -54,6 +54,7 @@ export function serializeSetting(s) {
     latitude: s.latitude,
     longitude: s.longitude,
     checkInRadiusMeters: s.check_in_radius_meters,
+    wifiClockingEnabled: s.wifi_clocking_enabled,
     updatedAt: s.updated_at,
   };
 }
@@ -81,6 +82,7 @@ export function serializeClockingHistory(h, { withLocation = true } = {}) {
     actionType: h.action_type,
     clockTime: h.clock_time,
     source: h.source,
+    method: h.method ?? null, // qr | wifi; NULL = admin sửa giờ
     status: h.status,
     isOutOfRange: h.is_out_of_range,
     replacedHistoryId: h.replaced_history_id,
@@ -92,6 +94,7 @@ export function serializeClockingHistory(h, { withLocation = true } = {}) {
           longitude: h.longitude,
           gpsAccuracyMeters: h.gps_accuracy_meters,
           distanceToStoreMeters: h.distance_to_store_meters,
+          clientIp: h.client_ip ?? null,
         }
       : {}),
   };

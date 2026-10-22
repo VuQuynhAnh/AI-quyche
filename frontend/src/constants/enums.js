@@ -13,6 +13,12 @@ export const CLOCKING_ACTION = Object.freeze({
   CHECK_OUT: "check_out",
 });
 
+// Cách nhân viên tự chấm công: quét QR, hoặc Wi-Fi cửa hàng (khi cửa hàng bật)
+export const CLOCKING_METHOD = Object.freeze({
+  QR: "qr",
+  WIFI: "wifi",
+});
+
 export const CLOCKING_SOURCE = Object.freeze({
   EMPLOYEE: "employee",
   ADMIN: "admin",

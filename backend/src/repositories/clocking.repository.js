@@ -75,20 +75,21 @@ export function createClockingRepository({ db }) {
     async createHistory(
       {
         clockingId, actionType, clockTime, source, latitude, longitude, gpsAccuracyMeters,
-        distanceToStoreMeters, isOutOfRange, deviceIdentifier, replacedHistoryId, createdByAccountId,
+        distanceToStoreMeters, isOutOfRange, deviceIdentifier, method, clientIp, replacedHistoryId, createdByAccountId,
       },
       executor = db
     ) {
       const r = await executor.query(
         `INSERT INTO clocking_history
            (clocking_id, action_type, clock_time, source, latitude, longitude, gps_accuracy_meters,
-            distance_to_store_meters, is_out_of_range, device_identifier, replaced_history_id, created_by_account_id)
-         VALUES ($1, $2, COALESCE($3, now()), $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            distance_to_store_meters, is_out_of_range, device_identifier, method, client_ip,
+            replaced_history_id, created_by_account_id)
+         VALUES ($1, $2, COALESCE($3, now()), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
          RETURNING *`,
         [
           clockingId, actionType, clockTime ?? null, source, latitude ?? null, longitude ?? null,
           gpsAccuracyMeters ?? null, distanceToStoreMeters ?? null, isOutOfRange ?? false,
-          deviceIdentifier ?? null, replacedHistoryId ?? null, createdByAccountId ?? null,
+          deviceIdentifier ?? null, method ?? null, clientIp ?? null, replacedHistoryId ?? null, createdByAccountId ?? null,
         ]
       );
       return r.rows[0];

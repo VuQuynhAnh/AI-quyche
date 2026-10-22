@@ -4,13 +4,13 @@
 -- Phiên bản hiện tại
 DROP TABLE IF EXISTS
   document_detail, document, paysheet_detail, paysheet,
-  clocking_history, clocking, employee, setting, account, store
+  clocking_history, clocking, employee, store_network, store_setting, account, store
   CASCADE;
 DROP FUNCTION IF EXISTS clocking_history_immutable() CASCADE;
 
 -- Phiên bản cũ (trước khi đổi thiết kế)
 DROP TABLE IF EXISTS
-  payroll_months, attendance_edits, attendance_events, employee_rates,
+  setting, payroll_months, attendance_edits, attendance_events, employee_rates,
   document_chunks, documents, users, stalls
   CASCADE;
 DROP FUNCTION IF EXISTS attendance_events_immutable() CASCADE;

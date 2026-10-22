@@ -40,21 +40,17 @@ CREATE TABLE store (
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- ---------- Thiết lập cửa hàng (1–1 với store) ----------
--- Giờ ca, tiền phạt, vị trí chấm công. latitude/longitude tuỳ chọn: nếu có thì
--- mỗi lần chấm công ghi khoảng cách và gắn cờ "ngoài phạm vi" (chỉ để admin
--- xem, KHÔNG chặn nhân viên chấm công).
-CREATE TABLE setting (
-  store_id                  UUID PRIMARY KEY REFERENCES store(id) ON DELETE CASCADE,
-  shift_start_time          TIME NOT NULL DEFAULT '08:00',
-  shift_end_time            TIME NOT NULL DEFAULT '17:00',
-  penalty_amount_per_minute NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (penalty_amount_per_minute >= 0),
-  latitude                  DOUBLE PRECISION,
-  longitude                 DOUBLE PRECISION,
-  check_in_radius_meters    INT NOT NULL DEFAULT 100 CHECK (check_in_radius_meters BETWEEN 10 AND 5000),
-  updated_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CHECK (shift_end_time > shift_start_time),
-  CHECK ((latitude IS NULL) = (longitude IS NULL))
+-- ---------- Thiết lập cửa hàng (KEY-VALUE) ----------
+-- Mỗi thiết lập 1 dòng, key & value đều là chuỗi. Danh sách key, kiểu dữ liệu
+-- và giá trị mặc định khai báo ở constants/enums.js (SETTING_KEY,
+-- SETTING_DATA_TYPE, SETTING_DEFINITIONS) — thêm thiết lập mới KHÔNG cần đổi
+-- cấu trúc bảng. Key chưa có dòng nào = dùng giá trị mặc định.
+CREATE TABLE store_setting (
+  store_id   UUID NOT NULL REFERENCES store(id) ON DELETE CASCADE,
+  key        VARCHAR(100) NOT NULL,
+  value      TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (store_id, key)
 );
 
 -- ---------- Tài khoản đăng nhập ----------
@@ -76,6 +72,17 @@ CREATE INDEX account_store_id_idx ON account (store_id);
 ALTER TABLE store
   ADD CONSTRAINT store_created_by_account_id_fkey
   FOREIGN KEY (created_by_account_id) REFERENCES account(id) ON DELETE SET NULL;
+
+-- Mạng Wi-Fi của cửa hàng = IP công cộng lúc admin cửa hàng đăng nhập. Mỗi lần
+-- IP đổi thêm 1 dòng; dòng MỚI NHẤT là mạng hiện tại, dòng cũ giữ làm lịch sử.
+CREATE TABLE store_network (
+  id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  store_id               UUID NOT NULL REFERENCES store(id) ON DELETE CASCADE,
+  ip_address             VARCHAR(45) NOT NULL,
+  detected_by_account_id UUID REFERENCES account(id) ON DELETE SET NULL,
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX store_network_store_created_idx ON store_network (store_id, created_at DESC);
 
 -- ---------- Hồ sơ nhân viên (1–1 với account thuộc cửa hàng) ----------
 -- Mỗi nhân viên chỉ có 1 mức lương giờ. Đổi lương chỉ ảnh hưởng các bảng lương
@@ -134,6 +141,8 @@ CREATE TABLE clocking_history (
   distance_to_store_meters DOUBLE PRECISION,
   is_out_of_range          BOOLEAN NOT NULL DEFAULT false,
   device_identifier        VARCHAR(100),
+  method                   clocking_method,          -- NULL = admin sửa giờ
+  client_ip                VARCHAR(45),
   status                   clocking_history_status NOT NULL DEFAULT 'valid',
   replaced_history_id      UUID REFERENCES clocking_history(id) ON DELETE CASCADE,
   created_by_account_id    UUID REFERENCES account(id) ON DELETE SET NULL,

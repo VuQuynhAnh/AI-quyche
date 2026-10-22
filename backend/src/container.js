@@ -36,6 +36,7 @@ import { createDocumentRepository } from "./repositories/document.repository.js"
 import { createConversationRepository } from "./repositories/conversation.repository.js";
 import { createMessageRepository } from "./repositories/message.repository.js";
 import { createFileStorage } from "./repositories/fileStorage.repository.js";
+import { createStoreNetworkRepository } from "./repositories/storeNetwork.repository.js";
 import { createCloudinaryStorage, parseCloudinaryUrl } from "./repositories/cloudinaryStorage.repository.js";
 import { createAiProvider } from "./providers/ai.provider.js";
 import { createRedisCache } from "./cache/redisCache.js";
@@ -48,6 +49,7 @@ import {
 
 // Services
 import { createAuthService } from "./services/auth.service.js";
+import { createStoreNetworkService } from "./services/storeNetwork.service.js";
 import { createStorePlanService } from "./services/storePlan.service.js";
 import { createAccountAccessGuard } from "./middleware/accountAccess.js";
 import { createSuperadminService } from "./services/superadmin.service.js";
@@ -87,6 +89,7 @@ export function createContainer() {
 
   // ---------- Repositories & providers ----------
   const storeRepository = createStoreRepository({ db });
+  const storeNetworkRepository = createStoreNetworkRepository({ db });
   const accountRepository = createAccountRepository({ db });
   const employeeRepository = createEmployeeRepository({ db });
   const clockingRepository = createClockingRepository({ db });
@@ -101,7 +104,8 @@ export function createContainer() {
   const aiProvider = createAiProvider({ chatModel, embeddingModel });
 
   // ---------- Services: tài khoản & cửa hàng ----------
-  const authService = createAuthService({ accountRepository, passwordHasher, tokenService });
+  const storeNetworkService = createStoreNetworkService({ storeNetworkRepository });
+  const authService = createAuthService({ accountRepository, passwordHasher, tokenService, storeNetworkService });
   const storePlanService = createStorePlanService({ storeRepository, accountRepository });
   const superadminService = createSuperadminService({
     transaction,
@@ -110,7 +114,7 @@ export function createContainer() {
     employeeRepository,
     passwordHasher,
   });
-  const storeSettingService = createStoreSettingService({ storeRepository });
+  const storeSettingService = createStoreSettingService({ storeRepository, storeNetworkService });
   const employeeService = withEmployeeCache(createEmployeeService({
     transaction,
     accountRepository,
@@ -136,6 +140,7 @@ export function createContainer() {
     clockingRepository,
     timesheetService,
     paysheetService,
+    storeNetworkService,
   });
   const clockingManagementService = withClockingManagementCache(createClockingManagementService({
     transaction,

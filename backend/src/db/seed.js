@@ -29,7 +29,7 @@ import { pool } from "../config/db.js";
 import { connectMongo } from "../config/mongodb.js";
 import { createContainer } from "../container.js";
 import {
-  CLOCKING_ACTION, CLOCKING_SOURCE, PAYSHEET_STATUS, POSTGRES_ENUM_TYPES, ROLE, enumValues,
+  CLOCKING_ACTION, CLOCKING_METHOD, CLOCKING_SOURCE, PAYSHEET_STATUS, POSTGRES_ENUM_TYPES, ROLE, SETTING_KEY, enumValues,
 } from "../constants/enums.js";
 import { summarizeClockingDay } from "../services/payrollCalculator.js";
 import { vnToday } from "../services/storePlan.service.js";
@@ -69,7 +69,7 @@ const STORES = [
     address: "12 Hàng Bài, Hoàn Kiếm, Hà Nội",
     // Gói do superadmin đặt: hạn dùng tính từ hôm nay (ngày)
     plan: { ownerPhoneNumber: "0912000001", maxEmployeeCount: 10, expiresInDays: 365 },
-    setting: { latitude: 21.0245, longitude: 105.8522, checkInRadiusMeters: 100, shiftStartTime: "08:00", shiftEndTime: "17:00", penaltyAmountPerMinute: 1000 },
+    setting: { latitude: 21.0245, longitude: 105.8522, checkInRadiusMeters: 100, shiftStartTime: "08:00", shiftEndTime: "17:00", penaltyAmountPerMinute: 1000, wifiClockingEnabled: true },
     admin: { fullName: "Đỗ Thu Hà", email: "admin.hoankiem@smartclocking.vn", password: "Admin@123" },
     employees: [
       { fullName: "Nhân viên Demo", email: "nhanvien@smartclocking.vn", phoneNumber: "0901000001", jobTitle: "Nhân viên bán hàng", hourlyWage: 30000, profile: "punctual", checkedInToday: false },
@@ -169,12 +169,13 @@ async function seedAccounts() {
     });
     const s = def.setting;
     await storeRepository.updateSetting(store.id, {
-      shift_start_time: s.shiftStartTime,
-      shift_end_time: s.shiftEndTime,
-      penalty_amount_per_minute: s.penaltyAmountPerMinute,
-      latitude: s.latitude,
-      longitude: s.longitude,
-      check_in_radius_meters: s.checkInRadiusMeters,
+      [SETTING_KEY.SHIFT_START_TIME]: s.shiftStartTime,
+      [SETTING_KEY.SHIFT_END_TIME]: s.shiftEndTime,
+      [SETTING_KEY.PENALTY_AMOUNT_PER_MINUTE]: s.penaltyAmountPerMinute,
+      [SETTING_KEY.LATITUDE]: s.latitude,
+      [SETTING_KEY.LONGITUDE]: s.longitude,
+      [SETTING_KEY.CHECK_IN_RADIUS_METERS]: s.checkInRadiusMeters,
+      [SETTING_KEY.WIFI_CLOCKING_ENABLED]: Boolean(s.wifiClockingEnabled),
     });
 
     const adminAccount = await accountRepository.findByEmailForLogin(def.admin.email);
@@ -338,6 +339,7 @@ async function seedClockings(stores, now) {
         ...h,
         clocking_id: clockingIdOf.get(`${emp.id}|${workDate}`),
         source: CLOCKING_SOURCE.EMPLOYEE,
+        method: CLOCKING_METHOD.QR,
         device_identifier: "seed-device",
       }))
     );

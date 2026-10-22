@@ -3,19 +3,22 @@ import QRCode from "qrcode";
 import { api } from "../../api/client.js";
 import { useNotification } from "../../context/NotificationContext.jsx";
 import { getCurrentPosition } from "../../utils/geo.js";
+import { fmtDateTime } from "../../utils/format.js";
 import TimeInput from "../../components/hr/TimeInput.jsx";
 import MoneyInput from "../../components/hr/MoneyInput.jsx";
 
 // Thiết lập cửa hàng: giờ vào/tan ca, tiền phạt mỗi phút muộn/sớm, vị trí +
-// bán kính chấm công (tuỳ chọn), và mã QR dán tại quầy.
+// bán kính chấm công (tuỳ chọn), bật/tắt chấm công Wi-Fi, và mã QR dán tại quầy.
 export default function StoreSetting() {
   const { notifySuccess, notifyError } = useNotification();
   const [store, setStore] = useState(null);
+  const [wifiNetwork, setWifiNetwork] = useState(null);
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
 
   function applyResponse(d) {
     setStore(d.store);
+    setWifiNetwork(d.wifiNetwork);
     const s = d.setting;
     setForm({
       shiftStartTime: s.shiftStartTime,
@@ -24,6 +27,7 @@ export default function StoreSetting() {
       latitude: s.latitude ?? "",
       longitude: s.longitude ?? "",
       checkInRadiusMeters: String(s.checkInRadiusMeters),
+      wifiClockingEnabled: Boolean(s.wifiClockingEnabled),
     });
   }
 
@@ -54,6 +58,7 @@ export default function StoreSetting() {
         checkInRadiusMeters: Number(form.checkInRadiusMeters),
         latitude: form.latitude === "" ? null : Number(form.latitude),
         longitude: form.longitude === "" ? null : Number(form.longitude),
+        wifiClockingEnabled: form.wifiClockingEnabled,
       });
       applyResponse(d);
       notifySuccess("Đã lưu thiết lập cửa hàng.");
@@ -100,6 +105,35 @@ export default function StoreSetting() {
                   <div className="col-4"><input type="number" min="10" max="5000" className="form-control" placeholder="Bán kính (m)" value={form.checkInRadiusMeters} onChange={set("checkInRadiusMeters")} /></div>
                 </div>
                 <div className="form-text">Nếu có vị trí, lần chấm công ngoài bán kính sẽ được gắn cờ cho admin xem (không chặn nhân viên).</div>
+              </div>
+              <div className="col-12">
+                <div className="form-check form-switch">
+                  <input
+                    id="wifi-clocking"
+                    type="checkbox"
+                    className="form-check-input"
+                    role="switch"
+                    checked={form.wifiClockingEnabled}
+                    onChange={(e) => setForm((f) => ({ ...f, wifiClockingEnabled: e.target.checked }))}
+                  />
+                  <label className="form-check-label" htmlFor="wifi-clocking">Cho phép chấm công bằng Wi-Fi cửa hàng</label>
+                </div>
+                <div className="form-text">
+                  Nhân viên đang dùng Wi-Fi cửa hàng thấy thêm nút chấm công Wi-Fi cạnh nút quét QR (không cần quét mã).
+                  Wi-Fi cửa hàng được nhận theo mạng lúc admin đăng nhập gần nhất — hãy đăng nhập khi đang ở cửa hàng.
+                </div>
+                <div className="small mt-1">
+                  {wifiNetwork ? (
+                    <>
+                      Wi-Fi cửa hàng hiện tại: <span className="font-monospace">{wifiNetwork.ipAddress}</span>
+                      <span className="text-muted">
+                        {" "}· nhận lúc {fmtDateTime(wifiNetwork.detectedAt)}{wifiNetwork.detectedByName ? ` (${wifiNetwork.detectedByName} đăng nhập)` : ""}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-warning-emphasis">Chưa có — admin cần đăng xuất rồi đăng nhập lại khi đang ở cửa hàng.</span>
+                  )}
+                </div>
               </div>
             </div>
 

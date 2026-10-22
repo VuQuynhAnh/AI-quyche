@@ -1,5 +1,5 @@
 // Truy cập bảng paysheet (bảng lương tháng) và paysheet_detail (lương từng nhân viên).
-import { PAYSHEET_STATUS } from "../constants/enums.js";
+import { PAYSHEET_STATUS, SETTING_KEY } from "../constants/enums.js";
 
 const PAYSHEET_COLUMNS = `
   p.*,
@@ -128,14 +128,15 @@ export function createPaysheetRepository({ db }) {
       return r.rows[0] || null;
     },
 
-    // Thời điểm thay đổi gần nhất của lương giờ nhân viên / thiết lập cửa hàng
+    // Thời điểm thay đổi gần nhất của lương giờ nhân viên / tiền phạt của cửa hàng
+    // (giờ ca đã chụp vào từng ngày công, các thiết lập khác không ảnh hưởng lương)
     async findLatestWageOrSettingChange(storeId, executor = db) {
       const r = await executor.query(
         `SELECT GREATEST(
            (SELECT MAX(e.updated_at) FROM employee e JOIN account a ON a.id = e.account_id WHERE a.store_id = $1),
-           (SELECT updated_at FROM setting WHERE store_id = $1)
+           (SELECT updated_at FROM store_setting WHERE store_id = $1 AND key = $2)
          ) AS latest`,
-        [storeId]
+        [storeId, SETTING_KEY.PENALTY_AMOUNT_PER_MINUTE]
       );
       return r.rows[0].latest;
     },

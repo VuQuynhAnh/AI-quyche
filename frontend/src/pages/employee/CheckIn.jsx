@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
 import { useNotification } from "../../context/NotificationContext.jsx";
-import { CLOCKING_ACTION, CLOCKING_ACTION_LABEL, CLOCKING_SOURCE } from "../../constants/enums.js";
+import { CLOCKING_ACTION, CLOCKING_ACTION_LABEL, CLOCKING_METHOD, CLOCKING_SOURCE } from "../../constants/enums.js";
 import { fmtTime, fmtDateLong, fmtMinutes, fmtMoney, getDeviceId, vnDateKey } from "../../utils/format.js";
 import { getCurrentPosition } from "../../utils/geo.js";
 import QrScanner from "../../components/QrScanner.jsx";
@@ -23,6 +23,8 @@ function storeIdFromQr(text) {
 // Mỗi lần chấm: bấm nút -> mở camera quét mã QR dán tại quầy (chứng minh đang
 // ở cửa hàng) -> lấy GPS -> gửi lên server. Giờ chấm công thực tế do SERVER
 // ghi; đồng hồ ở đây chỉ để xem.
+// Cửa hàng bật chấm công Wi-Fi + đang dùng Wi-Fi cửa hàng -> hiện thêm nút
+// "Wi-Fi" cạnh nút QR: không cần quét mã (server vẫn kiểm tra lại IP + GPS).
 export default function CheckIn() {
   const { notifySuccess, notifyError } = useNotification();
   const [today, setToday] = useState(null);
@@ -30,6 +32,7 @@ export default function CheckIn() {
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(new Date());
   const [scanning, setScanning] = useState(false);
+  const [onStoreWifi, setOnStoreWifi] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -38,8 +41,12 @@ export default function CheckIn() {
 
   const load = useCallback(async () => {
     try {
-      setToday(await api.get("/clocking/me/today"));
+      const data = await api.get("/clocking/me/today");
+      setToday(data);
       setLoadError("");
+      // Chỉ hỏi server khi cửa hàng bật chấm công Wi-Fi; lỗi thì coi như không có
+      const wifi = data.store.wifiClockingEnabled ? await api.get("/clocking/me/wifi").catch(() => null) : null;
+      setOnStoreWifi(Boolean(wifi?.onStoreWifi));
     } catch (e) {
       setLoadError(e.message);
     }
@@ -61,12 +68,22 @@ export default function CheckIn() {
       notifyError("Mã QR này không phải mã chấm công của cửa hàng.");
       return;
     }
+    submitCheck({ method: CLOCKING_METHOD.QR, storeId });
+  }
+
+  function checkByWifi() {
+    if (!today || busy) return;
+    submitCheck({ method: CLOCKING_METHOD.WIFI });
+  }
+
+  // payload: { method, storeId? } — thêm GPS + thiết bị rồi gửi lên server
+  async function submitCheck(payload) {
     setBusy(true);
     try {
       const pos = await getCurrentPosition();
       const data = await api.post("/clocking/check", {
         actionType: today.nextActionType,
-        storeId,
+        ...payload,
         latitude: pos.lat,
         longitude: pos.lng,
         accuracy: pos.accuracy,
@@ -91,6 +108,7 @@ export default function CheckIn() {
   const dateKey = vnDateKey(now);
   const c = today.clocking;
   const hasCheckedOut = Boolean(c?.checkOutTime);
+  const actionLabel = isCheckIn ? "Check-in" : hasCheckedOut ? "Check-out lại" : "Check-out";
   const offMinutes = c ? c.lateMinutes + c.earlyLeaveMinutes : 0;
   const penalty = offMinutes * (today.store.penaltyAmountPerMinute || 0);
 
@@ -110,22 +128,40 @@ export default function CheckIn() {
       </div>
 
       <div className="my-4">
-        <button
-          type="button"
-          className={`btn btn-lg w-100 py-3 fw-semibold shadow d-flex align-items-center justify-content-center gap-2 ${isCheckIn ? "btn-success" : "btn-warning"}`}
-          onClick={startCheck}
-          disabled={busy}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
-            <rect x="7" y="7" width="10" height="10" rx="1" />
-          </svg>
-          <span>{busy ? "Đang chấm công..." : isCheckIn ? "Check-in" : hasCheckedOut ? "Check-out lại" : "Check-out"}</span>
-        </button>
+        <div className="d-flex gap-2">
+          <button
+            type="button"
+            className={`btn btn-lg flex-fill py-3 fw-semibold shadow d-flex align-items-center justify-content-center gap-2 ${isCheckIn ? "btn-success" : "btn-warning"}`}
+            onClick={startCheck}
+            disabled={busy}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
+              <rect x="7" y="7" width="10" height="10" rx="1" />
+            </svg>
+            <span>{busy ? "Đang chấm công..." : actionLabel}</span>
+          </button>
+          {onStoreWifi && (
+            <button
+              type="button"
+              className={`btn btn-lg flex-fill py-3 fw-semibold shadow d-flex align-items-center justify-content-center gap-2 ${isCheckIn ? "btn-outline-success" : "btn-outline-warning"} bg-body`}
+              onClick={checkByWifi}
+              disabled={busy}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0" />
+                <circle cx="12" cy="20" r="1" />
+              </svg>
+              <span>{busy ? "Đang chấm công..." : `${actionLabel} Wi-Fi`}</span>
+            </button>
+          )}
+        </div>
         <div className="text-muted small mt-2 text-center">
           {hasCheckedOut
             ? "Đã check-out. Nếu về muộn hơn, bấm lại — lần check-out cuối cùng được tính là giờ ra."
-            : "Bấm để mở camera, quét mã QR dán tại quầy. Cần bật định vị (GPS)."}
+            : onStoreWifi
+              ? "Đang dùng Wi-Fi cửa hàng: bấm nút Wi-Fi để chấm ngay, hoặc quét mã QR tại quầy. Cần bật định vị (GPS)."
+              : "Bấm để mở camera, quét mã QR dán tại quầy. Cần bật định vị (GPS)."}
         </div>
       </div>
 
@@ -164,6 +200,7 @@ export default function CheckIn() {
             <div key={h.id} className="d-flex align-items-center gap-2 py-2 border-bottom">
               <span className={`badge ${EVENT_BADGE[h.actionType]}`}>{CLOCKING_ACTION_LABEL[h.actionType]}</span>
               <span className="fw-semibold">{fmtTime(h.clockTime)}</span>
+              {h.method === CLOCKING_METHOD.WIFI && <span className="badge text-bg-light border">Wi-Fi</span>}
               {h.source === CLOCKING_SOURCE.ADMIN && <span className="badge text-bg-secondary ms-auto">Admin chỉnh</span>}
               {h.isOutOfRange && <span className="badge text-bg-warning ms-auto">Ngoài phạm vi</span>}
             </div>

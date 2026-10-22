@@ -1,7 +1,8 @@
 // /api/clocking — chấm công cho NHÂN VIÊN (role user, dùng trên điện thoại):
 //  - GET  /store/:id   : (công khai) tên cửa hàng cho trang quét QR
 //  - GET  /me/today    : trạng thái hôm nay + lần bấm tiếp theo
-//  - POST /check       : check-in / check-out (cần GPS + QR cửa hàng)
+//  - GET  /me/wifi     : đang dùng Wi-Fi cửa hàng không (chỉ khi cửa hàng bật chấm công Wi-Fi)
+//  - POST /check       : check-in / check-out (cần GPS + QR, hoặc GPS + Wi-Fi cửa hàng)
 //  - GET  /me/month    : lịch sử + lương của 1 tháng
 //  - GET  /me/day      : các lần chấm công của 1 ngày
 // Logic ở services/clocking.service.js.
@@ -24,8 +25,12 @@ export function createClockingRouter({ clockingService }) {
     res.json(await clockingService.getToday(req.user));
   }));
 
+  router.get("/me/wifi", asyncHandler(async (req, res) => {
+    res.json(await clockingService.checkWifi(req.user, { ip: req.ip }));
+  }));
+
   router.post("/check", asyncHandler(async (req, res) => {
-    res.status(201).json(await clockingService.check(req.user, req.body));
+    res.status(201).json(await clockingService.check(req.user, req.body, { ip: req.ip }));
   }));
 
   router.get("/me/month", asyncHandler(async (req, res) => {

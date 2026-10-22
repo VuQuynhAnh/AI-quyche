@@ -3,7 +3,7 @@ import { api } from "../../api/client.js";
 import Modal from "./Modal.jsx";
 import { useNotification } from "../../context/NotificationContext.jsx";
 import {
-  CLOCKING_ACTION, CLOCKING_HISTORY_STATUS, CLOCKING_SOURCE,
+  CLOCKING_ACTION, CLOCKING_HISTORY_STATUS, CLOCKING_METHOD, CLOCKING_SOURCE,
 } from "../../constants/enums.js";
 import { fmtDateLong, fmtMinutes, fmtTime, vnDateKey } from "../../utils/format.js";
 import TimeInput from "./TimeInput.jsx";
@@ -247,7 +247,9 @@ function buildChangeLog(histories, clocking) {
       key: first.id,
       createdAt: g.createdAt,
       status: state.out ? "Đã chấm công ra" : "Đã chấm công vào",
-      method: byAdmin ? (g.items.some((h) => h.replacedHistoryId) ? "Điều chỉnh" : "Thủ công") : "Chấm công QR",
+      method: byAdmin
+        ? (g.items.some((h) => h.replacedHistoryId) ? "Điều chỉnh" : "Thủ công")
+        : first.method === CLOCKING_METHOD.WIFI ? "Chấm công Wi-Fi" : "Chấm công QR",
       byName: byAdmin ? first.createdByName || "Admin" : null,
       location: !byAdmin && first.latitude != null ? first : null,
       content: parts.join(". "),

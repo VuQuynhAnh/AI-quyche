@@ -8,6 +8,12 @@ import { errorHandler } from "./middleware/errorHandler.js";
 export function createApp({ routers, accountAccessGuard }) {
   const app = express();
 
+  // Đứng sau proxy (Render...) thì IP thật của người dùng nằm trong
+  // X-Forwarded-For — cần cho chấm công bằng Wi-Fi (so IP). Chỉ tin đúng số
+  // proxy khai báo, KHÔNG để "true": client tự thêm header là giả được IP.
+  const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS || (process.env.RENDER ? 1 : 0));
+  if (trustProxyHops > 0) app.set("trust proxy", trustProxyHops);
+
   app.use(cors({ origin: process.env.CORS_ORIGIN || "*" }));
   app.use(express.json({ limit: "2mb" }));
 

@@ -41,6 +41,54 @@ export const CLOCKING_HISTORY_STATUS = Object.freeze({
   VOIDED: "voided",
 });
 
+// ---------- Thiết lập cửa hàng (key-value) ----------
+// Mỗi thiết lập là 1 dòng (store_id, key, value) trong bảng store_setting; key
+// và value đều LƯU DẠNG CHUỖI. Thêm thiết lập mới chỉ cần khai báo ở đây
+// (SETTING_KEY + SETTING_DEFINITIONS), KHÔNG phải thêm cột / migration.
+
+// Kiểu dữ liệu: quyết định cách đổi chuỗi <-> giá trị (utils/settingValue.js)
+export const SETTING_DATA_TYPE = Object.freeze({
+  STRING: "string",
+  NUMBER: "number", // số thực, VD tiền, toạ độ
+  INTEGER: "integer",
+  BOOLEAN: "boolean", // "true" / "false"
+  TIME: "time", // "HH:MM"
+});
+
+// Các loại thiết lập (giá trị = key lưu trong DB)
+export const SETTING_KEY = Object.freeze({
+  SHIFT_START_TIME: "shift_start_time",
+  SHIFT_END_TIME: "shift_end_time",
+  PENALTY_AMOUNT_PER_MINUTE: "penalty_amount_per_minute",
+  LATITUDE: "latitude",
+  LONGITUDE: "longitude",
+  CHECK_IN_RADIUS_METERS: "check_in_radius_meters",
+  WIFI_CLOCKING_ENABLED: "wifi_clocking_enabled",
+});
+
+// Kiểu dữ liệu + giá trị mặc định (dùng khi cửa hàng chưa lưu key đó)
+export const SETTING_DEFINITIONS = Object.freeze({
+  [SETTING_KEY.SHIFT_START_TIME]: { type: SETTING_DATA_TYPE.TIME, defaultValue: "08:00" },
+  [SETTING_KEY.SHIFT_END_TIME]: { type: SETTING_DATA_TYPE.TIME, defaultValue: "17:00" },
+  [SETTING_KEY.PENALTY_AMOUNT_PER_MINUTE]: { type: SETTING_DATA_TYPE.NUMBER, defaultValue: 0 },
+  // Vị trí cửa hàng (tuỳ chọn): có thì chấm công ngoài bán kính bị gắn cờ cho admin xem
+  [SETTING_KEY.LATITUDE]: { type: SETTING_DATA_TYPE.NUMBER, defaultValue: null },
+  [SETTING_KEY.LONGITUDE]: { type: SETTING_DATA_TYPE.NUMBER, defaultValue: null },
+  [SETTING_KEY.CHECK_IN_RADIUS_METERS]: { type: SETTING_DATA_TYPE.INTEGER, defaultValue: 100 },
+  // Cho nhân viên chấm công bằng Wi-Fi cửa hàng (bên cạnh QR)
+  [SETTING_KEY.WIFI_CLOCKING_ENABLED]: { type: SETTING_DATA_TYPE.BOOLEAN, defaultValue: false },
+});
+
+// Cách nhân viên tự chấm công (admin sửa giờ thì không có)
+//  - qr  : quét mã QR dán tại quầy
+//  - wifi: đang dùng Wi-Fi cửa hàng (IP công cộng trùng IP lần admin đăng nhập
+//          gần nhất — xem services/storeNetwork.service.js). Chỉ khi cửa hàng
+//          bật SETTING_KEY.WIFI_CLOCKING_ENABLED.
+export const CLOCKING_METHOD = Object.freeze({
+  QR: "qr",
+  WIFI: "wifi",
+});
+
 // Vòng đời bảng lương tháng:
 //   draft ──(chốt)──▶ finalized
 //     │                  │
@@ -84,6 +132,7 @@ export const POSTGRES_ENUM_TYPES = Object.freeze({
   account_role: ROLE,
   clocking_action_type: CLOCKING_ACTION,
   clocking_source: CLOCKING_SOURCE,
+  clocking_method: CLOCKING_METHOD,
   clocking_history_status: CLOCKING_HISTORY_STATUS,
   paysheet_status: PAYSHEET_STATUS,
   document_processing_status: DOCUMENT_PROCESSING_STATUS,

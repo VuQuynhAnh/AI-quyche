@@ -4,8 +4,9 @@ import { ROLE } from "../constants/enums.js";
 import { AppError } from "../utils/AppError.js";
 import { assertStoreUsable } from "./storePlan.service.js";
 
-export function createAuthService({ accountRepository, passwordHasher, tokenService }) {
-  async function login({ email, password } = {}) {
+export function createAuthService({ accountRepository, passwordHasher, tokenService, storeNetworkService }) {
+  // ip: IP công cộng lúc đăng nhập — admin cửa hàng thì ghi làm Wi-Fi cửa hàng
+  async function login({ email, password } = {}, { ip } = {}) {
     if (!email || !password) throw AppError.badRequest("Thiếu email hoặc mật khẩu.");
 
     const account = await accountRepository.findByEmailForLogin(String(email).trim().toLowerCase());
@@ -27,6 +28,7 @@ export function createAuthService({ accountRepository, passwordHasher, tokenServ
       role: account.role,
       storeId: account.store_id,
     };
+    await storeNetworkService.recordAdminLogin(user, ip);
     return { token: tokenService.sign(user), user };
   }
 

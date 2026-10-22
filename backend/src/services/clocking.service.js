@@ -1,9 +1,10 @@
 // CHẤM CÔNG phía NHÂN VIÊN (dùng trên điện thoại): xem cửa hàng qua QR,
 // trạng thái hôm nay, check-in/check-out, lịch sử tháng/ngày.
 // Thời điểm chấm công luôn do SERVER ghi (không nhận giờ từ client).
-import { CLOCKING_SOURCE } from "../constants/enums.js";
+import { CLOCKING_METHOD, CLOCKING_SOURCE } from "../constants/enums.js";
 import { AppError } from "../utils/AppError.js";
 import { distanceMeters } from "../utils/geo.js";
+import { normalizeIp } from "../utils/network.js";
 import { isUuid } from "../utils/validators.js";
 import { isValidDateKey, isValidMonthKey, vnDateKey, vnMonthKey } from "../utils/vnTime.js";
 import { serializeClocking, serializeClockingHistory, serializeSetting } from "./serializers.js";
@@ -17,6 +18,7 @@ export function createClockingService({
   clockingRepository,
   timesheetService,
   paysheetService,
+  storeNetworkService,
 }) {
   async function findMyEmployee(user) {
     const employee = await employeeRepository.findByAccountId(user.id);
@@ -51,18 +53,38 @@ export function createClockingService({
     };
   }
 
-  async function check(user, { actionType, storeId, latitude, longitude, accuracy, deviceIdentifier } = {}) {
+  // Chỉ gọi khi cửa hàng bật chấm công Wi-Fi: IP hiện tại có trùng Wi-Fi cửa
+  // hàng không -> trùng thì giao diện hiện thêm nút "Chấm bằng Wi-Fi"
+  async function checkWifi(user, { ip } = {}) {
+    const employee = await findMyEmployee(user);
+    const setting = await timesheetService.getSetting(employee.store_id);
+    if (!setting.wifi_clocking_enabled) return { enabled: false, onStoreWifi: false };
+    return { enabled: true, onStoreWifi: await storeNetworkService.isOnStoreNetwork(employee.store_id, ip) };
+  }
+
+  // method = "wifi": không cần QR, nhưng cửa hàng phải bật chấm công Wi-Fi và IP
+  // lúc bấm phải trùng Wi-Fi cửa hàng (kiểm tra lại ở đây, không tin giao diện)
+  async function check(user, { actionType, method, storeId: qrStoreId, latitude, longitude, accuracy, deviceIdentifier } = {}, { ip } = {}) {
     const lat = Number(latitude);
     const lng = Number(longitude);
     if (latitude == null || longitude == null || !Number.isFinite(lat) || !Number.isFinite(lng) ||
         Math.abs(lat) > 90 || Math.abs(lng) > 180) {
       throw AppError.badRequest("Cần bật định vị (GPS) để chấm công.");
     }
-    if (!storeId) throw AppError.badRequest("Hãy quét QR tại cửa hàng để chấm công.");
+    const byWifi = method === CLOCKING_METHOD.WIFI;
+    if (!byWifi && !qrStoreId) throw AppError.badRequest("Hãy quét QR tại cửa hàng để chấm công.");
 
     const employee = await findMyEmployee(user);
     if (!employee.is_active) throw AppError.forbidden("Tài khoản đã bị vô hiệu hoá.");
+    const storeId = byWifi ? employee.store_id : qrStoreId;
     if (employee.store_id !== storeId) throw AppError.forbidden("QR này không phải cửa hàng của bạn.");
+    if (byWifi) {
+      const { enabled, onStoreWifi } = await checkWifi(user, { ip });
+      if (!enabled) throw AppError.forbidden("Cửa hàng chưa bật chấm công bằng Wi-Fi. Hãy quét QR để chấm công.");
+      if (!onStoreWifi) {
+        throw AppError.forbidden("Bạn không kết nối Wi-Fi cửa hàng. Hãy kết nối lại hoặc quét QR để chấm công.");
+      }
+    }
     const store = await storeRepository.findById(storeId);
     if (!store?.is_active) throw AppError.forbidden("Cửa hàng đang tạm ngưng.");
 
@@ -102,6 +124,8 @@ export function createClockingService({
           distanceToStoreMeters: distance,
           isOutOfRange: distance != null && distance > setting.check_in_radius_meters,
           deviceIdentifier: typeof deviceIdentifier === "string" ? deviceIdentifier.slice(0, 100) : null,
+          method: byWifi ? CLOCKING_METHOD.WIFI : CLOCKING_METHOD.QR,
+          clientIp: normalizeIp(ip),
           createdByAccountId: user.id,
         },
         tx
@@ -136,5 +160,5 @@ export function createClockingService({
     };
   }
 
-  return { getPublicStore, getToday, check, getMonth, getDay };
+  return { getPublicStore, getToday, checkWifi, check, getMonth, getDay };
 }

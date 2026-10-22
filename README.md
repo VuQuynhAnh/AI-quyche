@@ -56,7 +56,7 @@ Backend Node.js (Express) — routes → services → repositories (xem
         │                              │
         ▼                              ▼
 PostgreSQL + pgvector            MongoDB
-(store, setting, account,        (conversations, messages — có storeId)
+(store, store_setting, account,  (conversations, messages — có storeId)
  employee, clocking,
  clocking_history, paysheet,
  paysheet_detail, document,
@@ -74,7 +74,8 @@ account (superadmin, store_id = NULL)
    │ tạo
    ▼
 store (cửa hàng)
- ├─1─1─ setting            giờ ca, tiền phạt/phút, toạ độ + bán kính chấm công
+ ├─1─N─ store_setting      thiết lập dạng key-value (giờ ca, tiền phạt, vị trí, Wi-Fi...)
+ ├─1─N─ store_network      IP Wi-Fi cửa hàng (ghi khi admin đăng nhập, dòng mới nhất = hiện tại)
  ├─1─N─ account            role admin / user
  │        └─1─1─ employee  SĐT, chức danh, lương giờ (1 mức duy nhất)
  │                 ├─1─N─ clocking ─1─N─ clocking_history
@@ -85,11 +86,13 @@ store (cửa hàng)
 
 | Bảng | Ý nghĩa |
 |---|---|
-| `store` / `setting` | Cửa hàng và thiết lập 1–1 của nó |
+| `store` | Cửa hàng |
+| `store_setting` | Thiết lập cửa hàng dạng **key-value** (`key`, `value` đều là chuỗi). Danh sách key, kiểu dữ liệu và giá trị mặc định khai báo ở `SETTING_KEY` / `SETTING_DATA_TYPE` / `SETTING_DEFINITIONS` trong `constants/enums.js` — thêm thiết lập mới **không cần thêm cột** |
+| `store_network` | IP công cộng của Wi-Fi cửa hàng, ghi lại mỗi khi admin đăng nhập từ IP mới; dòng mới nhất là mạng hiện tại |
 | `account` | Tài khoản đăng nhập (`role` kiểu ENUM `account_role`) |
 | `employee` | Hồ sơ nhân viên của mọi tài khoản thuộc cửa hàng (đổi role không mất dữ liệu) |
 | `clocking` | Chấm công theo **ngày** (`work_date` giờ VN): giờ vào/ra, phút làm, muộn, về sớm. Unique (`employee_id`, `work_date`). Giờ ca được chụp lại lúc tạo dòng |
-| `clocking_history` | Từng lần bấm + các lần admin sửa. **Bất biến** (trigger chỉ cho đổi `valid` → `voided`) |
+| `clocking_history` | Từng lần bấm + các lần admin sửa, kèm cách chấm (`method`: `qr` / `wifi`) và IP. **Bất biến** (trigger chỉ cho đổi `valid` → `voided`) |
 | `paysheet` | Bảng lương tháng của cửa hàng (`draft` / `finalized` / `cancelled`). Unique index: mỗi cửa hàng chỉ 1 bảng **chưa huỷ** mỗi tháng |
 | `paysheet_detail` | Lương từng nhân viên, lưu cả **mức lương đã dùng** và chi tiết từng ngày |
 | `document` / `document_detail` | Văn bản quy chế của cửa hàng và các đoạn đã tách + embedding (pgvector) |
@@ -188,8 +191,13 @@ trang phải chạy qua **HTTPS** (hoặc `localhost`).
 
 - **Superadmin** (`/superadmin`): tạo cửa hàng kèm tài khoản admin đầu tiên.
 - **Admin → Thiết lập cửa hàng** (`/admin/setting`): giờ vào/tan ca, tiền phạt
-  mỗi phút, vị trí + bán kính (tuỳ chọn); in **mã QR** dán tại quầy (trỏ tới
-  `/s/:storeId`).
+  mỗi phút, vị trí + bán kính (tuỳ chọn), bật/tắt **chấm công Wi-Fi**; in
+  **mã QR** dán tại quầy (trỏ tới `/s/:storeId`).
+- **Chấm công Wi-Fi** (tuỳ chọn, bên cạnh QR): khi admin đăng nhập, IP công cộng
+  lúc đó được ghi làm Wi-Fi cửa hàng. Nếu cửa hàng bật tính năng và nhân viên
+  đang dùng cùng Wi-Fi, màn chấm công hiện thêm nút Wi-Fi (không cần quét QR;
+  server vẫn kiểm tra lại IP + GPS). Trình duyệt không đọc được tên Wi-Fi nên
+  so theo IP công cộng; chạy sau proxy (Render) cần `TRUST_PROXY_HOPS` đúng.
 - **Admin → Nhân viên** (`/admin/employees`): tạo tài khoản nhân viên, đặt lương giờ.
 - **Admin → Chấm công** (`/admin/clockings`): bảng công xem theo **tuần**
   (mặc định, ô có thêm giờ vào–ra) hoặc **tháng**; bấm 1 ô ngày → "Chỉnh sửa"
@@ -272,7 +280,8 @@ RAG tra văn bản **của cửa hàng** như mô tả bên dưới.
 | `GET /api/hr/paysheets/:id/export` | admin | Xuất CSV |
 | `GET/POST /api/admin/accounts`, `PATCH /:id/role`, `DELETE /:id` | admin | Tài khoản của cửa hàng |
 | `GET /api/clocking/store/:id` | công khai | Thông tin cửa hàng khi quét QR |
-| `GET /api/clocking/me/today` · `POST /check` | user | Trạng thái hôm nay / check-in, check-out |
+| `GET /api/clocking/me/today` · `POST /check` | user | Trạng thái hôm nay / check-in, check-out (`method`: `qr` kèm `storeId`, hoặc `wifi`) |
+| `GET /api/clocking/me/wifi` | user | Có đang dùng Wi-Fi cửa hàng không (chỉ gọi khi cửa hàng bật chấm công Wi-Fi) |
 | `GET /api/clocking/me/month`, `/me/day` | user | Lịch sử + lương tháng / chi tiết ngày |
 
 ## Giải thích luồng RAG (phần lõi để dạy học viên)
@@ -578,7 +587,7 @@ backend/
       conversationSummary.service.js   tóm tắt đoạn chat flagged bằng Gemini
       regulationDocument.service.js    văn bản quy chế: upload, xử lý nền, xem/tải
     repositories/ TẦNG REPOSITORY — CHỈ kết nối & truy vấn DB, không có logic:
-                  store (+ setting), account, employee, clocking (+ history),
+                  store (+ store_setting), account, employee, clocking (+ history),
                   paysheet (+ detail), document (+ detail) — PostgreSQL;
                   conversation, message — MongoDB; fileStorage (file gốc trên
                   đĩa); transaction.js (BEGIN/COMMIT)
