@@ -4,7 +4,7 @@ import Modal from "../../components/hr/Modal.jsx";
 import MonthNav from "../../components/hr/MonthNav.jsx";
 import { useNotification } from "../../context/NotificationContext.jsx";
 import { PAYSHEET_STATUS, PAYSHEET_STATUS_LABEL } from "../../constants/enums.js";
-import { fmtDateLong, fmtDateTime, fmtMinutes, fmtMoney, fmtTime, monthLabel, vnMonthKey } from "../../utils/format.js";
+import { addMonths, fmtDate, fmtDateLong, fmtDateTime, fmtMinutes, fmtMoney, fmtTime, monthLabel, vnMonthKey } from "../../utils/format.js";
 import { downloadPayslipCsv, printPayslip } from "../../utils/payslip.js";
 
 // Bảng lương tháng của cửa hàng:
@@ -78,6 +78,8 @@ export default function Paysheets() {
 
   const statusInfo = paysheet ? PAYSHEET_STATUS_LABEL[paysheet.status] : null;
   const isDraft = paysheet?.status === PAYSHEET_STATUS.DRAFT;
+  // Ngày sớm nhất chốt được lương của tháng đang xem (ngày 1 tháng sau)
+  const finalizableFrom = fmtDate(`${addMonths(month, 1)}-01`);
 
   return (
     <div>
@@ -95,7 +97,6 @@ export default function Paysheets() {
                   type="button"
                   className="btn btn-success btn-sm"
                   disabled={busy || !data.isMonthEnded}
-                  title={data.isMonthEnded ? "" : "Chỉ chốt được khi tháng đã kết thúc"}
                   onClick={finalize}
                 >
                   Chốt lương
@@ -117,6 +118,11 @@ export default function Paysheets() {
           <div className="card-body text-center py-5">
             <p className="mb-1">Chưa có bảng lương {monthLabel(month).toLowerCase()}.</p>
             <p className="text-muted small">Bảng lương được tính từ chấm công, lương giờ và tiền phạt hiện tại của cửa hàng.</p>
+            {!data.isMonthEnded && (
+              <p className="text-muted small">
+                Tháng chưa kết thúc: có thể tạo bảng lương nháp để xem trước, chốt lương được từ ngày {finalizableFrom}.
+              </p>
+            )}
             <button type="button" className="btn btn-primary" disabled={busy} onClick={createPaysheet}>
               {busy ? "Đang tạo..." : "Tạo bảng lương"}
             </button>
@@ -126,6 +132,13 @@ export default function Paysheets() {
 
       {paysheet && (
         <>
+          {isDraft && !data.isMonthEnded && (
+            <div className="alert alert-info py-2">
+              <strong>{monthLabel(month)} chưa kết thúc</strong> nên chưa chốt lương được — chốt được từ ngày{" "}
+              <strong>{finalizableFrom}</strong>. Nhân viên vẫn chấm công bình thường; khi chốt, hệ thống tự tính lại
+              lần cuối với đủ dữ liệu cả tháng.
+            </div>
+          )}
           {paysheet.isOutdated && (
             <div className="alert alert-warning d-flex justify-content-between align-items-center py-2">
               <span>Có thay đổi chấm công, lương giờ hoặc thiết lập sau lần tính gần nhất.</span>
