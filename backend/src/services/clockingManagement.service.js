@@ -82,9 +82,10 @@ export function createClockingManagementService({
     const employee = await findEmployeeOrThrow(actor, employeeId);
     if (!isValidDateKey(date)) throw AppError.badRequest("Ngày không hợp lệ (YYYY-MM-DD).");
 
-    const [clocking, locked] = await Promise.all([
+    const [clocking, locked, setting] = await Promise.all([
       clockingRepository.findByEmployeeAndDate(employee.id, date),
       timesheetService.isMonthFinalized(actor.storeId, date.slice(0, 7)),
+      timesheetService.getSetting(actor.storeId),
     ]);
     // Hiển thị dạng nhật ký thay đổi (theo thời điểm ghi nhận), không theo giờ chấm
     const histories = clocking ? await clockingRepository.listHistoryLog(clocking.id) : [];
@@ -92,6 +93,11 @@ export function createClockingManagementService({
     return {
       date,
       locked,
+      // Vị trí cửa hàng — để xem lần chấm cách cửa hàng bao xa (null = chưa đặt vị trí)
+      storeLocation:
+        setting.latitude != null && setting.longitude != null
+          ? { latitude: setting.latitude, longitude: setting.longitude, checkInRadiusMeters: setting.check_in_radius_meters }
+          : null,
       clocking: clocking ? serializeClocking(clocking) : null,
       histories: histories.map((h) => serializeClockingHistory(h)),
     };
@@ -100,9 +106,30 @@ export function createClockingManagementService({
   // Lịch sử KHÔNG thể sửa/xoá. "Chỉnh sửa" = đặt lại giờ vào và/hoặc giờ ra của
   // 1 ngày: lần cũ bị huỷ (giữ nguyên giờ gốc + vị trí gốc), 1 lần mới
   // source = admin được thêm và trỏ về lần cũ.
-  async function editDay(actor, { employeeId, date, checkInTime, checkOutTime } = {}) {
+  // reset = true (bỏ trống cả giờ vào lẫn giờ ra): huỷ MỌI lần chấm còn hiệu lực
+  // của ngày đó để nhân viên chấm lại từ đầu. Chỉ đánh dấu huỷ (status voided),
+  // không xoá — vẫn xem được trong lịch sử.
+  async function editDay(actor, { employeeId, date, checkInTime, checkOutTime, reset = false } = {}) {
     const employee = await findEmployeeOrThrow(actor, employeeId);
     if (!isValidDateKey(date)) throw AppError.badRequest("Ngày không hợp lệ (YYYY-MM-DD).");
+
+    if (reset === true) {
+      await transaction.run(async (tx) => {
+        await timesheetService.assertMonthEditable(actor.storeId, date.slice(0, 7), tx);
+        const clocking = await timesheetService.lockDailyClocking(
+          { storeId: actor.storeId, employeeId: employee.id, workDate: date },
+          tx
+        );
+        const histories = await clockingRepository.listHistories(clocking.id, {}, tx);
+        if (!histories.length) throw AppError.badRequest("Ngày này chưa có lần chấm công nào để xoá.");
+        const voidedAt = new Date();
+        for (const h of histories) {
+          await clockingRepository.voidHistory(h.id, { voidedByAccountId: actor.id, voidedAt }, tx);
+        }
+        await timesheetService.recalculateClocking(clocking, tx);
+      });
+      return getDayDetail(actor, { employeeId, date });
+    }
     for (const t of [checkInTime, checkOutTime]) {
       if (t != null && t !== "" && !TIME_RE.test(t)) throw AppError.badRequest("Giờ phải dạng HH:MM.");
     }
@@ -151,7 +178,9 @@ export function createClockingManagementService({
       }
 
       for (const change of changes) {
-        if (change.replaces) await clockingRepository.voidHistory(change.replaces.id, tx);
+        if (change.replaces) {
+          await clockingRepository.voidHistory(change.replaces.id, { voidedByAccountId: actor.id }, tx);
+        }
         await clockingRepository.createHistory(
           {
             clockingId: clocking.id,

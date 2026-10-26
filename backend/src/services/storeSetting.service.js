@@ -47,6 +47,13 @@ function parseSettingBody(b) {
     if (typeof b.wifiClockingEnabled !== "boolean") throw AppError.badRequest("Giá trị bật/tắt chấm công Wi-Fi không hợp lệ.");
     v[SETTING_KEY.WIFI_CLOCKING_ENABLED] = b.wifiClockingEnabled;
   }
+  if (b.wifiMaxDistanceMeters !== undefined) {
+    const d = Number(b.wifiMaxDistanceMeters);
+    if (!Number.isInteger(d) || d < 20 || d > 5000) {
+      throw AppError.badRequest("Khoảng cách chấm công Wi-Fi phải từ 20 đến 5000 mét.");
+    }
+    v[SETTING_KEY.WIFI_MAX_DISTANCE_METERS] = d;
+  }
   return v;
 }
 
@@ -70,6 +77,12 @@ export function createStoreSettingService({ storeRepository, storeNetworkService
     const start = fields[SETTING_KEY.SHIFT_START_TIME] ?? current[SETTING_KEY.SHIFT_START_TIME];
     const end = fields[SETTING_KEY.SHIFT_END_TIME] ?? current[SETTING_KEY.SHIFT_END_TIME];
     if (end <= start) throw AppError.badRequest("Giờ kết thúc ca phải sau giờ bắt đầu.");
+
+    // Chấm bằng Wi-Fi cần biết vị trí cửa hàng để kiểm tra khoảng cách
+    const pick = (key) => (key in fields ? fields[key] : current[key]);
+    if (pick(SETTING_KEY.WIFI_CLOCKING_ENABLED) && pick(SETTING_KEY.LATITUDE) == null) {
+      throw AppError.badRequest("Cần đặt vị trí cửa hàng (vĩ độ, kinh độ) trước khi bật chấm công bằng Wi-Fi.");
+    }
 
     await storeRepository.updateSetting(actor.storeId, fields);
     return get(actor);

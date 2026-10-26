@@ -12,7 +12,7 @@ export function createStoreRepository({ db }) {
                 COUNT(a.id) FILTER (WHERE a.role = $2)::int AS user_count,
                 COUNT(a.id) FILTER (WHERE a.is_active)::int AS active_account_count
          FROM store s
-         LEFT JOIN account a ON a.store_id = s.id
+         LEFT JOIN account a ON a.store_id = s.id AND NOT a.is_deleted
          GROUP BY s.id
          ORDER BY s.created_at`,
         [ROLE.ADMIN, ROLE.USER]

@@ -29,7 +29,16 @@ const uniqueSources = (chunks) => [
   ).values(),
 ];
 
-function buildPrompt(question, chunks) {
+// Vài tin nhắn gần nhất — để AI hiểu câu hỏi nối tiếp
+function formatHistory(history = []) {
+  if (!history.length) return "(không có)";
+  const who = { user: "Nhân viên", assistant: "Trợ lý", admin: "Quản trị viên" };
+  return history
+    .map((m) => `${who[m.role] || m.role}: ${String(m.content).slice(0, 600)}`)
+    .join("\n");
+}
+
+function buildPrompt(question, chunks, history) {
   return `Bạn là trợ lý AI nội bộ, chuyên giải đáp câu hỏi về quy chế và văn bản nội bộ doanh nghiệp.
 
 QUY TẮC BẮT BUỘC:
@@ -41,11 +50,14 @@ QUY TẮC BẮT BUỘC:
 TÀI LIỆU THAM KHẢO:
 ${formatContext(chunks)}
 
+HỘI THOẠI GẦN ĐÂY (chỉ để hiểu câu hỏi nối tiếp, không phải nguồn thông tin):
+${formatHistory(history)}
+
 CÂU HỎI CỦA NHÂN VIÊN:
 ${question}`;
 }
 
-function buildPersonalPrompt(question, factsText, chunks) {
+function buildPersonalPrompt(question, factsText, chunks, history) {
   return `Bạn là trợ lý chấm công nội bộ, trả lời nhân viên bằng tiếng Việt, ngắn gọn, thân thiện.
 
 QUY TẮC BẮT BUỘC:
@@ -61,6 +73,9 @@ ${factsText}
 TÀI LIỆU THAM KHẢO:
 ${chunks.length ? formatContext(chunks) : "(không có)"}
 
+HỘI THOẠI GẦN ĐÂY (để hiểu câu hỏi nối tiếp, VD "chi tiết từng ngày" = chi tiết của nội dung vừa hỏi; số liệu vẫn chỉ lấy từ DỮ LIỆU CHẤM CÔNG):
+${formatHistory(history)}
+
 CÂU HỎI CỦA NHÂN VIÊN:
 ${question}`;
 }
@@ -73,8 +88,8 @@ export function createAssistantService({ documentRepository, aiProvider, salaryI
   // từ hệ thống chấm công của CHÍNH người hỏi (userId lấy từ JWT) — Gemini chỉ
   // diễn đạt lại. Nếu câu hỏi có thể đụng cả quy chế (VD "đi muộn 3 lần có bị
   // phạt theo quy chế không?") thì kèm thêm tài liệu THƯỜNG (không nhạy cảm).
-  async function answerPersonalQuestion(question, user) {
-    const facts = await salaryInquiryService.loadPersonalFacts(user.id, question);
+  async function answerPersonalQuestion(question, user, { history = [], contextQuestion } = {}) {
+    const facts = await salaryInquiryService.loadPersonalFacts(user.id, question, new Date(), { contextQuestion });
 
     let chunks = [];
     try {
@@ -86,7 +101,7 @@ export function createAssistantService({ documentRepository, aiProvider, salaryI
 
     let answer;
     try {
-      const prompt = buildPersonalPrompt(question, facts.text, chunks);
+      const prompt = buildPersonalPrompt(question, facts.text, chunks, history);
       answer = (await aiProvider.generateText(prompt)) + salaryInquiryService.sourceFooter(facts);
     } catch (err) {
       // AI lỗi/quá tải/hết quota: trả thẳng số liệu thô thay vì báo lỗi
@@ -103,16 +118,31 @@ export function createAssistantService({ documentRepository, aiProvider, salaryI
   //  - escalate    : true nếu câu hỏi cần chuyển cho admin xử lý trực tiếp
   //                  (do khớp tài liệu nhạy cảm) — chat.service.js sẽ dùng cờ này
   //                  để tự động gắn trạng thái "flagged" cho hội thoại.
-  async function answerQuestion(question, user) {
+  // history: vài tin nhắn gần nhất của đoạn chat (cũ -> mới), không gồm câu hỏi này
+  async function answerQuestion(question, user, { history = [] } = {}) {
+    const lastUserQuestion = [...history].reverse().find((m) => m.role === "user")?.content;
+    const canAskPersonal = user?.role === ROLE.USER || user?.role === ROLE.ADMIN;
+    // Câu nối tiếp ngay sau 1 câu hỏi về chấm công/lương -> vẫn trả lời bằng dữ liệu chấm công
+    const personalFollowUp =
+      Boolean(lastUserQuestion) &&
+      salaryInquiryService.isPersonalDataQuestion(lastUserQuestion) &&
+      salaryInquiryService.isFollowUpQuestion(question);
+
     // Câu hỏi về lương/đi muộn/công của CHÍNH nhân viên -> đi đường dữ liệu chấm
     // công, đặt TRƯỚC bước kiểm tra tài liệu nhạy cảm (nếu không, "lương của tôi"
     // sẽ bị nhầm với hợp đồng lương cá nhân và chuyển cho admin). Admin cửa
     // hàng cũng chấm công nên cũng hỏi được lương/công của chính mình.
-    if ((user?.role === ROLE.USER || user?.role === ROLE.ADMIN) && salaryInquiryService.isPersonalDataQuestion(question)) {
-      return answerPersonalQuestion(question, user);
+    if (canAskPersonal && (salaryInquiryService.isPersonalDataQuestion(question) || personalFollowUp)) {
+      return answerPersonalQuestion(question, user, {
+        history,
+        contextQuestion: personalFollowUp ? lastUserQuestion : undefined,
+      });
     }
 
-    const questionEmbedding = await aiProvider.embedText(question);
+    // Câu nối tiếp ngắn (VD "còn nghỉ ốm thì sao?") -> ghép câu trước khi tìm tài liệu
+    const searchText =
+      lastUserQuestion && salaryInquiryService.isFollowUpQuestion(question) ? `${lastUserQuestion}\n${question}` : question;
+    const questionEmbedding = await aiProvider.embedText(searchText);
 
     // Bước 1: kiểm tra câu hỏi có đụng tới tài liệu nhạy cảm không — kiểm tra
     // TRƯỚC khi tìm/gửi bất kỳ nội dung nào cho Gemini để đảm bảo dữ liệu nhạy
@@ -140,7 +170,7 @@ export function createAssistantService({ documentRepository, aiProvider, salaryI
       };
     }
 
-    const answer = await aiProvider.generateText(buildPrompt(question, chunks));
+    const answer = await aiProvider.generateText(buildPrompt(question, chunks, history));
 
     return { answer, sources: uniqueSources(chunks), escalate: false, matchedChunks: chunks.map((c) => c.id) };
   }

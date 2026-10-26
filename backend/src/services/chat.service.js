@@ -7,6 +7,9 @@
 import { CONVERSATION_STATUS, MESSAGE_FEEDBACK, MESSAGE_SENDER, isEnumValue } from "../constants/enums.js";
 import { AppError } from "../utils/AppError.js";
 
+// Số tin nhắn gần nhất gửi kèm làm ngữ cảnh hội thoại cho trợ lý AI
+const HISTORY_MESSAGES = 6;
+
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 const SUMMARY_MESSAGE_LIMIT = 40;
@@ -126,6 +129,17 @@ export function createChatService({
 
     const conversation = await getOrCreateActiveThread(user);
 
+    // Vài tin nhắn gần nhất (cũ -> mới) để hiểu câu hỏi nối tiếp
+    // ("chi tiết từng ngày được không?" sau câu hỏi về chấm công)
+    const recent = await messageRepository.findByConversation(conversation._id, {
+      includeDeleted: false,
+      limit: HISTORY_MESSAGES,
+    });
+    const history = recent
+      .reverse()
+      .filter((m) => m.role === MESSAGE_SENDER.USER || m.role === MESSAGE_SENDER.ASSISTANT || m.role === MESSAGE_SENDER.ADMIN)
+      .map((m) => ({ role: m.role, content: m.content }));
+
     const userMessage = await messageRepository.create({
       conversationId: conversation._id,
       storeId: conversation.storeId,
@@ -133,7 +147,7 @@ export function createChatService({
       content: question,
     });
 
-    const { answer, sources, escalate } = await assistantService.answerQuestion(question, user);
+    const { answer, sources, escalate } = await assistantService.answerQuestion(question, user, { history });
 
     const assistantMessage = await messageRepository.create({
       conversationId: conversation._id,

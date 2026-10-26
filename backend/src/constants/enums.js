@@ -64,6 +64,7 @@ export const SETTING_KEY = Object.freeze({
   LONGITUDE: "longitude",
   CHECK_IN_RADIUS_METERS: "check_in_radius_meters",
   WIFI_CLOCKING_ENABLED: "wifi_clocking_enabled",
+  WIFI_MAX_DISTANCE_METERS: "wifi_max_distance_meters",
 });
 
 // Kiểu dữ liệu + giá trị mặc định (dùng khi cửa hàng chưa lưu key đó)
@@ -77,6 +78,10 @@ export const SETTING_DEFINITIONS = Object.freeze({
   [SETTING_KEY.CHECK_IN_RADIUS_METERS]: { type: SETTING_DATA_TYPE.INTEGER, defaultValue: 100 },
   // Cho nhân viên chấm công bằng Wi-Fi cửa hàng (bên cạnh QR)
   [SETTING_KEY.WIFI_CLOCKING_ENABLED]: { type: SETTING_DATA_TYPE.BOOLEAN, defaultValue: false },
+  // Chấm bằng Wi-Fi chỉ hợp lệ khi điện thoại (GPS) cách vị trí cửa hàng tối đa
+  // ngần này mét — chặn trường hợp "Wi-Fi cửa hàng" là mạng ở nơi khác (VD admin
+  // đăng nhập ở nhà, nhân viên dùng chung mạng đó)
+  [SETTING_KEY.WIFI_MAX_DISTANCE_METERS]: { type: SETTING_DATA_TYPE.INTEGER, defaultValue: 200 },
 });
 
 // Cách nhân viên tự chấm công (admin sửa giờ thì không có)

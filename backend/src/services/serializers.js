@@ -55,6 +55,7 @@ export function serializeSetting(s) {
     longitude: s.longitude,
     checkInRadiusMeters: s.check_in_radius_meters,
     wifiClockingEnabled: s.wifi_clocking_enabled,
+    wifiMaxDistanceMeters: s.wifi_max_distance_meters,
     updatedAt: s.updated_at,
   };
 }
@@ -88,6 +89,8 @@ export function serializeClockingHistory(h, { withLocation = true } = {}) {
     replacedHistoryId: h.replaced_history_id,
     createdAt: h.created_at, // thời điểm ghi nhận (khác clockTime khi admin sửa giờ)
     createdByName: h.created_by_name ?? null,
+    voidedAt: h.voided_at ?? null,
+    voidedByName: h.voided_by_name ?? null,
     ...(withLocation
       ? {
           latitude: h.latitude,

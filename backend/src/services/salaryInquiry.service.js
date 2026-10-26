@@ -19,12 +19,34 @@ import { vnMonthKey, vnDateKey, prevMonthKey } from "../utils/vnTime.js";
 const HR_KEYWORDS =
   /(lương|tiền công|chấm công|ngày công|giờ làm|đi muộn|đi trễ|đến muộn|về sớm|đi sớm|tiền phạt|bị phạt|phạt|check[\s-]?in|check[\s-]?out|đi làm)/i;
 
-// Có ý nói về BẢN THÂN hoặc mốc thời gian cụ thể của mình
-const SELF_REF = /(\btôi\b|\bem\b|\bmình\b|của tôi|của em|của mình|tháng này|tháng trước|tháng vừa rồi|tháng \d{1,2}|hôm nay|hôm qua|tuần này)/i;
+// Có ý nói về BẢN THÂN, mốc thời gian cụ thể, hoặc hỏi NGÀY / SỐ LƯỢNG của
+// chính mình ("chấm công những ngày nào", "đi muộn mấy lần") — nhân viên hỏi
+// chatbot thì các câu này luôn là về dữ liệu của chính họ
+const SELF_REF = new RegExp(
+  [
+    "\\btôi\\b", "\\bem\\b", "\\bmình\\b", "của tôi", "của em", "của mình",
+    "tháng này", "tháng trước", "tháng vừa rồi", "tháng \\d{1,2}", "hôm nay", "hôm qua", "tuần này",
+    "ngày nào", "những ngày", "các ngày", "bao nhiêu ngày", "mấy ngày", "bao nhiêu lần", "mấy lần",
+    "bao nhiêu giờ", "mấy giờ", "bao nhiêu phút", "mấy phút", "được bao nhiêu",
+  ].join("|"),
+  "i"
+);
 
 // Chủ đề KHÔNG nằm trong dữ liệu chấm công — để luồng cũ (tài liệu nhạy cảm →
 // chuyển admin) xử lý
 const EXCLUDE = /(hợp đồng|kỷ luật|sa thải|bảo hiểm|thuế|thưởng|của (giám đốc|sếp|trưởng))/i;
+
+// Câu hỏi có nhắc tới tháng cụ thể không ("tháng này", "tháng trước", "tháng 9"...)
+export function mentionsMonth(question) {
+  return /tháng\s*(này|trước|vừa rồi|qua|\d{1,2})/i.test(String(question || ""));
+}
+
+// Câu hỏi NỐI TIẾP câu trước (không tự đứng một mình được): ngắn, hoặc có từ nối
+const FOLLOW_UP = /(chi tiết|cụ thể|từng ngày|liệt kê|còn\b|thế còn|vậy còn|thế thì|vậy thì|được không|thì sao|tại sao|vì sao|ngày nào|những ngày|hôm nào|tuần này|tuần trước|giải thích)/i;
+export function isFollowUpQuestion(question) {
+  const q = String(question || "").trim();
+  return q.length <= 60 || FOLLOW_UP.test(q);
+}
 
 export function isPersonalDataQuestion(question) {
   const q = String(question || "");
@@ -63,6 +85,26 @@ const hm = (min) => {
   return h === 0 ? `${m} phút` : m === 0 ? `${h} giờ` : `${h} giờ ${m} phút`;
 };
 const dmy = (dateKey) => dateKey.split("-").reverse().join("/");
+const WEEKDAYS = ["Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"];
+const weekday = (dateKey) => WEEKDAYS[new Date(`${dateKey}T00:00:00Z`).getUTCDay()];
+const hhmm = (iso) =>
+  iso ? new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Ho_Chi_Minh" }) : null;
+
+// "Thứ hai 06/10: vào 07:55, ra 17:05, làm 9 giờ; đi muộn 5 phút"
+function describeDay(d, todayKey) {
+  const parts = [`${weekday(d.workDate)} ${dmy(d.workDate)}: `];
+  const inTime = hhmm(d.checkInTime);
+  const outTime = hhmm(d.checkOutTime);
+  parts.push(inTime ? `vào ${inTime}` : "thiếu check-in");
+  if (outTime) parts.push(`, ra ${outTime}`);
+  else parts.push(d.workDate === todayKey ? ", đang làm (chưa check-out)" : ", thiếu check-out");
+  if (inTime && outTime) parts.push(`, làm ${hm(d.workedMinutes)}`);
+  const notes = [];
+  if (d.lateMinutes > 0) notes.push(`đi muộn ${d.lateMinutes} phút`);
+  if (d.earlyLeaveMinutes > 0) notes.push(`về sớm ${d.earlyLeaveMinutes} phút`);
+  if (notes.length) parts.push(`; ${notes.join(", ")}`);
+  return parts.join("");
+}
 const monthLabel = (mk) => `tháng ${Number(mk.slice(5, 7))}/${mk.slice(0, 4)}`;
 
 const STATUS_TEXT = {
@@ -99,10 +141,16 @@ export function buildFactsText(result, now = new Date()) {
   lines.push(`Tiền phạt đi muộn/về sớm: ${vnd(t.penaltyAmount)}`);
   lines.push(`Lương thực nhận: ${vnd(t.netSalary)}`);
 
+  // Chi tiết từng ngày (cả tháng, tối đa 31 dòng) — để trả lời "chấm công những ngày nào"
+  lines.push("Chi tiết từng ngày có chấm công:");
+  for (const d of days) lines.push(`- ${describeDay(d, todayKey)}`);
+
   const list = (arr, f) => arr.slice(0, 15).map(f).join("; ") + (arr.length > 15 ? "; ..." : "");
   if (lateDays.length) lines.push(`Các ngày đi muộn: ${list(lateDays, (d) => `${dmy(d.workDate)} (${d.lateMinutes} phút)`)}`);
   if (earlyDays.length) lines.push(`Các ngày về sớm: ${list(earlyDays, (d) => `${dmy(d.workDate)} (${d.earlyLeaveMinutes} phút)`)}`);
   if (missing.length) lines.push(`Các ngày thiếu check-out (cần báo admin chỉnh): ${list(missing, (d) => dmy(d.workDate))}`);
+  const missingIn = days.filter((d) => !d.checkInTime && d.checkOutTime);
+  if (missingIn.length) lines.push(`Các ngày thiếu check-in (cần báo admin chỉnh): ${list(missingIn, (d) => dmy(d.workDate))}`);
 
   const today = days.find((d) => d.workDate === todayKey);
   if (today) {
@@ -130,8 +178,11 @@ export function sourceFooter(facts) {
 
 export function createSalaryInquiryService({ employeeRepository, paysheetService }) {
   // Lấy số liệu của nhân viên đang đăng nhập + dựng bản tin. accountId lấy từ JWT.
-  async function loadPersonalFacts(accountId, question, now = new Date()) {
-    const { monthKey, future } = parseMonthFromQuestion(question, now);
+  // contextQuestion: câu hỏi trước đó (câu hỏi nối tiếp không nhắc tháng thì
+  // dùng tháng của câu trước — "tháng 9 tôi đi muộn mấy lần?" -> "chi tiết từng ngày?")
+  async function loadPersonalFacts(accountId, question, now = new Date(), { contextQuestion } = {}) {
+    const monthSource = mentionsMonth(question) || !contextQuestion ? question : contextQuestion;
+    const { monthKey, future } = parseMonthFromQuestion(monthSource, now);
     if (future) {
       return { monthKey, text: `Người dùng hỏi ${monthLabel(monthKey)} nhưng tháng này chưa tới nên chưa có dữ liệu.`, future: true };
     }
@@ -143,5 +194,5 @@ export function createSalaryInquiryService({ employeeRepository, paysheetService
     return { monthKey, text: buildFactsText(result, now), result, future: false };
   }
 
-  return { isPersonalDataQuestion, loadPersonalFacts, fallbackAnswer, sourceFooter };
+  return { isPersonalDataQuestion, isFollowUpQuestion, loadPersonalFacts, fallbackAnswer, sourceFooter };
 }

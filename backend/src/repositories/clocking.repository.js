@@ -109,8 +109,10 @@ export function createClockingRepository({ db }) {
     // thay, xếp theo thời điểm GHI NHẬN (created_at), kèm tên người tạo
     async listHistoryLog(clockingId, executor = db) {
       const r = await executor.query(
-        `SELECT h.*, a.full_name AS created_by_name
-         FROM clocking_history h LEFT JOIN account a ON a.id = h.created_by_account_id
+        `SELECT h.*, a.full_name AS created_by_name, v.full_name AS voided_by_name
+         FROM clocking_history h
+         LEFT JOIN account a ON a.id = h.created_by_account_id
+         LEFT JOIN account v ON v.id = h.voided_by_account_id
          WHERE h.clocking_id = $1
          ORDER BY h.created_at, h.clock_time`,
         [clockingId]
@@ -118,11 +120,14 @@ export function createClockingRepository({ db }) {
       return r.rows;
     },
 
-    async voidHistory(id, executor = db) {
-      await executor.query(`UPDATE clocking_history SET status = $2 WHERE id = $1`, [
-        id,
-        CLOCKING_HISTORY_STATUS.VOIDED,
-      ]);
+    // Huỷ 1 lần chấm (giữ nguyên nội dung), ghi lại ai huỷ và lúc nào.
+    // voidedAt: truyền cùng 1 giá trị cho mọi dòng huỷ trong 1 thao tác để
+    // nhật ký gộp lại thành 1 dòng.
+    async voidHistory(id, { voidedByAccountId = null, voidedAt = new Date() } = {}, executor = db) {
+      await executor.query(
+        `UPDATE clocking_history SET status = $2, voided_at = $3, voided_by_account_id = $4 WHERE id = $1`,
+        [id, CLOCKING_HISTORY_STATUS.VOIDED, voidedAt, voidedByAccountId]
+      );
     },
   };
 }

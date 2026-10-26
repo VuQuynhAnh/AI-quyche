@@ -94,8 +94,8 @@ export function createRegulationDocumentService({ documentRepository, fileStorag
   // Xoá file gốc trên đĩa SAU khi đã đọc stored_file_name
   async function remove(actor, documentId) {
     const document = await findInStoreOrThrow(actor, documentId, "Không tìm thấy văn bản.");
-    await documentRepository.deleteById(document.id);
-    if (document.stored_file_name) await fileStorage.remove(document.stored_file_name);
+    // Xoá mềm: giữ cả file gốc để còn mở lại khi đối soát
+    await documentRepository.softDeleteById(document.id);
   }
 
   // AN TOÀN: dù assistant.service.js không bao giờ trả tài liệu nhạy cảm trong

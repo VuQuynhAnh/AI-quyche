@@ -1,15 +1,26 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+
+// Các hộp thoại đang mở, theo thứ tự mở — Esc chỉ đóng hộp thoại TRÊN CÙNG
+// (VD popup "Vị trí" mở chồng trên popup chi tiết ngày công).
+const openModals = [];
 
 // Hộp thoại chung (markup modal Bootstrap, hiện tĩnh — không dùng JS của
 // Bootstrap). Đóng bằng Esc hoặc bấm ra ngoài; render qua Portal để không bị
 // overflow cắt. z-index trên cửa sổ chat nổi, dưới hộp xác nhận/toast.
 export default function Modal({ title, onClose, children, footer, width = 560 }) {
+  const id = useRef(Symbol("modal")).current;
+
   useEffect(() => {
-    const onKey = (e) => e.key === "Escape" && onClose();
+    openModals.push(id);
+    return () => openModals.splice(openModals.indexOf(id), 1);
+  }, [id]);
+
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && openModals[openModals.length - 1] === id && onClose();
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [id, onClose]);
 
   return createPortal(
     <>

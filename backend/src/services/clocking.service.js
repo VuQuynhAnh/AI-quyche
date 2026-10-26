@@ -1,7 +1,7 @@
 // CHẤM CÔNG phía NHÂN VIÊN (dùng trên điện thoại): xem cửa hàng qua QR,
 // trạng thái hôm nay, check-in/check-out, lịch sử tháng/ngày.
 // Thời điểm chấm công luôn do SERVER ghi (không nhận giờ từ client).
-import { CLOCKING_METHOD, CLOCKING_SOURCE } from "../constants/enums.js";
+import { CLOCKING_ACTION, CLOCKING_METHOD, CLOCKING_SOURCE } from "../constants/enums.js";
 import { AppError } from "../utils/AppError.js";
 import { distanceMeters } from "../utils/geo.js";
 import { normalizeIp } from "../utils/network.js";
@@ -55,11 +55,53 @@ export function createClockingService({
 
   // Chỉ gọi khi cửa hàng bật chấm công Wi-Fi: IP hiện tại có trùng Wi-Fi cửa
   // hàng không -> trùng thì giao diện hiện thêm nút "Chấm bằng Wi-Fi"
-  async function checkWifi(user, { ip } = {}) {
+  // usable = dùng được nút Wi-Fi: cửa hàng bật + đúng Wi-Fi cửa hàng + điện
+  // thoại đang ở gần cửa hàng (GPS). Không gửi GPS thì không xác nhận được -> false.
+  async function checkWifi(user, { ip, latitude, longitude, accuracy } = {}) {
     const employee = await findMyEmployee(user);
     const setting = await timesheetService.getSetting(employee.store_id);
-    if (!setting.wifi_clocking_enabled) return { enabled: false, onStoreWifi: false };
-    return { enabled: true, onStoreWifi: await storeNetworkService.isOnStoreNetwork(employee.store_id, ip) };
+    if (!setting.wifi_clocking_enabled) return { enabled: false, onStoreWifi: false, nearStore: false, usable: false };
+    const onStoreWifi = await storeNetworkService.isOnStoreNetwork(employee.store_id, ip);
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    const hasGps = latitude != null && longitude != null && latitude !== "" && longitude !== "" &&
+      Number.isFinite(lat) && Number.isFinite(lng);
+    const near = hasGps ? nearStoreForWifi(setting, { lat, lng, accuracy }) : null;
+    return {
+      enabled: true,
+      onStoreWifi,
+      nearStore: Boolean(near?.ok),
+      distanceMeters: near?.distance ?? null,
+      maxDistanceMeters: setting.wifi_max_distance_meters,
+      usable: onStoreWifi && Boolean(near?.ok),
+    };
+  }
+
+  // GPS lúc bấm phải cách vị trí cửa hàng tối đa wifi_max_distance_meters. Trừ
+  // hao sai số GPS (tối đa 100m) để trong nhà sóng GPS yếu không bị chặn oan.
+  const MAX_GPS_TOLERANCE_METERS = 100;
+  // { ok, distance } — cửa hàng chưa đặt vị trí thì ok = false
+  function nearStoreForWifi(setting, { lat, lng, accuracy }) {
+    if (setting.latitude == null || setting.longitude == null) return { ok: false, distance: null };
+    const distance = Math.round(distanceMeters(lat, lng, setting.latitude, setting.longitude));
+    const acc = Number(accuracy);
+    const tolerance = Number.isFinite(acc) && acc > 0 ? Math.min(acc, MAX_GPS_TOLERANCE_METERS) : 0;
+    return { ok: distance - tolerance <= setting.wifi_max_distance_meters, distance };
+  }
+
+  async function assertNearStoreForWifi(storeId, { lat, lng, accuracy }) {
+    const setting = await timesheetService.getSetting(storeId);
+    if (setting.latitude == null || setting.longitude == null) {
+      throw AppError.forbidden("Cửa hàng chưa đặt vị trí nên chưa chấm công bằng Wi-Fi được. Hãy quét QR để chấm công.");
+    }
+    const maxDistance = setting.wifi_max_distance_meters;
+    const { ok, distance } = nearStoreForWifi(setting, { lat, lng, accuracy });
+    if (!ok) {
+      throw AppError.forbidden(
+        `Bạn đang cách cửa hàng khoảng ${distance} m — chấm công bằng Wi-Fi chỉ được trong phạm vi ${maxDistance} m. ` +
+          "Hãy tới cửa hàng hoặc quét QR để chấm công."
+      );
+    }
   }
 
   // method = "wifi": không cần QR, nhưng cửa hàng phải bật chấm công Wi-Fi và IP
@@ -84,6 +126,9 @@ export function createClockingService({
       if (!onStoreWifi) {
         throw AppError.forbidden("Bạn không kết nối Wi-Fi cửa hàng. Hãy kết nối lại hoặc quét QR để chấm công.");
       }
+      // Trùng IP chưa đủ: "Wi-Fi cửa hàng" là mạng lúc admin đăng nhập, có thể ở
+      // nơi khác (nhà, quán cà phê). Điện thoại phải ở gần cửa hàng thật (GPS).
+      await assertNearStoreForWifi(employee.store_id, { lat, lng, accuracy });
     }
     const store = await storeRepository.findById(storeId);
     if (!store?.is_active) throw AppError.forbidden("Cửa hàng đang tạm ngưng.");
@@ -94,9 +139,15 @@ export function createClockingService({
       const clocking = await timesheetService.lockDailyClocking({ storeId, employeeId: employee.id, workDate }, tx);
       const histories = await clockingRepository.listHistories(clocking.id, {}, tx);
       const next = timesheetService.nextActionType(histories);
-
-      if (actionType && actionType !== next) {
-        throw AppError.conflict("Trạng thái chấm công đã thay đổi. Hãy tải lại trang.", {
+      // Nhân viên tự chọn: check-in chỉ 1 lần/ngày; check-out thì luôn được — kể
+      // cả khi chưa check-in (quên check-in) — ngày đó thành "thiếu check-in"
+      // để admin sửa. Không gửi actionType thì dùng lần tiếp theo mặc định.
+      const action = actionType || next;
+      if (![CLOCKING_ACTION.CHECK_IN, CLOCKING_ACTION.CHECK_OUT].includes(action)) {
+        throw AppError.badRequest("Loại chấm công không hợp lệ.");
+      }
+      if (action === CLOCKING_ACTION.CHECK_IN && histories.some((h) => h.action_type === CLOCKING_ACTION.CHECK_IN)) {
+        throw AppError.conflict("Hôm nay bạn đã check-in rồi — chỉ có thể check-out.", {
           details: { nextActionType: next },
         });
       }
@@ -116,7 +167,7 @@ export function createClockingService({
       const history = await clockingRepository.createHistory(
         {
           clockingId: clocking.id,
-          actionType: next,
+          actionType: action,
           source: CLOCKING_SOURCE.EMPLOYEE,
           latitude: lat,
           longitude: lng,

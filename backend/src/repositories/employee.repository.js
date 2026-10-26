@@ -19,7 +19,7 @@ export function createEmployeeRepository({ db }) {
     async findByAccountId(accountId, executor = db) {
       const r = await executor.query(
         `SELECT ${EMPLOYEE_COLUMNS} FROM employee e JOIN account a ON a.id = e.account_id
-         WHERE e.account_id = $1`,
+         WHERE e.account_id = $1 AND NOT e.is_deleted AND NOT a.is_deleted`,
         [accountId]
       );
       return r.rows[0] || null;
@@ -28,7 +28,7 @@ export function createEmployeeRepository({ db }) {
     async findInStore(id, storeId, executor = db) {
       const r = await executor.query(
         `SELECT ${EMPLOYEE_COLUMNS} FROM employee e JOIN account a ON a.id = e.account_id
-         WHERE e.id = $1 AND a.store_id = $2`,
+         WHERE e.id = $1 AND a.store_id = $2 AND NOT e.is_deleted AND NOT a.is_deleted`,
         [id, storeId]
       );
       return r.rows[0] || null;
@@ -38,7 +38,7 @@ export function createEmployeeRepository({ db }) {
     async listInStore(storeId, executor = db) {
       const r = await executor.query(
         `SELECT ${EMPLOYEE_COLUMNS} FROM employee e JOIN account a ON a.id = e.account_id
-         WHERE a.store_id = $1
+         WHERE a.store_id = $1 AND NOT e.is_deleted AND NOT a.is_deleted
          ORDER BY a.is_active DESC, a.role, a.full_name`,
         [storeId]
       );
@@ -51,10 +51,10 @@ export function createEmployeeRepository({ db }) {
     async listForPeriod({ storeId, firstDate, lastDate }, executor = db) {
       const r = await executor.query(
         `SELECT ${EMPLOYEE_COLUMNS} FROM employee e JOIN account a ON a.id = e.account_id
-         WHERE a.store_id = $1
+         WHERE a.store_id = $1 AND NOT e.is_deleted AND NOT a.is_deleted
            AND (a.is_active OR EXISTS (
              SELECT 1 FROM clocking c
-             WHERE c.employee_id = e.id AND c.work_date BETWEEN $2 AND $3))
+             WHERE c.employee_id = e.id AND c.work_date BETWEEN $2 AND $3 AND NOT c.is_deleted))
          ORDER BY a.full_name`,
         [storeId, firstDate, lastDate]
       );

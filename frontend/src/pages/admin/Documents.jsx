@@ -418,7 +418,7 @@ export default function Documents() {
             {error && <div className="alert alert-danger py-2">{error}</div>}
 
             <button className="btn btn-primary" type="submit" disabled={uploading}>
-              {uploading ? "Đang tải lên..." : "Tải lên"}
+              Tải lên
             </button>
           </form>
         </Modal>

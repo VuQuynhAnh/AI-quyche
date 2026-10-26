@@ -29,6 +29,7 @@ export default function StoreSetting() {
       longitude: s.longitude ?? "",
       checkInRadiusMeters: String(s.checkInRadiusMeters),
       wifiClockingEnabled: Boolean(s.wifiClockingEnabled),
+      wifiMaxDistanceMeters: String(s.wifiMaxDistanceMeters ?? 200),
     });
   }
 
@@ -48,6 +49,9 @@ export default function StoreSetting() {
     }
   }
 
+  // Chấm bằng Wi-Fi cần vị trí cửa hàng để kiểm tra khoảng cách
+  const hasLocation = form ? form.latitude !== "" && form.longitude !== "" : false;
+
   async function save(e) {
     e.preventDefault();
     setSaving(true);
@@ -60,6 +64,7 @@ export default function StoreSetting() {
         latitude: form.latitude === "" ? null : Number(form.latitude),
         longitude: form.longitude === "" ? null : Number(form.longitude),
         wifiClockingEnabled: form.wifiClockingEnabled,
+        wifiMaxDistanceMeters: Number(form.wifiMaxDistanceMeters),
       });
       applyResponse(d);
       notifySuccess("Đã lưu thiết lập cửa hàng.");
@@ -113,9 +118,35 @@ export default function StoreSetting() {
                   <button type="button" className="btn btn-link btn-sm p-0" onClick={useMyLocation}>Lấy vị trí hiện tại</button>
                 </div>
                 <div className="row g-2">
-                  <div className="col-4"><input className="form-control" placeholder="Vĩ độ" value={form.latitude} onChange={set("latitude")} /></div>
-                  <div className="col-4"><input className="form-control" placeholder="Kinh độ" value={form.longitude} onChange={set("longitude")} /></div>
-                  <div className="col-4"><input type="number" min="10" max="5000" className="form-control" placeholder="Bán kính (m)" value={form.checkInRadiusMeters} onChange={set("checkInRadiusMeters")} /></div>
+                  <div className="col-sm-4">
+                    <label className="form-label small text-muted mb-1" htmlFor="store-lat">Vĩ độ</label>
+                    <input id="store-lat" className="form-control" placeholder="VD 21.0245" value={form.latitude} onChange={set("latitude")} />
+                  </div>
+                  <div className="col-sm-4">
+                    <label className="form-label small text-muted mb-1" htmlFor="store-lng">Kinh độ</label>
+                    <input id="store-lng" className="form-control" placeholder="VD 105.8522" value={form.longitude} onChange={set("longitude")} />
+                  </div>
+                  <div className="col-sm-4">
+                    <label className="form-label small text-muted mb-1" htmlFor="store-radius">
+                      Bán kính chấm công
+                      <HelpTip>
+                        Lần chấm công cách vị trí cửa hàng xa hơn bán kính này sẽ bị gắn cờ "ngoài phạm vi" cho admin xem
+                        (không chặn nhân viên chấm công). Từ 10 đến 5000 m.
+                      </HelpTip>
+                    </label>
+                    <div className="input-group">
+                      <input
+                        id="store-radius"
+                        type="number"
+                        min="10"
+                        max="5000"
+                        className="form-control text-end"
+                        value={form.checkInRadiusMeters}
+                        onChange={set("checkInRadiusMeters")}
+                      />
+                      <span className="input-group-text">m</span>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="col-12">
@@ -126,14 +157,43 @@ export default function StoreSetting() {
                     className="form-check-input"
                     role="switch"
                     checked={form.wifiClockingEnabled}
+                    disabled={!hasLocation && !form.wifiClockingEnabled}
                     onChange={(e) => setForm((f) => ({ ...f, wifiClockingEnabled: e.target.checked }))}
                   />
                   <label className="form-check-label" htmlFor="wifi-clocking">Cho phép chấm công bằng Wi-Fi cửa hàng</label>
                   <HelpTip>
                     Nhân viên đang dùng Wi-Fi cửa hàng thấy thêm nút chấm công Wi-Fi cạnh nút quét QR (không cần quét mã).
                     Wi-Fi cửa hàng được nhận theo mạng lúc admin đăng nhập gần nhất — hãy đăng nhập khi đang ở cửa hàng.
+                    Khi chấm bằng Wi-Fi, điện thoại còn phải ở gần cửa hàng (theo GPS) trong phạm vi bên dưới.
                   </HelpTip>
                 </div>
+                {!hasLocation && (
+                  <div className="small text-warning-emphasis mt-1">Cần đặt vị trí cửa hàng (vĩ độ, kinh độ) ở trên mới bật được chấm công bằng Wi-Fi.</div>
+                )}
+                {form.wifiClockingEnabled && (
+                  <div className="d-flex align-items-center gap-2 mt-2">
+                    <label className="small text-muted text-nowrap mb-0" htmlFor="wifi-distance">Chỉ chấm Wi-Fi khi cách cửa hàng tối đa</label>
+                    <div className="input-group input-group-sm" style={{ maxWidth: 140 }}>
+                      <input
+                        id="wifi-distance"
+                        type="number"
+                        min="20"
+                        max="5000"
+                        step="10"
+                        required
+                        className="form-control text-end"
+                        value={form.wifiMaxDistanceMeters}
+                        onChange={set("wifiMaxDistanceMeters")}
+                      />
+                      <span className="input-group-text">m</span>
+                    </div>
+                    <HelpTip>
+                      Wi-Fi cửa hàng được nhận theo IP lúc admin đăng nhập, nên nếu admin đăng nhập ở nơi khác (nhà, quán cà phê)
+                      thì mạng đó cũng bị coi là Wi-Fi cửa hàng. Kiểm tra thêm khoảng cách GPS để người dùng chung mạng ở nơi
+                      khác không chấm công được. Nên đặt 100–300 m (GPS trong nhà thường lệch vài chục mét).
+                    </HelpTip>
+                  </div>
+                )}
                 {form.wifiClockingEnabled && (
                   <div className="small text-muted mt-1">
                     {wifiNetwork ? (
@@ -153,7 +213,7 @@ export default function StoreSetting() {
             </div>
 
             <div className="d-flex justify-content-end mt-3">
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Đang lưu..." : "Lưu thiết lập"}</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>Lưu thiết lập</button>
             </div>
           </div>
         </form>

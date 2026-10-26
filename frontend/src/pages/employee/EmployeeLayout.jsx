@@ -25,9 +25,9 @@ export default function EmployeeLayout() {
         <div className="d-flex gap-2 flex-shrink-0">
           {/* Admin cửa hàng vừa chấm công vừa quản trị */}
           {user?.role === ROLE.ADMIN && (
-            <NavLink to="/admin" className="btn btn-sm btn-outline-light">Quản trị</NavLink>
+            <NavLink to="/admin" className="btn btn-sm btn-light text-primary fw-semibold text-nowrap">← Quản lý</NavLink>
           )}
-          <button type="button" className="btn btn-sm btn-outline-light" onClick={handleLogout}>
+          <button type="button" className="btn btn-sm btn-outline-light text-nowrap" onClick={handleLogout}>
             Đăng xuất
           </button>
         </div>
@@ -44,6 +44,12 @@ export default function EmployeeLayout() {
         <NavLink to="/work/history" className={({ isActive }) => `nav-link text-center flex-fill py-3 ${isActive ? "text-primary fw-semibold" : "text-body-secondary"}`}>
           Lịch sử
         </NavLink>
+        {/* Admin cửa hàng: thêm tab quay về trang quản lý */}
+        {user?.role === ROLE.ADMIN && (
+          <NavLink to="/admin" className="nav-link text-center flex-fill py-3 text-body-secondary">
+            Quản lý
+          </NavLink>
+        )}
       </nav>
 
       <ChatPopup />

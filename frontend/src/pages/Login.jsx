@@ -77,7 +77,7 @@ export default function Login() {
             {error && <div className="alert alert-danger py-2">{error}</div>}
 
             <button className="btn btn-primary w-100" type="submit" disabled={loading}>
-              {loading ? "Đang đăng nhập..." : "Đăng nhập"}
+              Đăng nhập
             </button>
           </form>
 

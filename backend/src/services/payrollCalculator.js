@@ -31,10 +31,11 @@ export function summarizeClockingDay({ workDate, shiftStartTime, shiftEndTime, h
   // 1 ngày = lần check-in ĐẦU TIÊN tới lần check-out CUỐI CÙNG sau đó (bấm
   // check-out nhiều lần thì lần sau thay lần trước). Giờ làm chỉ tính phần
   // nằm trong ca.
+  // Quên check-in mà vẫn check-out: giữ giờ ra (để tính về sớm), giờ làm = 0
+  // cho tới khi admin bổ sung giờ vào.
   const firstIn = sorted.find((h) => h.action_type === CLOCKING_ACTION.CHECK_IN) || null;
-  const lastOut = firstIn
-    ? [...sorted].reverse().find((h) => h.action_type === CLOCKING_ACTION.CHECK_OUT && h.t > firstIn.t) || null
-    : null;
+  const lastOut =
+    [...sorted].reverse().find((h) => h.action_type === CLOCKING_ACTION.CHECK_OUT && (!firstIn || h.t > firstIn.t)) || null;
 
   let workedMs = 0;
   if (firstIn && lastOut) {

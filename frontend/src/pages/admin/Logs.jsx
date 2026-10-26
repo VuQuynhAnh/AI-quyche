@@ -346,7 +346,7 @@ export default function Logs() {
                     onClick={loadOlderMessages}
                     disabled={loadingOlder}
                   >
-                    {loadingOlder ? "Đang tải..." : "Tải tin nhắn cũ hơn"}
+                    Tải tin nhắn cũ hơn
                   </button>
                 </div>
               )}
@@ -418,7 +418,7 @@ export default function Logs() {
                   onChange={(e) => setReplyText(e.target.value)}
                 />
                 <button className="btn btn-primary" type="submit" disabled={sendingReply || !replyText.trim()}>
-                  {sendingReply ? "Đang gửi..." : "Gửi"}
+                  Gửi
                 </button>
               </form>
             </div>

@@ -89,8 +89,13 @@ export function createPaysheetRepository({ db }) {
     },
 
     // ---------- Chi tiết ----------
-    async deleteDetails(paysheetId, executor = db) {
-      await executor.query(`DELETE FROM paysheet_detail WHERE paysheet_id = $1`, [paysheetId]);
+    // "Tính lại" bảng nháp: xoá MỀM các dòng cũ rồi thêm dòng mới
+    async softDeleteDetails(paysheetId, executor = db) {
+      await executor.query(
+        `UPDATE paysheet_detail SET is_deleted = true, deleted_at = now()
+         WHERE paysheet_id = $1 AND NOT is_deleted`,
+        [paysheetId]
+      );
     },
 
     async insertDetail(paysheetId, d, executor = db) {
@@ -113,7 +118,7 @@ export function createPaysheetRepository({ db }) {
          FROM paysheet_detail d
          JOIN employee e ON e.id = d.employee_id
          JOIN account a ON a.id = e.account_id
-         WHERE d.paysheet_id = $1
+         WHERE d.paysheet_id = $1 AND NOT d.is_deleted
          ORDER BY a.full_name`,
         [paysheetId]
       );
@@ -122,7 +127,7 @@ export function createPaysheetRepository({ db }) {
 
     async findDetail(paysheetId, employeeId, executor = db) {
       const r = await executor.query(
-        `SELECT * FROM paysheet_detail WHERE paysheet_id = $1 AND employee_id = $2`,
+        `SELECT * FROM paysheet_detail WHERE paysheet_id = $1 AND employee_id = $2 AND NOT is_deleted`,
         [paysheetId, employeeId]
       );
       return r.rows[0] || null;

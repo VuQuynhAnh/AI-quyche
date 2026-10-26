@@ -127,7 +127,7 @@ export default function Paysheets() {
               </p>
             )}
             <button type="button" className="btn btn-primary" disabled={busy} onClick={createPaysheet}>
-              {busy ? "Đang tạo..." : "Tạo bảng lương"}
+              Tạo bảng lương
             </button>
           </div>
         </div>

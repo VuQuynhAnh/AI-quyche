@@ -61,6 +61,8 @@ export default function History() {
     if (!info) return "";
     // Hôm nay đã check-in nhưng chưa check-out = đang làm, chưa phải lỗi
     if (info.isMissingCheckOut) return DAY_COLOR[info.workDate === todayKey ? "working" : "bad"];
+    // Quên check-in (chỉ có giờ ra) cũng là ngày cần báo quản lý sửa
+    if (!info.checkInTime && info.checkOutTime) return DAY_COLOR.bad;
     if (info.lateMinutes > 0 || info.earlyLeaveMinutes > 0) return DAY_COLOR.warn;
     return DAY_COLOR.ok;
   }
@@ -112,24 +114,21 @@ export default function History() {
                 <button
                   key={c.key}
                   type="button"
-                  className={`cal-cell ${cls(c.info)} ${c.key === todayKey ? "border-primary border-2" : ""}`}
+                  className={`cal-cell ${c.info ? cls(c.info) : "cal-cell-empty"} ${c.key === todayKey ? "cal-cell-today" : ""}`}
                   onClick={() => setSelected(c.key)}
+                  aria-label={`Ngày ${c.day}${c.info ? "" : " — không có chấm công"}`}
                 >
-                  <span>{c.day}</span>
-                  {c.info && (
-                    <span className="small fw-semibold">
-                      {c.info.isMissingCheckOut ? (c.key === todayKey ? "…" : "!") : (c.info.workedMinutes / 60).toFixed(1)}
-                    </span>
-                  )}
+                  {c.day}
                 </button>
               )
             )}
           </div>
           <div className="small text-muted mt-2 d-flex flex-wrap gap-3">
             <span><LegendDot color={DAY_COLOR.ok} />Đủ giờ</span>
-            <span><LegendDot color={DAY_COLOR.warn} />Muộn/về sớm</span>
-            <span><LegendDot color={DAY_COLOR.bad} />! Thiếu check-out</span>
-            <span>Số trong ô = giờ làm</span>
+            <span><LegendDot color={DAY_COLOR.warn} />Muộn / về sớm</span>
+            <span><LegendDot color={DAY_COLOR.bad} />Thiếu check-in/out</span>
+            <span><LegendDot color={DAY_COLOR.working} />Đang làm</span>
+            <span>Bấm vào ngày để xem chi tiết</span>
           </div>
         </>
       )}

@@ -26,7 +26,9 @@ export function createClockingRouter({ clockingService }) {
   }));
 
   router.get("/me/wifi", asyncHandler(async (req, res) => {
-    res.json(await clockingService.checkWifi(req.user, { ip: req.ip }));
+    // ?latitude=&longitude=&accuracy= (GPS hiện tại) để kiểm tra có đang ở gần cửa hàng
+    const { latitude, longitude, accuracy } = req.query;
+    res.json(await clockingService.checkWifi(req.user, { ip: req.ip, latitude, longitude, accuracy }));
   }));
 
   router.post("/check", asyncHandler(async (req, res) => {

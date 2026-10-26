@@ -7,6 +7,7 @@ import {
 } from "../../constants/enums.js";
 import { fmtDateLong, fmtMinutes, fmtTime, vnDateKey } from "../../utils/format.js";
 import TimeInput from "./TimeInput.jsx";
+import ClockLocationModal from "./ClockLocationModal.jsx";
 import HelpTip from "../HelpTip.jsx";
 
 // Chi tiết 1 ngày của 1 nhân viên (admin): giờ vào, giờ ra và bảng lịch sử
@@ -15,7 +16,8 @@ import HelpTip from "../HelpTip.jsx";
 // và/hoặc giờ ra — lần cũ được giữ (đánh dấu đã thay), lần mới ghi "Admin chỉnh".
 // Tháng đã chốt lương: không chỉnh sửa được.
 export default function DayDetail({ employeeId, fullName, date, onClose, onChanged }) {
-  const { notifySuccess, notifyError } = useNotification();
+  const { notifySuccess, notifyError, confirm } = useNotification();
+  const [locationRow, setLocationRow] = useState(null); // dòng lịch sử đang xem vị trí
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(null); // { checkInTime, checkOutTime }
@@ -49,13 +51,38 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
     setEditing({ checkInTime: hhmm(firstIn?.clockTime), checkOutTime: hhmm(lastOut?.clockTime) });
   }
 
+  // Bỏ trống CẢ 2 ô (khi ngày đó đã có lần chấm) = xoá giờ chấm để nhân viên chấm lại từ đầu
+  const isReset = Boolean(editing && !editing.checkInTime && !editing.checkOutTime && (firstIn || lastOut));
   const changed =
     editing &&
-    ((editing.checkInTime && editing.checkInTime !== hhmm(firstIn?.clockTime)) ||
+    (isReset ||
+      (editing.checkInTime && editing.checkInTime !== hhmm(firstIn?.clockTime)) ||
       (editing.checkOutTime && editing.checkOutTime !== hhmm(lastOut?.clockTime)));
+
+  // Xoá chấm công cả ngày: huỷ mọi lần chấm còn hiệu lực để nhân viên chấm lại từ đầu
+  async function resetDay() {
+    const ok = await confirm(
+      `Xoá chấm công ngày ${date.split("-").reverse().join("/")} của ${fullName}?\n\n` +
+        "Nhân viên sẽ chấm công lại từ đầu (check-in rồi check-out). Các lần chấm cũ vẫn được giữ trong lịch sử với trạng thái đã huỷ.",
+      { confirmText: "Xoá chấm công", danger: true }
+    );
+    if (!ok) return;
+    setSaving(true);
+    try {
+      setData(await api.post("/hr/clockings/day-edit", { employeeId, date, reset: true }));
+      notifySuccess("Đã xoá chấm công — nhân viên có thể chấm công lại.");
+      setEditing(null);
+      onChanged?.();
+    } catch (err) {
+      notifyError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function save(e) {
     e.preventDefault();
+    if (isReset) return resetDay();
     setSaving(true);
     try {
       setData(
@@ -118,14 +145,27 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
                 <span className="text-muted">→</span>
                 <span className="small text-muted">Ra</span>
                 <TimeInput label="Giờ ra" value={editing.checkOutTime} onChange={(v) => setEditing({ ...editing, checkOutTime: v })} />
-                <HelpTip>Sửa một hoặc cả hai giờ. Lần chấm gốc vẫn được giữ trong lịch sử.</HelpTip>
+                <HelpTip>
+                  Sửa một hoặc cả hai giờ. Bỏ trống cả 2 ô (bấm vào ô → "Bỏ trống") để xoá giờ chấm, cho nhân viên chấm lại
+                  từ đầu. Lần chấm gốc vẫn được giữ trong lịch sử.
+                </HelpTip>
                 <div className="ms-auto d-flex gap-2">
+                  {(firstIn || lastOut) && !isReset && (
+                    <button type="button" className="btn btn-outline-danger btn-sm" onClick={resetDay} disabled={saving}>
+                      Xoá chấm công
+                    </button>
+                  )}
                   <button type="button" className="btn btn-light btn-sm" onClick={() => setEditing(null)}>Huỷ</button>
-                  <button type="submit" className="btn btn-primary btn-sm" disabled={!changed || saving}>
-                    {saving ? "Đang lưu..." : "Lưu"}
+                  <button type="submit" className={`btn btn-sm ${isReset ? "btn-danger" : "btn-primary"}`} disabled={!changed || saving}>
+                    {isReset ? "Xoá chấm công" : "Lưu"}
                   </button>
                 </div>
               </div>
+              {isReset && (
+                <div className="small text-danger mt-2">
+                  Đã bỏ trống cả giờ vào và giờ ra — lưu lại sẽ xoá giờ chấm ngày này để nhân viên chấm công lại từ đầu.
+                </div>
+              )}
             </form>
           )}
 
@@ -143,7 +183,7 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
                 </thead>
                 <tbody>
                   {buildChangeLog(data.histories, clocking).map((row) => (
-                    <tr key={row.key}>
+                    <tr key={row.key} className={row.isReset ? "table-danger" : ""}>
                       <td className="text-nowrap">{fmtLogTime(row.createdAt)}</td>
                       <td>{row.status}</td>
                       <td>
@@ -151,9 +191,9 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
                         {row.byName && <div className="small text-muted">{row.byName}</div>}
                         {row.location && (
                           <div className="small">
-                            <a href={`https://www.google.com/maps?q=${row.location.latitude},${row.location.longitude}`} target="_blank" rel="noreferrer">
+                            <button type="button" className="btn btn-link btn-sm p-0 align-baseline small" onClick={() => setLocationRow(row)}>
                               Vị trí{row.location.isOutOfRange && <span className="text-danger"> (ngoài phạm vi)</span>}
-                            </a>
+                            </button>
                           </div>
                         )}
                       </td>
@@ -165,6 +205,15 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
             </div>
           )}
         </>
+      )}
+
+      {locationRow && (
+        <ClockLocationModal
+          title={`Vị trí ${locationRow.status.toLowerCase()} — ${fmtLogTime(locationRow.createdAt)}`}
+          point={locationRow.location}
+          store={data?.storeLocation || null}
+          onClose={() => setLocationRow(null)}
+        />
       )}
     </Modal>
   );
@@ -220,18 +269,50 @@ function describeOut(iso, clocking) {
 }
 
 function buildChangeLog(histories, clocking) {
-  const groups = [];
+  // 1) Các lần ghi nhận (nhân viên chấm / admin thêm-sửa). Dòng admin tạo trong
+  //    cùng 1 lần "Lưu" có cùng created_at nên gộp lại.
+  const events = [];
   for (const h of histories) {
-    const last = groups[groups.length - 1];
+    const last = events[events.length - 1];
     const sameBatch =
-      last && h.source === CLOCKING_SOURCE.ADMIN && last.source === CLOCKING_SOURCE.ADMIN &&
-      new Date(last.createdAt).getTime() === new Date(h.createdAt).getTime();
+      last && last.kind === "record" && h.source === CLOCKING_SOURCE.ADMIN && last.source === CLOCKING_SOURCE.ADMIN &&
+      new Date(last.at).getTime() === new Date(h.createdAt).getTime();
     if (sameBatch) last.items.push(h);
-    else groups.push({ source: h.source, createdAt: h.createdAt, items: [h] });
+    else events.push({ kind: "record", source: h.source, at: h.createdAt, items: [h] });
   }
 
+  // 2) "Xoá chấm công": các lần bị huỷ mà KHÔNG có lần nào thay thế (sửa giờ thì
+  //    luôn có lần mới trỏ về lần cũ). Huỷ cùng 1 thao tác -> cùng voidedAt.
+  const replacedIds = new Set(histories.map((h) => h.replacedHistoryId).filter(Boolean));
+  const resets = new Map();
+  for (const h of histories) {
+    if (h.status !== CLOCKING_HISTORY_STATUS.VOIDED || replacedIds.has(h.id) || !h.voidedAt) continue;
+    const key = new Date(h.voidedAt).getTime();
+    if (!resets.has(key)) resets.set(key, { kind: "reset", at: h.voidedAt, byName: h.voidedByName, items: [] });
+    resets.get(key).items.push(h);
+  }
+  events.push(...resets.values());
+  events.sort((a, b) => new Date(a.at) - new Date(b.at));
+
+  // 3) Phát lại theo thời gian, giữ giờ vào/ra hiện hành sau mỗi thao tác
   const state = { in: null, out: null };
-  const rows = groups.map((g) => {
+  const rows = events.map((g) => {
+    if (g.kind === "reset") {
+      const before = [state.in && `giờ vào ${fmtTime(state.in)}`, state.out && `giờ ra ${fmtTime(state.out)}`].filter(Boolean);
+      state.in = null;
+      state.out = null;
+      return {
+        key: `reset-${g.items[0].id}`,
+        createdAt: g.at,
+        status: "Xoá chấm công",
+        method: "Điều chỉnh",
+        byName: g.byName || "Admin",
+        location: null,
+        content: `Đã xoá ${before.length ? before.join(" và ") : "giờ chấm"} — nhân viên chấm công lại từ đầu.`,
+        isReset: true,
+      };
+    }
+
     const changedIn = g.items.find((h) => h.actionType === CLOCKING_ACTION.CHECK_IN);
     const changedOut = [...g.items].reverse().find((h) => h.actionType === CLOCKING_ACTION.CHECK_OUT);
     if (changedIn) state.in = changedIn.clockTime;
@@ -244,12 +325,16 @@ function buildChangeLog(histories, clocking) {
 
     const byAdmin = g.source === CLOCKING_SOURCE.ADMIN;
     const first = g.items[0];
+    const action = changedIn && changedOut ? "giờ vào và ra" : changedIn ? "giờ vào" : "giờ ra";
+    const isEdit = g.items.some((h) => h.replacedHistoryId);
     return {
       key: first.id,
-      createdAt: g.createdAt,
-      status: state.out ? "Đã chấm công ra" : "Đã chấm công vào",
+      createdAt: g.at,
+      status: byAdmin
+        ? `${isEdit ? "Sửa" : "Thêm"} ${action}`
+        : first.actionType === CLOCKING_ACTION.CHECK_IN ? "Chấm công vào" : "Chấm công ra",
       method: byAdmin
-        ? (g.items.some((h) => h.replacedHistoryId) ? "Điều chỉnh" : "Thủ công")
+        ? (isEdit ? "Điều chỉnh" : "Thủ công")
         : first.method === CLOCKING_METHOD.WIFI ? "Chấm công Wi-Fi" : "Chấm công QR",
       byName: byAdmin ? first.createdByName || "Admin" : null,
       location: !byAdmin && first.latitude != null ? first : null,

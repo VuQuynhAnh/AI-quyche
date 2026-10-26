@@ -88,7 +88,7 @@ export function createPaysheetService({
   // Ghi lại toàn bộ chi tiết + tổng của 1 bảng lương (trong transaction)
   async function writeCalculation(paysheet, tx) {
     const { details, totals } = await calculateMonth(paysheet.store_id, paysheet.pay_month, tx);
-    await paysheetRepository.deleteDetails(paysheet.id, tx);
+    await paysheetRepository.softDeleteDetails(paysheet.id, tx);
     for (const detail of details) {
       await paysheetRepository.insertDetail(paysheet.id, detail, tx);
     }

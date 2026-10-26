@@ -37,7 +37,10 @@ CREATE TABLE store (
   is_active             BOOLEAN NOT NULL DEFAULT true,
   created_by_account_id UUID,           -- FK thêm sau khi có bảng account
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Xoá mềm: bản ghi chỉ được đánh dấu xoá, vẫn giữ trong CSDL để tra cứu / đối soát
+  is_deleted BOOLEAN NOT NULL DEFAULT false,
+  deleted_at TIMESTAMPTZ
 );
 
 -- ---------- Thiết lập cửa hàng (KEY-VALUE) ----------
@@ -50,6 +53,9 @@ CREATE TABLE store_setting (
   key        VARCHAR(100) NOT NULL,
   value      TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Xoá mềm: bản ghi chỉ được đánh dấu xoá, vẫn giữ trong CSDL để tra cứu / đối soát
+  is_deleted BOOLEAN NOT NULL DEFAULT false,
+  deleted_at TIMESTAMPTZ,
   PRIMARY KEY (store_id, key)
 );
 
@@ -59,12 +65,15 @@ CREATE TABLE account (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   store_id      UUID REFERENCES store(id) ON DELETE CASCADE,
   full_name     VARCHAR(255) NOT NULL,
-  email         VARCHAR(255) NOT NULL UNIQUE,
+  email         VARCHAR(255) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   role          account_role NOT NULL,
   is_active     BOOLEAN NOT NULL DEFAULT true,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Xoá mềm: bản ghi chỉ được đánh dấu xoá, vẫn giữ trong CSDL để tra cứu / đối soát
+  is_deleted BOOLEAN NOT NULL DEFAULT false,
+  deleted_at TIMESTAMPTZ,
   CHECK ((role = 'superadmin') = (store_id IS NULL))
 );
 CREATE INDEX account_store_id_idx ON account (store_id);
@@ -80,7 +89,10 @@ CREATE TABLE store_network (
   store_id               UUID NOT NULL REFERENCES store(id) ON DELETE CASCADE,
   ip_address             VARCHAR(45) NOT NULL,
   detected_by_account_id UUID REFERENCES account(id) ON DELETE SET NULL,
-  created_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Xoá mềm: bản ghi chỉ được đánh dấu xoá, vẫn giữ trong CSDL để tra cứu / đối soát
+  is_deleted BOOLEAN NOT NULL DEFAULT false,
+  deleted_at TIMESTAMPTZ
 );
 CREATE INDEX store_network_store_created_idx ON store_network (store_id, created_at DESC);
 
@@ -98,7 +110,10 @@ CREATE TABLE employee (
   -- Ảnh đại diện: tên file trong backend/uploads/ (VD "avatars/<uuid>.jpg"); NULL = chưa có
   avatar_path  VARCHAR(255),
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Xoá mềm: bản ghi chỉ được đánh dấu xoá, vẫn giữ trong CSDL để tra cứu / đối soát
+  is_deleted BOOLEAN NOT NULL DEFAULT false,
+  deleted_at TIMESTAMPTZ
 );
 
 -- ---------- Chấm công theo NGÀY ----------
@@ -121,6 +136,9 @@ CREATE TABLE clocking (
   is_out_of_range      BOOLEAN NOT NULL DEFAULT false,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Xoá mềm: bản ghi chỉ được đánh dấu xoá, vẫn giữ trong CSDL để tra cứu / đối soát
+  is_deleted BOOLEAN NOT NULL DEFAULT false,
+  deleted_at TIMESTAMPTZ,
   UNIQUE (employee_id, work_date)
 );
 CREATE INDEX clocking_store_work_date_idx ON clocking (store_id, work_date);
@@ -145,8 +163,14 @@ CREATE TABLE clocking_history (
   client_ip                VARCHAR(45),
   status                   clocking_history_status NOT NULL DEFAULT 'valid',
   replaced_history_id      UUID REFERENCES clocking_history(id) ON DELETE CASCADE,
+  -- Ai / lúc nào huỷ lần chấm này (admin sửa giờ hoặc "Xoá chấm công")
+  voided_at                TIMESTAMPTZ,
+  voided_by_account_id     UUID REFERENCES account(id) ON DELETE SET NULL,
   created_by_account_id    UUID REFERENCES account(id) ON DELETE SET NULL,
-  created_at               TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Xoá mềm: bản ghi chỉ được đánh dấu xoá, vẫn giữ trong CSDL để tra cứu / đối soát
+  is_deleted BOOLEAN NOT NULL DEFAULT false,
+  deleted_at TIMESTAMPTZ
 );
 CREATE INDEX clocking_history_clocking_id_idx ON clocking_history (clocking_id, clock_time);
 
@@ -155,14 +179,19 @@ CREATE INDEX clocking_history_clocking_id_idx ON clocking_history (clocking_id, 
 -- Ngoại lệ: created_by_account_id được về NULL (khi xoá tài khoản admin đã sửa giờ).
 CREATE FUNCTION clocking_history_immutable() RETURNS trigger AS $$
 BEGIN
-  IF (to_jsonb(NEW) - 'status' - 'created_by_account_id')
-       IS DISTINCT FROM (to_jsonb(OLD) - 'status' - 'created_by_account_id')
+  IF (to_jsonb(NEW) - 'status' - 'created_by_account_id' - 'voided_at' - 'voided_by_account_id' - 'is_deleted' - 'deleted_at')
+       IS DISTINCT FROM
+     (to_jsonb(OLD) - 'status' - 'created_by_account_id' - 'voided_at' - 'voided_by_account_id' - 'is_deleted' - 'deleted_at')
      OR (NEW.created_by_account_id IS NOT NULL
          AND NEW.created_by_account_id IS DISTINCT FROM OLD.created_by_account_id) THEN
     RAISE EXCEPTION 'Lịch sử chấm công không thể sửa nội dung (chỉ được huỷ).';
   END IF;
   IF OLD.status = 'voided' AND NEW.status <> 'voided' THEN
     RAISE EXCEPTION 'Lần chấm công đã huỷ không thể khôi phục.';
+  END IF;
+  -- voided_at / voided_by chỉ được ghi đúng 1 lần, lúc huỷ
+  IF OLD.voided_at IS NOT NULL AND NEW.voided_at IS DISTINCT FROM OLD.voided_at THEN
+    RAISE EXCEPTION 'Không sửa được thời điểm huỷ lần chấm công.';
   END IF;
   RETURN NEW;
 END;
@@ -193,7 +222,10 @@ CREATE TABLE paysheet (
   cancelled_by_account_id   UUID REFERENCES account(id) ON DELETE SET NULL,
   cancelled_at              TIMESTAMPTZ,
   cancel_reason             VARCHAR(500),
-  updated_at                TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Xoá mềm: bản ghi chỉ được đánh dấu xoá, vẫn giữ trong CSDL để tra cứu / đối soát
+  is_deleted BOOLEAN NOT NULL DEFAULT false,
+  deleted_at TIMESTAMPTZ
 );
 CREATE UNIQUE INDEX paysheet_one_active_per_month_idx
   ON paysheet (store_id, pay_month) WHERE status <> 'cancelled';
@@ -213,7 +245,9 @@ CREATE TABLE paysheet_detail (
   penalty_amount         NUMERIC(14,2) NOT NULL,
   net_salary             NUMERIC(14,2) NOT NULL,
   daily_breakdown        JSONB NOT NULL,         -- từng ngày: giờ vào/ra, phút, tiền
-  UNIQUE (paysheet_id, employee_id)
+  -- Xoá mềm: bản ghi chỉ được đánh dấu xoá, vẫn giữ trong CSDL để tra cứu / đối soát
+  is_deleted BOOLEAN NOT NULL DEFAULT false,
+  deleted_at TIMESTAMPTZ
 );
 CREATE INDEX paysheet_detail_employee_id_idx ON paysheet_detail (employee_id);
 
@@ -232,7 +266,10 @@ CREATE TABLE document (
   processing_status      document_processing_status NOT NULL DEFAULT 'processing',
   uploaded_by_account_id UUID REFERENCES account(id) ON DELETE SET NULL,
   created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Xoá mềm: bản ghi chỉ được đánh dấu xoá, vẫn giữ trong CSDL để tra cứu / đối soát
+  is_deleted BOOLEAN NOT NULL DEFAULT false,
+  deleted_at TIMESTAMPTZ
 );
 CREATE INDEX document_store_id_idx ON document (store_id);
 
@@ -245,6 +282,9 @@ CREATE TABLE document_detail (
   content     TEXT NOT NULL,
   embedding   VECTOR(768),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Xoá mềm: bản ghi chỉ được đánh dấu xoá, vẫn giữ trong CSDL để tra cứu / đối soát
+  is_deleted BOOLEAN NOT NULL DEFAULT false,
+  deleted_at TIMESTAMPTZ,
   UNIQUE (document_id, chunk_index)
 );
 CREATE INDEX document_detail_embedding_idx
@@ -252,3 +292,8 @@ CREATE INDEX document_detail_embedding_idx
 
 -- ---------- Hội thoại & tin nhắn ----------
 -- Lưu ở MongoDB (backend/src/models/), có storeId để tách theo cửa hàng.
+
+-- "Duy nhất" chỉ trong các bản ghi CHƯA xoá mềm: email của tài khoản đã xoá
+-- dùng lại được; "Tính lại" bảng lương nháp xoá mềm dòng cũ rồi thêm dòng mới.
+CREATE UNIQUE INDEX account_email_active_idx ON account (email) WHERE NOT is_deleted;
+CREATE UNIQUE INDEX paysheet_detail_active_idx ON paysheet_detail (paysheet_id, employee_id) WHERE NOT is_deleted;

@@ -268,7 +268,7 @@ export default function Employees() {
               )}
               <button type="button" className="btn btn-outline-secondary" onClick={() => setForm(null)}>{readOnly ? "Đóng" : "Huỷ"}</button>
               {!readOnly && (
-                <button type="submit" form="emp-form" className="btn btn-primary" disabled={saving}>{saving ? "Đang lưu..." : "Lưu"}</button>
+                <button type="submit" form="emp-form" className="btn btn-primary" disabled={saving}>Lưu</button>
               )}
             </>
           }

@@ -239,10 +239,37 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
 }
+/* Ô lịch chấm công của nhân viên: chỉ số ngày + màu tình trạng, bấm để xem chi tiết */
 .cal-cell {
   min-width: 0;
-  overflow: hidden;
   aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--bs-body-color);
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+.cal-cell:hover {
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+.cal-cell:active {
+  transform: scale(0.96);
+}
+/* Ngày không có chấm công: nền trắng, chữ nhạt */
+.cal-cell-empty {
+  background: var(--bs-body-bg);
+  border-color: var(--bs-border-color-translucent);
+  color: var(--bs-secondary-color);
+  font-weight: 400;
+}
+/* Hôm nay: viền xanh đậm */
+.cal-cell-today {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
 }
 
 /* Hồ sơ nhân viên: họ tên/chức danh trông như chữ, chỉ hiện khung khi rê chuột/đang sửa */
@@ -325,4 +352,11 @@
 }
 .att-day:hover .att-cell {
   outline: 2px solid #93c5fd;
+}
+
+/* Nút viền có nền trắng (đứng trên nền xám) mà vẫn đổi màu khi rê chuột:
+   đổi biến nền mặc định của Bootstrap thay vì dùng .bg-body (có !important,
+   làm nút trắng xoá khi hover vì chữ cũng chuyển sang trắng). */
+.btn-outline-filled {
+  --bs-btn-bg: var(--bs-body-bg);
 }

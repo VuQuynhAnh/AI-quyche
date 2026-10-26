@@ -158,8 +158,8 @@ export function createEmployeeService({
     if (await accountRepository.hasWorkRecords(current.account_id)) {
       throw AppError.conflict("Nhân viên đã có dữ liệu chấm công/lương — hãy khoá tài khoản (nghỉ việc) thay vì xoá.");
     }
-    await accountRepository.deleteById(current.account_id);
-    if (current.avatar_path) await fileStorage.remove(current.avatar_path);
+    // Xoá mềm (is_deleted): giữ hồ sơ + ảnh đại diện để tra cứu về sau
+    await accountRepository.softDeleteById(current.account_id);
   }
 
   // Đặt / thay ảnh đại diện. Tên file ngẫu nhiên (không đoán được) vì ảnh được

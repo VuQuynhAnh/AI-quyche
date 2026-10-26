@@ -254,7 +254,7 @@ export default function SuperadminPage() {
             <>
               <button type="button" className="btn btn-outline-secondary" onClick={() => setStoreForm(null)}>Huỷ</button>
               <button type="submit" form="store-form" className="btn btn-primary" disabled={saving}>
-                {saving ? "Đang lưu..." : storeForm.id ? "Lưu" : "Tạo"}
+                {storeForm.id ? "Lưu" : "Tạo"}
               </button>
             </>
           }

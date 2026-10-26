@@ -34,7 +34,7 @@ export function createDocumentRepository({ db }) {
     },
 
     async findInStore(id, storeId, executor = db) {
-      const r = await executor.query(`SELECT * FROM document WHERE id = $1 AND store_id = $2`, [id, storeId]);
+      const r = await executor.query(`SELECT * FROM document WHERE id = $1 AND store_id = $2 AND NOT is_deleted`, [id, storeId]);
       return r.rows[0] || null;
     },
 
@@ -44,8 +44,8 @@ export function createDocumentRepository({ db }) {
                 d.created_at, a.full_name AS uploaded_by_name, COUNT(dd.id)::int AS chunk_count
          FROM document d
          LEFT JOIN account a ON a.id = d.uploaded_by_account_id
-         LEFT JOIN document_detail dd ON dd.document_id = d.id
-         WHERE d.store_id = $1
+         LEFT JOIN document_detail dd ON dd.document_id = d.id AND NOT dd.is_deleted
+         WHERE d.store_id = $1 AND NOT d.is_deleted
          GROUP BY d.id, a.full_name
          ORDER BY d.created_at DESC`,
         [storeId]
@@ -56,14 +56,23 @@ export function createDocumentRepository({ db }) {
     async countByStatus(storeId, executor = db) {
       const r = await executor.query(
         `SELECT processing_status AS status, COUNT(*)::int AS count
-         FROM document WHERE store_id = $1 GROUP BY processing_status`,
+         FROM document WHERE store_id = $1 AND NOT is_deleted GROUP BY processing_status`,
         [storeId]
       );
       return r.rows;
     },
 
-    async deleteById(id, executor = db) {
-      await executor.query(`DELETE FROM document WHERE id = $1`, [id]);
+    // Xoá MỀM văn bản + các đoạn của nó: chatbot không dùng nữa, nhưng vẫn giữ
+    // lại để đối soát các câu trả lời cũ đã trích dẫn văn bản này
+    async softDeleteById(id, executor = db) {
+      await executor.query(
+        `UPDATE document SET is_deleted = true, deleted_at = now(), updated_at = now() WHERE id = $1 AND NOT is_deleted`,
+        [id]
+      );
+      await executor.query(
+        `UPDATE document_detail SET is_deleted = true, deleted_at = now() WHERE document_id = $1 AND NOT is_deleted`,
+        [id]
+      );
     },
 
     // ---------- Chi tiết (đoạn văn bản) ----------
@@ -76,7 +85,7 @@ export function createDocumentRepository({ db }) {
 
     async findDetailContents(documentId, executor = db) {
       const r = await executor.query(
-        `SELECT content FROM document_detail WHERE document_id = $1 ORDER BY chunk_index`,
+        `SELECT content FROM document_detail WHERE document_id = $1 AND NOT is_deleted ORDER BY chunk_index`,
         [documentId]
       );
       return r.rows.map((row) => row.content);
@@ -90,6 +99,7 @@ export function createDocumentRepository({ db }) {
          FROM document_detail dd
          JOIN document d ON d.id = dd.document_id
          WHERE d.store_id = $1 AND d.processing_status = $3 AND d.is_sensitive = true
+           AND NOT d.is_deleted AND NOT dd.is_deleted
          ORDER BY dd.embedding <=> $2
          LIMIT 1`,
         [storeId, toPgVector(embedding), DOCUMENT_PROCESSING_STATUS.READY]
@@ -105,6 +115,7 @@ export function createDocumentRepository({ db }) {
          FROM document_detail dd
          JOIN document d ON d.id = dd.document_id
          WHERE d.store_id = $1 AND d.processing_status = $3 AND d.is_sensitive = false
+           AND NOT d.is_deleted AND NOT dd.is_deleted
          ORDER BY dd.embedding <=> $2
          LIMIT $4`,
         [storeId, toPgVector(embedding), DOCUMENT_PROCESSING_STATUS.READY, limit]

@@ -704,7 +704,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
             title="Câu hỏi khó hoặc trả lời chưa thoả đáng? Đánh dấu để quản trị viên hỗ trợ trực tiếp"
           >
             <FlagIcon />
-            {flagging ? "Đang gửi..." : "Cần admin hỗ trợ"}
+            Cần admin hỗ trợ
           </button>
         </div>
       )}
