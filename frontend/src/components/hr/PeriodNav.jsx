@@ -8,7 +8,7 @@ export default function PeriodNav({ label, title, onPrev, onNext, nextDisabled, 
       <button type="button" className="btn btn-sm border-0 text-body-secondary px-2" onClick={onPrev} aria-label={prevLabel}>
         ‹
       </button>
-      <span className="px-1 text-center text-nowrap" style={{ minWidth: 150 }}>
+      <span className="px-1 text-center text-nowrap period-label">
         {label}
       </span>
       <button

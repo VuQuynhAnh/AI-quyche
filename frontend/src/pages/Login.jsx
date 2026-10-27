@@ -43,7 +43,7 @@ export default function Login() {
 
   return (
     <div className="auth-page container d-flex align-items-center py-4">
-      <div className="card border-0 shadow-sm mx-auto" style={{ maxWidth: 440, width: "100%" }}>
+      <div className="card border-0 shadow-sm mx-auto auth-card">
         <div className="card-body p-4">
           <img src="/logo.svg" alt="" className="rounded-4 shadow mb-3" width={60} height={60} />
           <h1 className="h4 mb-1">Chấm công & Trợ lý AI</h1>
@@ -93,7 +93,7 @@ export default function Login() {
               </div>
               {DEMO_ACCOUNT_GROUPS.map((group) => (
                 <div key={group.title} className="mb-2">
-                  <div className="small text-uppercase fw-semibold text-body-secondary my-1" style={{ fontSize: "0.72rem", letterSpacing: "0.04em" }}>{group.title}</div>
+                  <div className="small text-uppercase fw-semibold text-body-secondary my-1 demo-group-title">{group.title}</div>
                   <div className="list-group list-group-flush">
                     {group.accounts.map((account) => (
                       <button
@@ -102,7 +102,7 @@ export default function Login() {
                         className={`list-group-item list-group-item-action d-flex align-items-center gap-2 py-2 px-2 ${email === account.email ? "active" : ""}`}
                         onClick={() => pickDemoAccount(account)}
                       >
-                        <span className={`badge ${ROLE_BADGE_CLASS[account.role]}`} style={{ minWidth: 92 }}>
+                        <span className={`badge ${ROLE_BADGE_CLASS[account.role]} role-badge`}>
                           {ROLE_LABEL[account.role]}
                         </span>
                         <span className="min-w-0">

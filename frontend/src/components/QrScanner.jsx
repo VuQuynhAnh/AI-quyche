@@ -70,8 +70,7 @@ export default function QrScanner({ title = "Quét mã QR tại cửa hàng", on
 
   return createPortal(
     <div
-      className="position-fixed top-0 start-0 w-100 h-100 bg-black text-white d-flex flex-column"
-      style={{ zIndex: 1150 }}
+      className="position-fixed top-0 start-0 w-100 h-100 bg-black text-white d-flex flex-column z-popover"
       role="dialog" aria-modal="true" aria-label={title}>
       <div className="d-flex justify-content-between align-items-center px-3 py-3 fw-semibold">
         <span>{title}</span>
@@ -86,7 +85,7 @@ export default function QrScanner({ title = "Quét mã QR tại cửa hàng", on
         <div className="position-relative flex-grow-1 overflow-hidden">
           <video ref={videoRef} className="w-100 h-100 object-fit-cover" playsInline muted />
           <div className="qr-scanner-frame" />
-          <div className="position-absolute start-0 end-0 text-center small opacity-75" style={{ bottom: 32 }}>Đưa mã QR dán tại quầy vào giữa khung</div>
+          <div className="position-absolute start-0 end-0 text-center small opacity-75 qr-scanner-hint">Đưa mã QR dán tại quầy vào giữa khung</div>
         </div>
       )}
       <canvas ref={canvasRef} hidden />

@@ -30,26 +30,20 @@ export default function StackedBarChart({ title, caption, segments, emptyText = 
         <>
           {/* Thanh xếp chồng của Bootstrap (.progress-stacked); khe 2px giữa các phần = viền màu nền */}
           <div
-            className="progress-stacked rounded-pill"
-            style={{ height: 22 }}
+            className="progress-stacked rounded-pill stacked-track"
             role="img"
             aria-label={`${title}: ${segments.map((s) => `${s.label} ${s.value}`).join(", ")}`}
           >
-            {visibleSegments.map((s, i) => {
+            {visibleSegments.map((s) => {
               const percent = (s.value / total) * 100;
               return (
                 <div
                   key={s.key}
-                  className="progress"
-                  style={{
-                    width: `${percent}%`,
-                    height: 22,
-                    minWidth: 2,
-                    borderRight: i < visibleSegments.length - 1 ? "2px solid var(--bs-body-bg)" : "none",
-                  }}
+                  className="progress stacked-segment"
+                  style={{ "--segment-width": `${percent}%`, "--series-color": s.color }}
                   title={`${s.label}: ${s.value} (${percent.toFixed(0)}%)`}
                 >
-                  <div className="progress-bar fw-semibold" style={{ backgroundColor: s.color, fontSize: "0.68rem" }}>
+                  <div className="progress-bar fw-semibold">
                     {percent >= 15 && `${percent.toFixed(0)}%`}
                   </div>
                 </div>
@@ -61,11 +55,11 @@ export default function StackedBarChart({ title, caption, segments, emptyText = 
             {segments.map((s) => (
               <div key={s.key} className="d-flex align-items-center gap-2">
                 {s.icon ? (
-                  <span className="d-inline-flex flex-shrink-0" style={{ color: s.color }}>
+                  <span className="d-inline-flex flex-shrink-0 series-icon" style={{ "--series-color": s.color }}>
                     {s.icon}
                   </span>
                 ) : (
-                  <span className="rounded-circle flex-shrink-0" style={{ width: 10, height: 10, backgroundColor: s.color }} />
+                  <span className="rounded-circle flex-shrink-0 series-dot" style={{ "--series-color": s.color }} />
                 )}
                 <span>{s.label}</span>
                 <span className="text-muted">

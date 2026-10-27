@@ -179,7 +179,7 @@ export default function Paysheets() {
                 </thead>
                 <tbody>
                   {data.details.map((d) => (
-                    <tr key={d.id} style={{ cursor: "pointer" }} onClick={() => setDetail(d)}>
+                    <tr key={d.id} className="cursor-pointer" onClick={() => setDetail(d)}>
                       <td className="ps-3">
                         <span className="fw-semibold">{d.fullName}</span>
                         {d.missingCheckOutDays > 0 && (

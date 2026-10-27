@@ -105,7 +105,7 @@ export default function Clockings() {
 
       {data && (
         <div className="card">
-          <div className="table-responsive" style={{ maxHeight: "calc(100dvh - 260px)" }}>
+          <div className="table-responsive att-table-wrap">
             <table className="att-table w-100">
               <thead>
                 <tr>
@@ -113,12 +113,11 @@ export default function Clockings() {
                   {data.dates.map((key) => (
                     <th
                       key={key}
-                      className={`${dowOf(key) === 0 ? "text-danger" : ""} ${key === todayKey ? "text-primary" : ""}`}
-                      style={isWeek ? { minWidth: 96 } : undefined}
+                      className={`${dowOf(key) === 0 ? "text-danger" : ""} ${key === todayKey ? "text-primary" : ""} ${isWeek ? "att-col-week" : ""}`}
                     >
                       {/* Tuần: "T2" + "20/10"; tháng: "20" + "T2" */}
                       <div>{isWeek ? DOW_LABEL[dowOf(key)] : Number(key.slice(8))}</div>
-                      <div style={{ fontSize: "0.62rem", fontWeight: 400 }}>{isWeek ? fmtDayMonth(key) : DOW_LABEL[dowOf(key)]}</div>
+                      <div className="att-day-sub">{isWeek ? fmtDayMonth(key) : DOW_LABEL[dowOf(key)]}</div>
                     </th>
                   ))}
                   {/* 2 cột tổng được ghim bên phải khi cuộn ngang (xem .att-total, .att-late) */}
@@ -133,7 +132,7 @@ export default function Clockings() {
                     <tr key={r.employeeId}>
                       <td className="att-name">
                         <div className={`fw-semibold ${r.isActive ? "" : "text-muted"}`}>{r.fullName}</div>
-                        <div className="text-muted" style={{ fontSize: "0.7rem" }}>{r.jobTitle || "—"}</div>
+                        <div className="text-muted fs-xs">{r.jobTitle || "—"}</div>
                       </td>
                       {data.dates.map((key) => {
                         const info = byDate.get(key);
@@ -148,12 +147,12 @@ export default function Clockings() {
                             <div className={`att-cell ${isWeek ? "att-cell-week" : ""} ${cellClass(info)}`}>
                               {info ? (info.isMissingCheckOut ? (key === todayKey ? "…" : "!") : (info.workedMinutes / 60).toFixed(1)) : <span className="text-muted">·</span>}
                               {isWeek && info && (
-                                <div className="text-muted" style={{ fontSize: "0.68rem" }}>
+                                <div className="text-muted fs-xxs">
                                   {fmtTime(info.checkInTime)}–{info.checkOutTime ? fmtTime(info.checkOutTime) : "--:--"}
                                 </div>
                               )}
                               {isWeek && info && info.lateMinutes + info.earlyLeaveMinutes > 0 && (
-                                <div className="text-warning-emphasis" style={{ fontSize: "0.68rem" }}>
+                                <div className="text-warning-emphasis fs-xxs">
                                   {[info.lateMinutes > 0 && `Muộn ${info.lateMinutes}p`, info.earlyLeaveMinutes > 0 && `Sớm ${info.earlyLeaveMinutes}p`]
                                     .filter(Boolean)
                                     .join(" · ")}
@@ -190,6 +189,6 @@ export default function Clockings() {
 }
 
 function LegendDot({ color }) {
-  return <i className={`d-inline-block rounded-1 border me-1 align-middle ${color}`} style={{ width: 10, height: 10 }} />;
+  return <i className={`d-inline-block rounded-1 border me-1 align-middle ${color} legend-swatch`} />;
 }
 

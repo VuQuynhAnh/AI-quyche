@@ -21,17 +21,17 @@ export default function RankedBarChart({ title, caption, items, color = "var(--s
             {items.map((item, i) => (
               <div className="d-flex align-items-center gap-2 small" key={i}>
                 {/* Nhãn cố định 42% chiều rộng, thanh co giãn, số căn phải thẳng cột */}
-                <div className="text-truncate flex-shrink-0" style={{ width: "42%" }} title={item.label}>
+                <div className="text-truncate flex-shrink-0 ranked-label" title={item.label}>
                   {item.label}
                 </div>
-                <div className="progress flex-grow-1 min-w-0" style={{ height: 18 }}>
+                <div className="progress flex-grow-1 min-w-0 ranked-track">
                   <div
-                    className="progress-bar"
-                    style={{ width: `${(item.value / max) * 100}%`, minWidth: 4, backgroundColor: color }}
+                    className="progress-bar ranked-bar"
+                    style={{ "--bar-width": `${(item.value / max) * 100}%`, "--bar-color": color }}
                     title={`${item.label}: ${item.value} lần`}
                   />
                 </div>
-                <div className="text-end text-body-secondary" style={{ minWidth: "1.5em", fontVariantNumeric: "tabular-nums" }}>
+                <div className="text-end text-body-secondary ranked-value tabular-nums">
                   {item.value}
                 </div>
               </div>

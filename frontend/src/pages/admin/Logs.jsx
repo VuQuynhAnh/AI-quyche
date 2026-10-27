@@ -92,7 +92,7 @@ function StatusLegend({ counts }) {
         const s = STATUS_BADGE[key];
         return (
           <span key={key} className="badge rounded-pill bg-light text-body border fw-medium d-inline-flex align-items-center gap-2">
-            <span className={`rounded-circle ${s.dot}`} style={{ width: 8, height: 8 }} aria-hidden="true" />
+            <span className={`rounded-circle ${s.dot} dot-8`} aria-hidden="true" />
             {s.text}
             <span className="badge rounded-pill bg-white text-body-secondary border">{counts[key] || 0}</span>
             <InfoTip text={s.desc} label={`Vì sao 1 hội thoại được coi là "${s.text}"?`} />
@@ -366,8 +366,7 @@ export default function Logs() {
                   >
                     {m.role === MESSAGE_SENDER.USER && (
                       <div
-                        className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0 bg-secondary"
-                        style={{ width: 26, height: 26, fontSize: 11 }}
+                        className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0 bg-secondary mini-avatar"
                       >
                         {conversation.userName?.trim()?.charAt(0)?.toUpperCase() || "NV"}
                       </div>
@@ -390,7 +389,7 @@ export default function Logs() {
                         </div>
                       )}
                       {m.createdAt && (
-                        <div className={`mt-1 lh-1 ${m.role === MESSAGE_SENDER.ADMIN ? "text-white-50" : "text-muted"}`} style={{ fontSize: "0.7rem" }}>
+                        <div className={`mt-1 lh-1 ${m.role === MESSAGE_SENDER.ADMIN ? "text-white-50" : "text-muted"} fs-xs`}>
                           {fmtDateTime(m.createdAt)}
                         </div>
                       )}
@@ -428,8 +427,7 @@ export default function Logs() {
           // tính (bố cục 2 cột), vì ở điện thoại không có cột chi tiết trống
           // nào để hiển thị placeholder cả (danh sách chiếm toàn màn hình).
           <div
-            className="h-100 bg-white border border-2 rounded-3 d-none d-lg-flex flex-column align-items-center justify-content-center text-muted"
-            style={{ minHeight: 320, "--bs-border-style": "dashed" }}
+            className="h-100 bg-white border border-2 rounded-3 d-none d-lg-flex flex-column align-items-center justify-content-center text-muted drop-zone"
           >
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />

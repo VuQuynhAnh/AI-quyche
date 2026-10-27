@@ -40,7 +40,7 @@ export default function StoreLanding() {
 
   return (
     <div className="auth-page container d-flex align-items-center">
-      <div className="card border-0 shadow-sm mx-auto text-center" style={{ maxWidth: 400, width: "100%" }}>
+      <div className="card border-0 shadow-sm mx-auto text-center landing-card">
         <div className="card-body p-4">
           <img src="/logo.svg" alt="" className="rounded-4 shadow mb-3" width={60} height={60} />
           {error && <div className="alert alert-danger">{error}</div>}

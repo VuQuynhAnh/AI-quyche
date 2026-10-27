@@ -155,8 +155,7 @@ function MsgAvatar({ role }) {
   const isAdmin = role === MESSAGE_SENDER.ADMIN;
   return (
     <div
-      className={`rounded-circle d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0 ${isAdmin ? "bg-success" : "bg-primary bg-gradient"}`}
-      style={{ width: 26, height: 26, fontSize: 11 }}
+      className={`rounded-circle d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0 ${isAdmin ? "bg-success" : "bg-primary bg-gradient"} mini-avatar`}
     >
       {isAdmin ? "QT" : "AI"}
     </div>
@@ -165,8 +164,7 @@ function MsgAvatar({ role }) {
 
 // Nút tròn trong suốt trên thanh tiêu đề chat
 const HEADER_BTN =
-  "btn btn-sm rounded-circle p-0 d-flex align-items-center justify-content-center text-white bg-white bg-opacity-25 border-0 flex-shrink-0";
-const HEADER_BTN_SIZE = { width: 32, height: 32 };
+  "btn btn-sm rounded-circle p-0 d-flex align-items-center justify-content-center text-white bg-white bg-opacity-25 border-0 flex-shrink-0 square-32";
 
 // Định dạng giờ gửi hiện dưới mỗi tin nhắn — chỉ "HH:mm" nếu gửi trong hôm
 // nay (trường hợp phổ biến nhất), kèm thêm "dd/mm/yyyy" nếu tin nhắn từ hôm
@@ -526,7 +524,6 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
             <button
               type="button"
               className={HEADER_BTN}
-              style={HEADER_BTN_SIZE}
               title="Quay lại chấm công"
               aria-label="Quay lại chấm công"
               onClick={() => navigate("/work")}
@@ -544,19 +541,18 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
         </div>
         <div className="position-relative d-flex align-items-center gap-1">
           {embedded && onExpand && (
-            <button type="button" className={HEADER_BTN} style={HEADER_BTN_SIZE} title="Mở toàn màn hình" aria-label="Mở toàn màn hình" onClick={onExpand}>
+            <button type="button" className={HEADER_BTN} title="Mở toàn màn hình" aria-label="Mở toàn màn hình" onClick={onExpand}>
               ⤢
             </button>
           )}
           {embedded && onClose && (
-            <button type="button" className={HEADER_BTN} style={HEADER_BTN_SIZE} title="Đóng" aria-label="Đóng" onClick={onClose}>
+            <button type="button" className={HEADER_BTN} title="Đóng" aria-label="Đóng" onClick={onClose}>
               ✕
             </button>
           )}
           <button
             type="button"
             className={HEADER_BTN}
-            style={HEADER_BTN_SIZE}
             data-chat-menu
             title="Tuỳ chọn"
             onClick={() => setHeaderMenuOpen((v) => !v)}
@@ -639,8 +635,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
                 <div className="d-flex align-items-center gap-1 mt-1">
                   <button
                     type="button"
-                    className={`btn btn-sm rounded-pill py-0 px-2 d-inline-flex align-items-center gap-1 ${m.feedback === MESSAGE_FEEDBACK.HELPFUL ? "btn-success" : "btn-outline-secondary"}`}
-                    style={{ fontSize: "0.72rem" }}
+                    className={`btn btn-sm rounded-pill py-0 px-2 d-inline-flex align-items-center gap-1 ${m.feedback === MESSAGE_FEEDBACK.HELPFUL ? "btn-success" : "btn-outline-secondary"} fs-xs`}
                     title="Đánh giá câu trả lời này là hữu ích"
                     aria-pressed={m.feedback === MESSAGE_FEEDBACK.HELPFUL}
                     onClick={() => handleFeedback(m._id, MESSAGE_FEEDBACK.HELPFUL)}
@@ -650,8 +645,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
                   </button>
                   <button
                     type="button"
-                    className={`btn btn-sm rounded-pill py-0 px-2 d-inline-flex align-items-center gap-1 ${m.feedback === MESSAGE_FEEDBACK.UNHELPFUL ? "btn-danger" : "btn-outline-secondary"}`}
-                    style={{ fontSize: "0.72rem" }}
+                    className={`btn btn-sm rounded-pill py-0 px-2 d-inline-flex align-items-center gap-1 ${m.feedback === MESSAGE_FEEDBACK.UNHELPFUL ? "btn-danger" : "btn-outline-secondary"} fs-xs`}
                     title="Đánh giá câu trả lời này là không hữu ích"
                     aria-pressed={m.feedback === MESSAGE_FEEDBACK.UNHELPFUL}
                     onClick={() => handleFeedback(m._id, MESSAGE_FEEDBACK.UNHELPFUL)}
@@ -662,7 +656,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
                 </div>
               )}
               {m.createdAt && (
-                <div className={`mt-1 lh-1 ${m.role === MESSAGE_SENDER.USER ? "text-white-50" : "text-muted"}`} style={{ fontSize: "0.7rem" }}>
+                <div className={`mt-1 lh-1 ${m.role === MESSAGE_SENDER.USER ? "text-white-50" : "text-muted"} fs-xs`}>
                   {formatMessageTime(m.createdAt)}
                 </div>
               )}
@@ -670,8 +664,7 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
             {!String(m._id).startsWith("tmp-") && (
               <button
                 type="button"
-                className={`btn btn-sm btn-light rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0 hover-reveal ${menu?.id === m._id ? "is-open" : ""}`}
-                style={{ width: 26, height: 26 }}
+                className={`btn btn-sm btn-light rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0 hover-reveal ${menu?.id === m._id ? "is-open" : ""} square-26`}
                 data-chat-menu
                 title="Tuỳ chọn tin nhắn"
                 onClick={(e) => openMessageMenu(e, m)}
@@ -710,14 +703,12 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
       )}
 
       <form
-        className="d-flex gap-2 p-2 border-top bg-white"
-        style={{ paddingBottom: "calc(0.5rem + var(--safe-bottom))" }}
+        className="d-flex gap-2 p-2 border-top bg-white chat-input-bar"
         onSubmit={handleSend}
       >
         <textarea
           ref={textareaRef}
-          className="form-control rounded-pill px-3"
-          style={{ resize: "none", maxHeight: 120 }}
+          className="form-control rounded-pill px-3 chat-input"
           rows={1}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -740,16 +731,9 @@ export function ChatPanel({ embedded = false, onClose, onExpand }) {
       {menu &&
         createPortal(
           <div
-            className="dropdown-menu show shadow position-fixed overflow-auto"
+            className={`dropdown-menu show shadow position-fixed overflow-auto floating-menu chat-message-menu z-floating-menu ${menu.openUp ? "open-up" : ""}`}
             data-chat-menu
-            style={{
-              top: menu.top,
-              left: menu.left,
-              width: 220,
-              maxHeight: "min(420px, 70vh)",
-              zIndex: 1080,
-              transform: menu.openUp ? "translateY(-100%)" : "none",
-            }}
+            style={{ "--menu-top": `${menu.top}px`, "--menu-left": `${menu.left}px` }}
           >
             {menu.role === MESSAGE_SENDER.USER && (
               <button type="button" className="dropdown-item d-flex align-items-center gap-2" onClick={handleAskAgain}>

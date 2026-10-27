@@ -139,7 +139,7 @@ export default function History() {
 }
 
 function LegendDot({ color }) {
-  return <i className={`d-inline-block rounded-1 border me-1 align-middle ${color}`} style={{ width: 10, height: 10 }} />;
+  return <i className={`d-inline-block rounded-1 border me-1 align-middle ${color} legend-swatch`} />;
 }
 
 function Stat({ label, value }) {
@@ -175,8 +175,7 @@ function DaySheet({ workDate, info, onClose }) {
     <>
       <div className="offcanvas-backdrop fade show" onMouseDown={onClose} />
       <div
-        className="offcanvas offcanvas-bottom show rounded-top-4"
-        style={{ height: "auto", maxHeight: "80dvh", maxWidth: 560, marginInline: "auto" }}
+        className="offcanvas offcanvas-bottom show rounded-top-4 day-sheet"
         role="dialog"
         aria-modal="true"
       >
@@ -184,7 +183,7 @@ function DaySheet({ workDate, info, onClose }) {
           <h2 className="offcanvas-title h6">{fmtDateLong(workDate)}</h2>
           <button type="button" className="btn-close" aria-label="Đóng" onClick={onClose} />
         </div>
-        <div className="offcanvas-body pt-0" style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}>
+        <div className="offcanvas-body pt-0 day-sheet-body">
 
         {info && (
           <div className="small text-muted mb-2">

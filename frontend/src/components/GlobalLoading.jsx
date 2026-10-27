@@ -25,8 +25,7 @@ export default function GlobalLoading() {
   if (!visible) return null;
   return createPortal(
     <div
-      className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
-      style={{ zIndex: 1200, background: "rgba(15, 23, 42, 0.25)", cursor: "progress" }}
+      className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center global-loading z-loading"
       role="status"
       aria-live="polite"
     >

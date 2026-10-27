@@ -284,8 +284,7 @@ export default function Employees() {
                   {!readOnly && (
                     <button
                       type="button"
-                      className="btn btn-primary rounded-circle position-absolute bottom-0 end-0 p-0 d-flex align-items-center justify-content-center border border-2 border-white shadow-sm"
-                      style={{ width: 32, height: 32 }}
+                      className="btn btn-primary rounded-circle position-absolute bottom-0 end-0 p-0 d-flex align-items-center justify-content-center border border-2 border-white shadow-sm square-32"
                       title="Đổi ảnh đại diện"
                       aria-label="Đổi ảnh đại diện"
                       onClick={() => avatarInputRef.current?.click()}
@@ -327,7 +326,7 @@ export default function Employees() {
                   <div className="small text-muted mt-2">Bắt đầu làm từ {fmtDate(form.startWorkDate)}</div>
                 )}
                 {form.id && form.orig.createdAt && (
-                  <div className="small text-muted" style={{ fontSize: "0.72rem" }}>
+                  <div className="small text-muted fs-xs">
                     Tạo tài khoản {fmtDate(form.orig.createdAt)}
                   </div>
                 )}
@@ -419,7 +418,7 @@ const AVATAR_COLORS = ["#2563eb", "#16a34a", "#ea580c", "#9333ea", "#0891b2", "#
 
 function Avatar({ name, src, size = 40, className = "" }) {
   if (src) {
-    return <img className={`rounded-circle flex-shrink-0 object-fit-cover ${className}`} src={src} alt="" style={{ width: size, height: size }} />;
+    return <img className={`avatar rounded-circle flex-shrink-0 object-fit-cover ${className}`} src={src} alt="" style={{ "--avatar-size": `${size}px` }} />;
   }
   const words = String(name || "").trim().split(/\s+/).filter(Boolean);
   const initials = words.length === 0
@@ -429,8 +428,8 @@ function Avatar({ name, src, size = 40, className = "" }) {
   for (const ch of String(name || "")) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
   return (
     <span
-      className={`d-inline-flex align-items-center justify-content-center flex-shrink-0 rounded-circle text-white fw-bold user-select-none ${className}`}
-      style={{ width: size, height: size, fontSize: size * 0.38, background: AVATAR_COLORS[hash % AVATAR_COLORS.length] }}
+      className={`avatar d-inline-flex align-items-center justify-content-center flex-shrink-0 rounded-circle text-white fw-bold user-select-none ${className}`}
+      style={{ "--avatar-size": `${size}px`, "--avatar-color": AVATAR_COLORS[hash % AVATAR_COLORS.length] }}
       aria-hidden="true"
     >
       {initials}

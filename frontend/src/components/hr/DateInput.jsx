@@ -9,6 +9,7 @@ import { addMonths, daysInMonth, firstWeekdayMonFirst, monthLabel, vnDateKey } f
 // value / onChange: chuỗi "YYYY-MM-DD", hoặc "" khi để trống.
 const pad = (n) => String(n).padStart(2, "0");
 const WEEKDAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+// Phải khớp .date-panel trong custom.css (dùng để tính chỗ đặt bảng lịch)
 const PANEL_WIDTH = 264;
 const PANEL_HEIGHT = 312;
 
@@ -117,8 +118,7 @@ export default function DateInput({ value, onChange, required = false, disabled 
           type="text"
           inputMode="numeric"
           autoComplete="off"
-          className="form-control"
-          style={{ fontVariantNumeric: "tabular-nums" }}
+          className="form-control tabular-nums"
           placeholder="dd/mm/yyyy"
           required={required}
           disabled={disabled}
@@ -144,9 +144,8 @@ export default function DateInput({ value, onChange, required = false, disabled 
         createPortal(
           <div
             ref={panelRef}
-            className="dropdown-menu show p-2 shadow"
-            // fixed + z-index trên modal (1090), dưới lớp phủ đang tải (1200)
-            style={{ position: "fixed", zIndex: 1150, left: pos.left, top: pos.top, width: PANEL_WIDTH, minWidth: 0 }}
+            className="dropdown-menu show p-2 shadow floating-panel date-panel z-popover"
+            style={{ "--panel-left": `${pos.left}px`, "--panel-top": `${pos.top}px` }}
             role="dialog"
             aria-label="Chọn ngày"
           >
@@ -160,7 +159,7 @@ export default function DateInput({ value, onChange, required = false, disabled 
               </button>
             </div>
 
-            <div className="d-grid text-center" style={{ gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+            <div className="d-grid text-center date-grid">
               {WEEKDAYS.map((w) => (
                 <div key={w} className="small fw-bold text-body-tertiary py-1">{w}</div>
               ))}
@@ -169,8 +168,7 @@ export default function DateInput({ value, onChange, required = false, disabled 
                   <button
                     key={key}
                     type="button"
-                    className={`btn btn-sm px-0 ${key === selected ? "btn-primary" : key === today ? "btn-outline-primary" : "btn-light bg-transparent border-0"}`}
-                    style={{ fontVariantNumeric: "tabular-nums" }}
+                    className={`btn btn-sm px-0 ${key === selected ? "btn-primary" : key === today ? "btn-outline-primary" : "btn-light bg-transparent border-0"} tabular-nums`}
                     aria-label={toDisplay(key)}
                     aria-pressed={key === selected}
                     onClick={() => pick(key)}

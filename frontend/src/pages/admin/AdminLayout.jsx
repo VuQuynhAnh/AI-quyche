@@ -64,7 +64,7 @@ export default function AdminLayout() {
         <nav className="nav nav-pills flex-column flex-nowrap gap-1 px-2 flex-grow-1 overflow-auto">
           {NAV_GROUPS.map((group) => (
             <div key={group.title} className="d-flex flex-column gap-1">
-              <div className="small text-uppercase text-white-50 px-2 pt-3 pb-1" style={{ fontSize: "0.68rem", letterSpacing: "0.08em" }}>
+              <div className="small text-uppercase text-white-50 px-2 pt-3 pb-1 admin-sidebar-label">
                 {group.title}
               </div>
               {group.items.map(({ to, label, icon: Icon }) => (

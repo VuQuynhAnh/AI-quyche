@@ -62,8 +62,7 @@ export default function HelpTip({ children, label }) {
       <button
         ref={triggerRef}
         type="button"
-        className="btn btn-link p-0 border-0 align-baseline text-secondary text-decoration-none d-inline-flex align-items-center gap-1 ms-1"
-        style={{ fontSize: "inherit", lineHeight: 1 }}
+        className="btn btn-link p-0 border-0 align-baseline text-secondary text-decoration-none d-inline-flex align-items-center gap-1 ms-1 help-tip-btn"
         aria-label={label ? undefined : "Xem hướng dẫn"}
         aria-describedby={open ? id : undefined}
         onMouseEnter={() => setOpen(true)}
@@ -77,10 +76,9 @@ export default function HelpTip({ children, label }) {
           setOpen(next);
         }}
       >
-        {label && <span className="small text-decoration-underline" style={{ textDecorationStyle: "dotted" }}>{label}</span>}
+        {label && <span className="small text-decoration-underline help-tip-label">{label}</span>}
         <span
-          className="d-inline-flex align-items-center justify-content-center rounded-circle border border-secondary-subtle fw-semibold"
-          style={{ width: 16, height: 16, fontSize: 11 }}
+          className="d-inline-flex align-items-center justify-content-center rounded-circle border border-secondary-subtle fw-semibold help-tip-icon"
           aria-hidden="true"
         >
           ?
@@ -93,20 +91,9 @@ export default function HelpTip({ children, label }) {
             ref={tipRef}
             id={id}
             role="tooltip"
-            className="bg-dark text-white small rounded-2 px-2 py-1 shadow text-start fw-normal"
-            // fixed + z-index trên modal (1090), dưới lớp phủ đang tải (1200).
-            // Ẩn tới khi đo xong vị trí để không bị nháy ở góc màn hình.
-            style={{
-              position: "fixed",
-              zIndex: 1150,
-              maxWidth: Math.min(280, window.innerWidth - EDGE * 2),
-              lineHeight: 1.45,
-              whiteSpace: "normal",
-              pointerEvents: "none",
-              left: pos?.left ?? 0,
-              top: pos?.top ?? 0,
-              visibility: pos ? "visible" : "hidden",
-            }}
+            className={`help-tip z-popover bg-dark text-white small rounded-2 px-2 py-1 shadow text-start fw-normal ${pos ? "is-placed" : ""}`}
+            // Vị trí đo bằng JS, truyền qua biến CSS (xem .help-tip trong custom.css)
+            style={pos ? { "--tip-left": `${pos.left}px`, "--tip-top": `${pos.top}px` } : undefined}
           >
             {children}
           </div>,

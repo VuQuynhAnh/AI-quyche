@@ -10,7 +10,7 @@ import { createPortal } from "react-dom";
 const pad = (n) => String(n).padStart(2, "0");
 const HOURS = Array.from({ length: 24 }, (_, i) => pad(i));
 const MINUTES = Array.from({ length: 60 }, (_, i) => pad(i));
-const PANEL_HEIGHT = 248;
+const PANEL_HEIGHT = 248; // phải khớp .time-panel trong custom.css
 
 export default function TimeInput({ value, onChange, required = false, disabled = false, label }) {
   const [hour = "", minute = ""] = value ? value.split(":") : [];
@@ -63,8 +63,7 @@ export default function TimeInput({ value, onChange, required = false, disabled 
       <button
         ref={triggerRef}
         type="button"
-        className={`form-control form-control-sm w-auto d-inline-flex align-items-center gap-1 fw-semibold ${value ? "" : "text-body-tertiary"} ${open ? "border-primary" : ""}`}
-        style={{ fontVariantNumeric: "tabular-nums" }}
+        className={`form-control form-control-sm w-auto d-inline-flex align-items-center gap-1 fw-semibold ${value ? "" : "text-body-tertiary"} ${open ? "border-primary" : ""} tabular-nums`}
         disabled={disabled}
         aria-label={label ? `${label}: ${value || "chưa chọn"}` : value || "Chọn giờ"}
         aria-haspopup="dialog"
@@ -82,13 +81,12 @@ export default function TimeInput({ value, onChange, required = false, disabled 
         createPortal(
           <div
             ref={panelRef}
-            className="dropdown-menu show d-flex flex-column p-2 shadow"
-            // fixed + z-index trên modal (1090), dưới lớp phủ đang tải (1200)
-            style={{ position: "fixed", zIndex: 1150, left: pos.left, top: pos.top, height: PANEL_HEIGHT, width: 152, minWidth: 0 }}
+            className="dropdown-menu show d-flex flex-column p-2 shadow floating-panel time-panel z-popover"
+            style={{ "--panel-left": `${pos.left}px`, "--panel-top": `${pos.top}px` }}
             role="dialog"
             aria-label={label || "Chọn giờ"}
           >
-            <div className="d-flex gap-1 flex-grow-1" style={{ minHeight: 0 }}>
+            <div className="d-flex gap-1 flex-grow-1 min-h-0">
               <TimeColumn title="Giờ" options={HOURS} selected={hour} onPick={(h) => change(h, minute)} />
               <TimeColumn
                 title="Phút"
@@ -118,15 +116,14 @@ export default function TimeInput({ value, onChange, required = false, disabled 
 
 function TimeColumn({ title, options, selected, onPick }) {
   return (
-    <div className="d-flex flex-column flex-fill" style={{ minHeight: 0 }}>
+    <div className="d-flex flex-column flex-fill min-h-0">
       <div className="small fw-bold text-uppercase text-body-tertiary text-center pb-1">{title}</div>
       <div className="thin-scroll overflow-y-auto flex-grow-1 d-flex flex-column gap-1 pe-1">
         {options.map((o) => (
           <button
             key={o}
             type="button"
-            className={`dropdown-item text-center rounded py-1 flex-shrink-0 ${o === selected ? "active fw-semibold" : ""}`}
-            style={{ fontVariantNumeric: "tabular-nums" }}
+            className={`dropdown-item text-center rounded py-1 flex-shrink-0 ${o === selected ? "active fw-semibold" : ""} tabular-nums`}
             onClick={() => onPick(o)}
           >
             {o}

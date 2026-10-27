@@ -159,7 +159,7 @@ export default function SuperadminPage() {
   );
 
   return (
-    <div className="container py-4" style={{ maxWidth: 1180 }}>
+    <div className="container py-4 superadmin-container">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div className="d-flex align-items-center gap-2">
           <img src="/logo.svg" alt="" className="rounded-3 flex-shrink-0" width={36} height={36} />

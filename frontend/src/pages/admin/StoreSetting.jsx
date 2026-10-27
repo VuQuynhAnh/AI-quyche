@@ -102,7 +102,7 @@ export default function StoreSetting() {
                   Tiền phạt mỗi phút đi muộn / về sớm
                   <HelpTip>Mức phạt mới áp dụng cho các bảng lương chưa chốt khi bấm "Tính lại". Bảng lương đã chốt giữ nguyên.</HelpTip>
                 </label>
-                <div style={{ maxWidth: 260 }}>
+                <div className="mw-260">
                   <MoneyInput required value={form.penaltyAmountPerMinute} onChange={(v) => setForm((f) => ({ ...f, penaltyAmountPerMinute: v }))} />
                 </div>
               </div>
@@ -173,7 +173,7 @@ export default function StoreSetting() {
                 {form.wifiClockingEnabled && (
                   <div className="d-flex align-items-center gap-2 mt-2">
                     <label className="small text-muted text-nowrap mb-0" htmlFor="wifi-distance">Chỉ chấm Wi-Fi khi cách cửa hàng tối đa</label>
-                    <div className="input-group input-group-sm" style={{ maxWidth: 140 }}>
+                    <div className="input-group input-group-sm mw-140">
                       <input
                         id="wifi-distance"
                         type="number"
@@ -253,7 +253,7 @@ function StoreQrCard({ store }) {
     <div className="card h-100">
       <div className="card-body text-center">
         <h2 className="h6">Mã QR chấm công</h2>
-        {dataUrl ? <img src={dataUrl} alt="Mã QR cửa hàng" style={{ width: 240, maxWidth: "100%" }} /> : <p className="text-muted">Đang tạo mã...</p>}
+        {dataUrl ? <img src={dataUrl} alt="Mã QR cửa hàng" className="store-qr-img" /> : <p className="text-muted">Đang tạo mã...</p>}
         <div className="small text-muted text-break mt-2">{url}</div>
         <div className="d-flex justify-content-center gap-2 mt-3">
           <a className={`btn btn-outline-secondary btn-sm ${dataUrl ? "" : "disabled"}`} href={dataUrl} download={`qr-${store.name}.png`}>Tải ảnh</a>

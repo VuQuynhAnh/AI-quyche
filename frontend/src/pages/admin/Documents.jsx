@@ -277,8 +277,7 @@ export default function Documents() {
                   </div>
                   <button
                     type="button"
-                    className={`btn btn-sm btn-light rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0 hover-reveal ${docMenu?.id === doc.id ? "is-open" : ""}`}
-                    style={{ width: 28, height: 28 }}
+                    className={`btn btn-sm btn-light rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0 hover-reveal ${docMenu?.id === doc.id ? "is-open" : ""} square-28`}
                     data-doc-menu
                     title="Tuỳ chọn quy chế"
                     onClick={(e) => openDocMenu(e, doc)}
@@ -302,15 +301,9 @@ export default function Documents() {
       {docMenu &&
         createPortal(
           <div
-            className="dropdown-menu show shadow position-fixed"
+            className={`dropdown-menu show shadow position-fixed floating-menu z-floating-menu ${docMenu.openUp ? "open-up" : ""}`}
             data-doc-menu
-            style={{
-              top: docMenu.top,
-              left: docMenu.left,
-              width: 220,
-              zIndex: 1080,
-              transform: docMenu.openUp ? "translateY(-100%)" : "none",
-            }}
+            style={{ "--menu-top": `${docMenu.top}px`, "--menu-left": `${docMenu.left}px` }}
           >
             <button
               type="button"
@@ -429,7 +422,7 @@ export default function Documents() {
         <Modal title={preview.title} onClose={closePreview} width={720}>
           {/* Đang tải: để trống — lớp phủ "Đang xử lý" toàn màn hình đang hiện */}
           {!previewLoading && (
-            <pre className="mb-0 small" style={{ whiteSpace: "pre-wrap", fontFamily: "inherit" }}>
+            <pre className="mb-0 small doc-preview-text">
               {preview.content}
             </pre>
           )}

@@ -360,3 +360,202 @@
 .btn-outline-filled {
   --bs-btn-bg: var(--bs-body-bg);
 }
+
+/* ======================================================================
+   Style trước đây viết inline trong JSX (style={{...}}) — gom hết về đây.
+   Giá trị chỉ biết lúc chạy (vị trí popup, độ rộng thanh biểu đồ, màu
+   series, kích thước avatar...) được JSX truyền vào qua biến CSS (--*),
+   còn mọi thuộc tính CSS vẫn khai báo ở đây.
+   ====================================================================== */
+
+/* ---------- Thứ tự lớp chồng (z-index) ----------
+   menu nổi < modal < toast < hộp xác nhận < popup chọn giờ/ngày, tooltip,
+   máy quét QR < lớp phủ "Đang xử lý" */
+.z-floating-menu { z-index: 1080; }
+.z-modal-backdrop { z-index: 1085; }
+.z-modal { z-index: 1090; }
+.z-toast { z-index: 1100; }
+.z-confirm-backdrop { z-index: 1115; }
+.z-confirm { z-index: 1120; }
+.z-popover { z-index: 1150; }
+.z-loading { z-index: 1200; }
+
+/* ---------- Tiện ích thêm ---------- */
+.tabular-nums { font-variant-numeric: tabular-nums; }
+.min-h-0 { min-height: 0; }
+.cursor-pointer { cursor: pointer; }
+.pre-line { white-space: pre-line; }
+.fs-xs { font-size: 0.72rem; }
+.fs-xxs { font-size: 0.68rem; }
+.mw-140 { max-width: 140px; }
+.mw-260 { max-width: 260px; }
+.square-26 { width: 26px; height: 26px; }
+.square-28 { width: 28px; height: 28px; }
+.square-32 { width: 32px; height: 32px; }
+/* Chấm tròn trạng thái nhỏ */
+.dot-8 { width: 8px; height: 8px; }
+/* Ô màu nhỏ trong chú thích (bảng công, lịch sử chấm công) */
+.legend-swatch { width: 10px; height: 10px; }
+/* Avatar chữ cái nhỏ trong chat / log hội thoại */
+.mini-avatar { width: 26px; height: 26px; font-size: 11px; }
+/* Nút đóng toast nhỏ hơn mặc định */
+.btn-close-xs { font-size: 0.6rem; }
+
+/* ---------- Lớp phủ "Đang xử lý" (GlobalLoading.jsx) ---------- */
+.global-loading {
+  background: rgba(15, 23, 42, 0.25);
+  cursor: progress;
+}
+
+/* ---------- Modal (hr/Modal.jsx): độ rộng truyền qua --modal-width ---------- */
+.modal-dialog-sized {
+  max-width: min(var(--modal-width, 500px), calc(100% - 1rem));
+}
+/* Hộp xác nhận (NotificationContext.jsx) */
+.confirm-dialog { max-width: 400px; }
+
+/* ---------- Tooltip hướng dẫn "?" (HelpTip.jsx) ---------- */
+.help-tip-btn {
+  font-size: inherit;
+  line-height: 1;
+}
+.help-tip-label { text-decoration-style: dotted; }
+.help-tip-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 11px;
+}
+/* Vị trí do JS đo rồi truyền qua --tip-left / --tip-top; ẩn tới khi đo xong
+   (chưa có .is-placed) để không bị nháy ở góc màn hình */
+.help-tip {
+  position: fixed;
+  left: var(--tip-left, 0);
+  top: var(--tip-top, 0);
+  max-width: min(280px, calc(100vw - 16px));
+  line-height: 1.45;
+  white-space: normal;
+  pointer-events: none;
+}
+.help-tip:not(.is-placed) { visibility: hidden; }
+
+/* ---------- Bảng chọn giờ / ngày nổi (TimeInput, DateInput) ----------
+   Vị trí truyền qua --panel-left / --panel-top. Kích thước phải khớp hằng
+   PANEL_HEIGHT / PANEL_WIDTH trong file JSX (dùng để tính chỗ đặt bảng). */
+.floating-panel {
+  position: fixed;
+  left: var(--panel-left);
+  top: var(--panel-top);
+  min-width: 0;
+}
+.time-panel { width: 152px; height: 248px; }
+.date-panel { width: 264px; }
+.date-grid {
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+/* ---------- Menu tuỳ chọn nổi (tài liệu, tin nhắn chat) ----------
+   Vị trí truyền qua --menu-left / --menu-top; .open-up = mở ngược lên trên */
+.floating-menu {
+  top: var(--menu-top);
+  left: var(--menu-left);
+  width: 220px;
+}
+.floating-menu.open-up { transform: translateY(-100%); }
+.chat-message-menu { max-height: min(420px, 70vh); }
+
+/* ---------- Biểu đồ Dashboard ---------- */
+/* Biểu đồ thanh xếp hạng: nhãn 42%, thanh co giãn, số căn phải thẳng cột */
+.ranked-label { width: 42%; }
+.ranked-track { height: 18px; }
+.ranked-bar {
+  width: var(--bar-width);
+  min-width: 4px;
+  background-color: var(--bar-color);
+}
+.ranked-value { min-width: 1.5em; }
+/* Biểu đồ thanh xếp chồng: mỗi đoạn rộng theo %, màu theo series */
+.stacked-track { height: 22px; }
+.stacked-segment {
+  width: var(--segment-width);
+  height: 22px;
+  min-width: 2px;
+}
+.stacked-segment:not(:last-child) { border-right: 2px solid var(--bs-body-bg); }
+.stacked-segment .progress-bar {
+  background-color: var(--series-color);
+  font-size: 0.68rem;
+}
+/* Chú thích: icon tô theo màu series, chấm tròn màu series */
+.series-icon { color: var(--series-color); }
+.series-dot {
+  width: 10px;
+  height: 10px;
+  background-color: var(--series-color);
+}
+
+/* ---------- Avatar chữ cái / ảnh (Employees.jsx) ----------
+   Kích thước qua --avatar-size, màu nền qua --avatar-color */
+.avatar {
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  font-size: calc(var(--avatar-size) * 0.38);
+  background: var(--avatar-color);
+}
+
+/* ---------- Khung admin / đăng nhập / superadmin ---------- */
+.admin-sidebar-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+}
+.auth-card {
+  max-width: 440px;
+  width: 100%;
+}
+.landing-card {
+  max-width: 400px;
+  width: 100%;
+}
+.demo-group-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+.role-badge { min-width: 92px; }
+.superadmin-container { max-width: 1180px; }
+
+/* ---------- Chấm công / bảng công ---------- */
+.period-label { min-width: 150px; }
+.qr-scanner-hint { bottom: 32px; }
+.att-table-wrap { max-height: calc(100dvh - 260px); }
+.att-col-week { min-width: 96px; }
+.att-day-sub {
+  font-size: 0.62rem;
+  font-weight: 400;
+}
+.store-qr-img {
+  width: 240px;
+  max-width: 100%;
+}
+/* Ngăn kéo chi tiết 1 ngày (History.jsx) */
+.day-sheet {
+  height: auto;
+  max-height: 80dvh;
+  max-width: 560px;
+  margin-inline: auto;
+}
+.day-sheet-body { padding-bottom: calc(1rem + var(--safe-bottom)); }
+
+/* ---------- Tài liệu / hội thoại ---------- */
+.doc-preview-text {
+  white-space: pre-wrap;
+  font-family: inherit;
+}
+.drop-zone {
+  min-height: 320px;
+  --bs-border-style: dashed;
+}
+.chat-input-bar { padding-bottom: calc(0.5rem + var(--safe-bottom)); }
+.chat-input {
+  resize: none;
+  max-height: 120px;
+}

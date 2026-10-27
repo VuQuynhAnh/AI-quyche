@@ -81,7 +81,7 @@ export function NotificationProvider({ children }) {
           bị ảnh hưởng bởi overflow/z-index của bất kỳ trang nào đang hiện. */}
       {toasts.length > 0 &&
         createPortal(
-          <div className="toast-container position-fixed bottom-0 end-0 p-3" style={{ zIndex: 1100 }} role="status" aria-live="polite">
+          <div className="toast-container position-fixed bottom-0 end-0 p-3 z-toast" role="status" aria-live="polite">
             {toasts.map((t) => {
               const color = t.type === "success" ? "success" : "danger";
               return (
@@ -91,7 +91,7 @@ export function NotificationProvider({ children }) {
                       {t.type === "success" ? <CheckIcon /> : <ErrorIcon />}
                     </span>
                     <span className="flex-grow-1">{t.message}</span>
-                    <button type="button" className="btn-close flex-shrink-0" style={{ fontSize: "0.6rem" }} aria-label="Đóng thông báo" onClick={() => dismissToast(t.id)} />
+                    <button type="button" className="btn-close flex-shrink-0 btn-close-xs" aria-label="Đóng thông báo" onClick={() => dismissToast(t.id)} />
                   </div>
                 </div>
               );
@@ -105,19 +105,18 @@ export function NotificationProvider({ children }) {
       {confirmState &&
         createPortal(
           <>
-            <div className="modal-backdrop show" style={{ zIndex: 1115 }} />
+            <div className="modal-backdrop show z-confirm-backdrop" />
             <div
-              className="modal d-block"
-              style={{ zIndex: 1120 }}
+              className="modal d-block z-confirm"
               role="alertdialog"
               aria-modal="true"
               onClick={(e) => {
                 if (e.target === e.currentTarget) answerConfirm(false);
               }}
             >
-              <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: 400 }}>
+              <div className="modal-dialog modal-dialog-centered confirm-dialog">
                 <div className="modal-content border-0 shadow">
-                  <div className="modal-body" style={{ whiteSpace: "pre-line" }}>{confirmState.message}</div>
+                  <div className="modal-body pre-line">{confirmState.message}</div>
                   <div className="modal-footer border-0 pt-0">
                     <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => answerConfirm(false)}>
                       {confirmState.cancelText || "Huỷ"}
