@@ -273,11 +273,6 @@
 }
 
 /* Hồ sơ nhân viên: họ tên/chức danh trông như chữ, chỉ hiện khung khi rê chuột/đang sửa */
-.emp-profile-input:not(:hover):not(:focus) {
-  background: transparent;
-  border-color: transparent;
-}
-
 /* ---------- Bảng công tháng (admin): cột tên ghim trái, 2 cột tổng ghim phải ---------- */
 .att-table {
   font-size: 0.8rem;

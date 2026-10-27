@@ -20,6 +20,7 @@ export default function Employees() {
   const { user: me } = useAuth();
   const { notifySuccess, notifyError, confirm } = useNotification();
   const [employees, setEmployees] = useState([]);
+  const [seats, setSeats] = useState(null); // { limit, used, fullMessage } — gói của cửa hàng
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -28,7 +29,9 @@ export default function Employees() {
 
   async function load() {
     try {
-      setEmployees((await api.get("/hr/employees")).employees);
+      const data = await api.get("/hr/employees");
+      setEmployees(data.employees);
+      setSeats(data.seats);
     } catch (err) {
       notifyError(err.message);
     } finally {
@@ -41,6 +44,18 @@ export default function Employees() {
   }, []);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  // Hết chỗ trong gói: báo ngay, không cho mở form / nhận lại (backend vẫn chặn lại lần nữa)
+  function seatsFull() {
+    if (!seats?.fullMessage) return false;
+    notifyError(seats.fullMessage);
+    return true;
+  }
+
+  function openCreate() {
+    if (seatsFull()) return;
+    setForm({ ...EMPTY });
+  }
 
   function openEdit(emp) {
     setForm({
@@ -144,6 +159,7 @@ export default function Employees() {
 
   // Cho nghỉ việc (khoá đăng nhập) hoặc nhận lại người đã nghỉ
   async function setWorking(isActive) {
+    if (isActive && seatsFull()) return;
     const name = form.orig.fullName;
     const ok = await confirm(
       isActive
@@ -197,7 +213,7 @@ export default function Employees() {
             Đã nghỉ ({employees.length - activeCount})
           </button>
         </div>
-        <button type="button" className="btn btn-primary btn-sm" onClick={() => setForm({ ...EMPTY })}>
+        <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
           + Thêm nhân viên
         </button>
       </div>
@@ -276,7 +292,7 @@ export default function Employees() {
           {/* Người đã nghỉ: chỉ xem — phải "Nhận lại" trước rồi mới sửa được */}
           <form id="emp-form" onSubmit={save}>
           <fieldset disabled={readOnly} className="row g-3">
-            {/* Cột trái: thẻ hồ sơ (avatar, họ tên, chức danh, vai trò, trạng thái) */}
+            {/* Cột trái: thẻ hồ sơ chỉ để xem (họ tên, chức danh, vai trò, trạng thái) — sửa ở cột phải; riêng ảnh đổi ngay trên avatar */}
             <aside className="col-sm-4">
               <div className="bg-body-tertiary border rounded-3 px-3 py-4 d-flex flex-column align-items-center text-center gap-2">
                 <div className="position-relative d-inline-block mb-1">
@@ -300,21 +316,8 @@ export default function Employees() {
                 {!readOnly && (form.pendingAvatarUrl || form.orig?.avatarUrl) && (
                   <button type="button" className="btn btn-link btn-sm text-danger p-0" onClick={deleteAvatar}>Xoá ảnh</button>
                 )}
-                <input
-                  className="form-control text-center fw-bold emp-profile-input"
-                  required
-                  placeholder="Họ và tên"
-                  aria-label="Họ tên"
-                  value={form.fullName}
-                  onChange={set("fullName")}
-                />
-                <input
-                  className="form-control form-control-sm text-center text-body-secondary emp-profile-input"
-                  placeholder="Chức danh (VD: Thu ngân)"
-                  aria-label="Chức danh"
-                  value={form.jobTitle}
-                  onChange={set("jobTitle")}
-                />
+                <div className="fw-bold text-break">{form.fullName.trim() || "Nhân viên mới"}</div>
+                {form.jobTitle.trim() && <div className="small text-body-secondary text-break">{form.jobTitle}</div>}
                 <div className="d-flex flex-wrap justify-content-center gap-1 mt-2">
                   {form.role === ROLE.ADMIN && <span className="badge text-bg-primary">Admin</span>}
                   {form.id &&
@@ -340,6 +343,20 @@ export default function Employees() {
               )}
 
               <section>
+                <h3 className={SECTION_TITLE}>Thông tin cơ bản</h3>
+                <div className="row g-2">
+                  <div className="col-sm-6">
+                    <label className="form-label small mb-1">Họ và tên</label>
+                    <input className="form-control" required value={form.fullName} onChange={set("fullName")} />
+                  </div>
+                  <div className="col-sm-6">
+                    <label className="form-label small mb-1">Chức danh</label>
+                    <input className="form-control" placeholder="VD: Thu ngân" value={form.jobTitle} onChange={set("jobTitle")} />
+                  </div>
+                </div>
+              </section>
+
+              <section className="border-top pt-3 mt-3">
                 <h3 className={SECTION_TITLE}>Liên hệ</h3>
                 <div className="row g-2">
                   <div className="col-sm-6">

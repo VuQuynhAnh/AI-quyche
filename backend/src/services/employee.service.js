@@ -46,9 +46,13 @@ export function createEmployeeService({
     }
   }
 
-  // Cả admin và nhân viên của cửa hàng
+  // Cả admin và nhân viên của cửa hàng, kèm số chỗ còn lại trong gói
   async function list(actor) {
-    return { employees: (await employeeRepository.listInStore(actor.storeId)).map(serializeEmployee) };
+    const [rows, seats] = await Promise.all([
+      employeeRepository.listInStore(actor.storeId),
+      storePlanService.getSeatUsage(actor.storeId),
+    ]);
+    return { employees: rows.map(serializeEmployee), seats };
   }
 
   async function create(actor, body = {}) {

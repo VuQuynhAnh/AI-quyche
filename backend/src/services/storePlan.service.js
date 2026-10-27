@@ -28,18 +28,24 @@ export function assertStoreUsable(store, now = new Date()) {
 }
 
 export function createStorePlanService({ storeRepository, accountRepository }) {
-  // Gọi TRƯỚC khi tạo tài khoản mới / mở lại tài khoản đã khoá của cửa hàng
-  async function assertSeatAvailable(storeId, executor) {
+  // Số chỗ trong gói: limit = null là không giới hạn; fullMessage != null khi đã
+  // hết chỗ (frontend dùng để báo ngay khi bấm "Thêm nhân viên" / "Nhận lại")
+  async function getSeatUsage(storeId, executor) {
     const store = await storeRepository.findById(storeId, executor);
-    if (!store || store.max_employee_count == null) return;
+    const limit = store?.max_employee_count ?? null;
     const used = await accountRepository.countActiveInStore(storeId, executor);
-    if (used >= store.max_employee_count) {
-      throw AppError.conflict(
-        `Cửa hàng đã dùng hết ${store.max_employee_count} tài khoản theo gói. ` +
-          "Hãy khoá bớt tài khoản không dùng hoặc liên hệ nhà cung cấp để nâng gói."
-      );
-    }
+    const fullMessage = limit != null && used >= limit
+      ? `Cửa hàng đã dùng hết ${limit} tài khoản theo gói. ` +
+        "Hãy khoá bớt tài khoản không dùng hoặc liên hệ nhà cung cấp để nâng gói."
+      : null;
+    return { limit, used, fullMessage };
   }
 
-  return { assertSeatAvailable };
+  // Gọi TRƯỚC khi tạo tài khoản mới / mở lại tài khoản đã khoá của cửa hàng
+  async function assertSeatAvailable(storeId, executor) {
+    const { fullMessage } = await getSeatUsage(storeId, executor);
+    if (fullMessage) throw AppError.conflict(fullMessage);
+  }
+
+  return { getSeatUsage, assertSeatAvailable };
 }
