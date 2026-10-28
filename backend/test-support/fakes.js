@@ -19,6 +19,7 @@ export function makeSetting(overrides = {}) {
     latitude: STORE_LAT,
     longitude: STORE_LNG,
     check_in_radius_meters: 100,
+    check_in_radius_enforced: false,
     wifi_clocking_enabled: false,
     wifi_max_distance_meters: 200,
     ...overrides,

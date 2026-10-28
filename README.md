@@ -185,6 +185,12 @@ Khi build production (Vercel/Netlify), tạo `frontend/.env` từ
 (không có `/api` ở cuối). Chạy dev thì để trống. Lưu ý: check-in cần GPS nên
 trang phải chạy qua **HTTPS** (hoặc `localhost`).
 
+Bản đồ chọn vị trí cửa hàng (màn Thiết lập cửa hàng) dùng **OpenStreetMap** qua
+thư viện Leaflet, tìm địa chỉ bằng Nominatim — miễn phí, **không cần khoá API**.
+Máy chủ OSM có [quy định dùng hợp lý](https://operations.osmfoundation.org/policies/tiles/);
+nếu lượng truy cập lớn thì đổi sang nhà cung cấp bản đồ khác (sửa `TILE_URL` trong
+`StoreLocationMap.jsx`).
+
 ## Chấm công & Tính lương
 
 ### Cách dùng
@@ -251,8 +257,10 @@ Tạo bảng lương ──▶ draft ──(Tính lại)──▶ draft ──(C
   Bảng được dựng ở frontend (`DayDetail.jsx#buildChangeLog`) bằng cách phát lại
   các dòng `clocking_history` theo `created_at`; các dòng admin tạo trong cùng
   1 lần lưu (cùng transaction nên cùng `created_at`) gộp thành 1 dòng.
-- Chỉ lưu vị trí GPS, không lưu IP. Vị trí ngoài bán kính chỉ gắn cờ cho admin,
-  không chặn chấm công.
+- Mỗi lần chấm lưu vị trí GPS (kèm sai số) và IP. Vị trí ngoài bán kính mặc định
+  chỉ gắn cờ cho admin; nếu cửa hàng bật **"Chặn chấm công QR ngoài bán kính"** thì
+  chấm bằng QR ở ngoài bán kính bị từ chối (trừ hao sai số GPS tối đa 100 m). Chấm
+  bằng Wi-Fi có giới hạn khoảng cách riêng.
 
 ### AI trả lời về lương / đi muộn
 

@@ -66,7 +66,7 @@ export function createClockingService({
     const lng = Number(longitude);
     const hasGps = latitude != null && longitude != null && latitude !== "" && longitude !== "" &&
       Number.isFinite(lat) && Number.isFinite(lng);
-    const near = hasGps ? nearStoreForWifi(setting, { lat, lng, accuracy }) : null;
+    const near = hasGps ? nearStore(setting, { lat, lng, accuracy }, setting.wifi_max_distance_meters) : null;
     return {
       enabled: true,
       onStoreWifi,
@@ -77,16 +77,33 @@ export function createClockingService({
     };
   }
 
-  // GPS lúc bấm phải cách vị trí cửa hàng tối đa wifi_max_distance_meters. Trừ
-  // hao sai số GPS (tối đa 100m) để trong nhà sóng GPS yếu không bị chặn oan.
+  // GPS lúc bấm phải cách vị trí cửa hàng tối đa maxDistanceMeters (giới hạn
+  // Wi-Fi, hoặc bán kính chấm công khi cửa hàng bật chặn). Trừ hao sai số GPS
+  // (tối đa 100m) để trong nhà sóng GPS yếu không bị chặn oan.
   const MAX_GPS_TOLERANCE_METERS = 100;
   // { ok, distance } — cửa hàng chưa đặt vị trí thì ok = false
-  function nearStoreForWifi(setting, { lat, lng, accuracy }) {
+  function nearStore(setting, { lat, lng, accuracy }, maxDistanceMeters) {
     if (setting.latitude == null || setting.longitude == null) return { ok: false, distance: null };
     const distance = Math.round(distanceMeters(lat, lng, setting.latitude, setting.longitude));
     const acc = Number(accuracy);
     const tolerance = Number.isFinite(acc) && acc > 0 ? Math.min(acc, MAX_GPS_TOLERANCE_METERS) : 0;
-    return { ok: distance - tolerance <= setting.wifi_max_distance_meters, distance };
+    return { ok: distance - tolerance <= maxDistanceMeters, distance };
+  }
+
+  // Cửa hàng bật "chặn chấm công ngoài bán kính" và đã đặt vị trí: chấm QR ở xa
+  // hơn bán kính chấm công (sau khi trừ hao sai số GPS) bị từ chối. Tắt chặn
+  // hoặc chưa đặt vị trí thì chỉ gắn cờ "ngoài phạm vi" như trước (xem check()).
+  async function assertWithinCheckInRadius(storeId, gps) {
+    const setting = await timesheetService.getSetting(storeId);
+    if (!setting.check_in_radius_enforced || setting.latitude == null || setting.longitude == null) return;
+    const radius = setting.check_in_radius_meters;
+    const { ok, distance } = nearStore(setting, gps, radius);
+    if (!ok) {
+      throw AppError.forbidden(
+        `Bạn đang cách cửa hàng khoảng ${distance} m — chỉ được chấm công trong phạm vi ${radius} m quanh cửa hàng. ` +
+          "Hãy tới cửa hàng rồi chấm công lại."
+      );
+    }
   }
 
   async function assertNearStoreForWifi(storeId, { lat, lng, accuracy }) {
@@ -95,7 +112,7 @@ export function createClockingService({
       throw AppError.forbidden("Cửa hàng chưa đặt vị trí nên chưa chấm công bằng Wi-Fi được. Hãy quét QR để chấm công.");
     }
     const maxDistance = setting.wifi_max_distance_meters;
-    const { ok, distance } = nearStoreForWifi(setting, { lat, lng, accuracy });
+    const { ok, distance } = nearStore(setting, { lat, lng, accuracy }, maxDistance);
     if (!ok) {
       throw AppError.forbidden(
         `Bạn đang cách cửa hàng khoảng ${distance} m — chấm công bằng Wi-Fi chỉ được trong phạm vi ${maxDistance} m. ` +
@@ -132,6 +149,8 @@ export function createClockingService({
     }
     const store = await storeRepository.findById(storeId);
     if (!store?.is_active) throw AppError.forbidden("Cửa hàng đang tạm ngưng.");
+    // Chấm QR: nếu cửa hàng bật chặn thì phải ở trong bán kính chấm công (Wi-Fi đã có giới hạn riêng ở trên)
+    if (!byWifi) await assertWithinCheckInRadius(storeId, { lat, lng, accuracy });
 
     const workDate = vnDateKey(new Date());
     return transaction.run(async (tx) => {

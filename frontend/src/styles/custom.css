@@ -531,6 +531,11 @@
   width: 240px;
   max-width: 100%;
 }
+
+/* Bản đồ chọn vị trí cửa hàng (Thiết lập cửa hàng) — Google Maps cần khung có chiều cao cố định */
+.store-map {
+  height: 320px;
+}
 /* Ngăn kéo chi tiết 1 ngày (History.jsx) */
 .day-sheet {
   height: auto;

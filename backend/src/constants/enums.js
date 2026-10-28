@@ -63,6 +63,7 @@ export const SETTING_KEY = Object.freeze({
   LATITUDE: "latitude",
   LONGITUDE: "longitude",
   CHECK_IN_RADIUS_METERS: "check_in_radius_meters",
+  CHECK_IN_RADIUS_ENFORCED: "check_in_radius_enforced",
   WIFI_CLOCKING_ENABLED: "wifi_clocking_enabled",
   WIFI_MAX_DISTANCE_METERS: "wifi_max_distance_meters",
 });
@@ -76,6 +77,9 @@ export const SETTING_DEFINITIONS = Object.freeze({
   [SETTING_KEY.LATITUDE]: { type: SETTING_DATA_TYPE.NUMBER, defaultValue: null },
   [SETTING_KEY.LONGITUDE]: { type: SETTING_DATA_TYPE.NUMBER, defaultValue: null },
   [SETTING_KEY.CHECK_IN_RADIUS_METERS]: { type: SETTING_DATA_TYPE.INTEGER, defaultValue: 100 },
+  // Bật: chấm bằng QR ở ngoài bán kính trên (sau khi trừ hao sai số GPS) bị từ
+  // chối thay vì chỉ gắn cờ. Không áp dụng cho chấm Wi-Fi (có giới hạn riêng).
+  [SETTING_KEY.CHECK_IN_RADIUS_ENFORCED]: { type: SETTING_DATA_TYPE.BOOLEAN, defaultValue: false },
   // Cho nhân viên chấm công bằng Wi-Fi cửa hàng (bên cạnh QR)
   [SETTING_KEY.WIFI_CLOCKING_ENABLED]: { type: SETTING_DATA_TYPE.BOOLEAN, defaultValue: false },
   // Chấm bằng Wi-Fi chỉ hợp lệ khi điện thoại (GPS) cách vị trí cửa hàng tối đa

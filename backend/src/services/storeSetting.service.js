@@ -1,5 +1,6 @@
 // THIẾT LẬP CỬA HÀNG (admin): giờ ca, tiền phạt mỗi phút muộn/về sớm, vị trí
-// và bán kính chấm công, bật/tắt chấm công bằng Wi-Fi. Giờ ca được chụp vào
+// và bán kính chấm công (tuỳ chọn chặn chấm QR ngoài bán kính), bật/tắt chấm
+// công bằng Wi-Fi. Giờ ca được chụp vào
 // từng ngày chấm công nên đổi giờ ca không làm sai các ngày đã qua; tiền phạt
 // mới áp dụng cho các bảng lương chưa chốt khi tính lại.
 // Lưu dạng key-value (store_setting) — danh sách key ở SETTING_KEY (constants/enums.js).
@@ -43,6 +44,12 @@ function parseSettingBody(b) {
       v[SETTING_KEY.LONGITUDE] = null;
     }
   }
+  if (b.checkInRadiusEnforced !== undefined) {
+    if (typeof b.checkInRadiusEnforced !== "boolean") {
+      throw AppError.badRequest("Giá trị bật/tắt chặn chấm công ngoài bán kính không hợp lệ.");
+    }
+    v[SETTING_KEY.CHECK_IN_RADIUS_ENFORCED] = b.checkInRadiusEnforced;
+  }
   if (b.wifiClockingEnabled !== undefined) {
     if (typeof b.wifiClockingEnabled !== "boolean") throw AppError.badRequest("Giá trị bật/tắt chấm công Wi-Fi không hợp lệ.");
     v[SETTING_KEY.WIFI_CLOCKING_ENABLED] = b.wifiClockingEnabled;
@@ -82,6 +89,10 @@ export function createStoreSettingService({ storeRepository, storeNetworkService
     const pick = (key) => (key in fields ? fields[key] : current[key]);
     if (pick(SETTING_KEY.WIFI_CLOCKING_ENABLED) && pick(SETTING_KEY.LATITUDE) == null) {
       throw AppError.badRequest("Cần đặt vị trí cửa hàng (vĩ độ, kinh độ) trước khi bật chấm công bằng Wi-Fi.");
+    }
+    // Chặn chấm ngoài bán kính cũng cần vị trí — gồm cả trường hợp xoá vị trí khi đang bật
+    if (pick(SETTING_KEY.CHECK_IN_RADIUS_ENFORCED) && pick(SETTING_KEY.LATITUDE) == null) {
+      throw AppError.badRequest("Cần đặt vị trí cửa hàng (vĩ độ, kinh độ) trước khi bật chặn chấm công ngoài bán kính.");
     }
 
     await storeRepository.updateSetting(actor.storeId, fields);

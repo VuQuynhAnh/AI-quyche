@@ -3,7 +3,11 @@ import { api } from "../../api/client.js";
 import { useNotification } from "../../context/NotificationContext.jsx";
 import { CLOCKING_ACTION, CLOCKING_ACTION_LABEL, CLOCKING_METHOD, CLOCKING_SOURCE } from "../../constants/enums.js";
 import { fmtTime, fmtDateLong, fmtMinutes, fmtMoney, getDeviceId, vnDateKey } from "../../utils/format.js";
-import { getCurrentPosition } from "../../utils/geo.js";
+import { getBestPosition } from "../../utils/geo.js";
+
+// Đọc GPS tối đa 3 giây, lấy lần chính xác nhất (dừng ngay khi sai số ≤ 50 m):
+// vị trí càng chuẩn thì càng ít bị gắn cờ / bị chặn oan "ngoài phạm vi"
+const GPS_OPTIONS = { maxWaitMs: 3000, goodEnoughMeters: 50 };
 import QrScanner from "../../components/QrScanner.jsx";
 import HelpTip from "../../components/HelpTip.jsx";
 
@@ -32,6 +36,7 @@ export default function CheckIn() {
   const [today, setToday] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [locating, setLocating] = useState(false); // đang dò GPS trước khi gửi chấm công
   const [now, setNow] = useState(new Date());
   const [scanAction, setScanAction] = useState(null); // đang quét QR cho check-in hay check-out
   const [wifi, setWifi] = useState(null); // kết quả /clocking/me/wifi (null = không dùng được)
@@ -46,7 +51,7 @@ export default function CheckIn() {
   async function loadWifi(storeInfo) {
     if (!storeInfo.wifiClockingEnabled) return setWifi(null);
     try {
-      const pos = await getCurrentPosition();
+      const pos = await getBestPosition(GPS_OPTIONS);
       const q = new URLSearchParams({ latitude: pos.lat, longitude: pos.lng, accuracy: pos.accuracy ?? "" });
       setWifi(await api.get(`/clocking/me/wifi?${q}`, { silent: true }));
     } catch {
@@ -83,8 +88,10 @@ export default function CheckIn() {
   // actionType: check-in / check-out (nhân viên tự chọn); payload: { method, storeId? }
   async function submitCheck(actionType, payload) {
     setBusy(true);
+    setLocating(true);
     try {
-      const pos = await getCurrentPosition();
+      const pos = await getBestPosition(GPS_OPTIONS);
+      setLocating(false);
       const data = await api.post("/clocking/check", {
         actionType,
         ...payload,
@@ -101,6 +108,7 @@ export default function CheckIn() {
       // Trạng thái có thể đã lệch (VD: chấm ở máy khác) -> tải lại cho đúng
       load();
     } finally {
+      setLocating(false);
       setBusy(false);
     }
   }
@@ -113,6 +121,8 @@ export default function CheckIn() {
   const hasCheckedIn = Boolean(c?.checkInTime);
   const hasCheckedOut = Boolean(c?.checkOutTime);
   const wifiUsable = Boolean(wifi?.usable);
+  // Cửa hàng bật chặn (và đã đặt vị trí): server từ chối lần chấm QR ngoài bán kính
+  const radiusEnforced = Boolean(today.store.checkInRadiusEnforced && today.store.latitude != null);
   const offMinutes = c ? c.lateMinutes + c.earlyLeaveMinutes : 0;
   const penalty = offMinutes * (today.store.penaltyAmountPerMinute || 0);
 
@@ -170,6 +180,8 @@ export default function CheckIn() {
           </div>
         )}
 
+        {/* Dò GPS chưa gọi API nên không có lớp phủ "Đang xử lý" — báo riêng */}
+        {locating && <div className="small text-primary mt-2 text-center">Đang dò vị trí GPS…</div>}
         <div className="text-muted small mt-2 text-center">
           <HelpTip label="Cách chấm công">
             {hasCheckedOut
@@ -178,6 +190,7 @@ export default function CheckIn() {
                 ? "Đang ở cửa hàng và dùng Wi-Fi cửa hàng: bấm nút Wi-Fi để chấm ngay, hoặc bấm nút kia để quét mã QR tại quầy."
                 : "Bấm để mở camera, quét mã QR dán tại quầy. Cần bật định vị (GPS)."}
             {!hasCheckedIn && " Nếu quên check-in lúc đến, vẫn check-out được — ngày đó sẽ thiếu giờ vào, báo quản lý bổ sung."}
+            {radiusEnforced && ` Cửa hàng chỉ cho chấm công bằng QR trong phạm vi ${today.store.checkInRadiusMeters} m quanh cửa hàng.`}
           </HelpTip>
         </div>
       </div>

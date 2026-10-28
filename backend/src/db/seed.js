@@ -82,7 +82,8 @@ const STORES = [
     name: "Cửa hàng Cầu Giấy",
     address: "88 Xuân Thuỷ, Cầu Giấy, Hà Nội",
     plan: { ownerPhoneNumber: "0912000002", maxEmployeeCount: 5, expiresInDays: 20 }, // sắp hết hạn
-    setting: { latitude: 21.0368, longitude: 105.7826, checkInRadiusMeters: 150, shiftStartTime: "09:00", shiftEndTime: "18:00", penaltyAmountPerMinute: 500 },
+    // Bật chặn chấm QR ngoài bán kính — để demo cả 2 chế độ (Hoàn Kiếm chỉ gắn cờ)
+    setting: { latitude: 21.0368, longitude: 105.7826, checkInRadiusMeters: 150, checkInRadiusEnforced: true, shiftStartTime: "09:00", shiftEndTime: "18:00", penaltyAmountPerMinute: 500 },
     admin: { fullName: "Vũ Minh Quân", email: "admin.caugiay@smartclocking.vn", password: "Admin@123" },
     employees: [
       { fullName: "Lê Thị Mai", email: "mai@smartclocking.vn", phoneNumber: "0901000004", jobTitle: "Thu ngân", hourlyWage: 30000, raisedWage: 31000, profile: "early", checkedInToday: true, forgetsCheckOut: true },
@@ -175,6 +176,7 @@ async function seedAccounts() {
       [SETTING_KEY.LATITUDE]: s.latitude,
       [SETTING_KEY.LONGITUDE]: s.longitude,
       [SETTING_KEY.CHECK_IN_RADIUS_METERS]: s.checkInRadiusMeters,
+      [SETTING_KEY.CHECK_IN_RADIUS_ENFORCED]: Boolean(s.checkInRadiusEnforced),
       [SETTING_KEY.WIFI_CLOCKING_ENABLED]: Boolean(s.wifiClockingEnabled),
     });
 

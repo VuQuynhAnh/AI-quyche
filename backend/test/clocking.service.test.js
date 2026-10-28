@@ -265,3 +265,54 @@ describe("chấm công bằng Wi-Fi (CLK-BR-005)", () => {
     });
   });
 });
+
+describe("chặn chấm công QR ngoài bán kính (CLK-UC01/BR-14)", () => {
+  const enforced = { check_in_radius_enforced: true, check_in_radius_meters: 100 };
+
+  it("bật chặn: quét QR khi cách cửa hàng 1 km thì bị từ chối, không ghi lần chấm nào", async () => {
+    // SC: CLK-UC01-SC16
+    const { service, clockingRepository } = setup({ setting: enforced });
+    await rejectsWith(service.check(USER, qrBody({ latitude: north(1000), accuracy: 10 })), {
+      status: 403,
+      message: /^Bạn đang cách cửa hàng khoảng 1000 m — chỉ được chấm công trong phạm vi 100 m quanh cửa hàng\./,
+    });
+    assert.equal(clockingRepository.histories.length, 0);
+  });
+
+  it("bật chặn: trong bán kính thì chấm bình thường, không gắn cờ", async () => {
+    const { service } = setup({ setting: enforced });
+    const result = await service.check(USER, qrBody({ latitude: north(60), accuracy: 10 }));
+    assert.equal(result.history.isOutOfRange, false);
+  });
+
+  it("bật chặn: được trừ hao sai số GPS tối đa 100 m; lần chấm trong phần trừ hao vẫn gắn cờ", async () => {
+    // SC: CLK-UC01-SC17 — cách 150 m, sai số 80 m: 150 − 80 ≤ 100 -> được chấm
+    const ok = setup({ setting: enforced });
+    const result = await ok.service.check(USER, qrBody({ latitude: north(150), accuracy: 80 }));
+    assert.equal(result.history.isOutOfRange, true);
+
+    // Cách 250 m, sai số báo 500 m nhưng chỉ trừ 100 m: 250 − 100 > 100 -> từ chối
+    const far = setup({ setting: enforced });
+    await rejectsWith(far.service.check(USER, qrBody({ latitude: north(250), accuracy: 500 })), { status: 403 });
+  });
+
+  it("bật chặn nhưng cửa hàng chưa đặt vị trí: không chặn", async () => {
+    const { service } = setup({ setting: { ...enforced, latitude: null, longitude: null } });
+    const result = await service.check(USER, qrBody({ latitude: north(5000) }));
+    assert.equal(result.history.actionType, CLOCKING_ACTION.CHECK_IN);
+  });
+
+  it("tắt chặn: ngoài bán kính vẫn chấm được, chỉ gắn cờ", async () => {
+    // SC: CLK-UC01-SC18
+    const { service } = setup({ setting: { check_in_radius_enforced: false } });
+    const result = await service.check(USER, qrBody({ latitude: north(1000) }));
+    assert.equal(result.history.isOutOfRange, true);
+  });
+
+  it("bật chặn không áp dụng cho chấm Wi-Fi: vẫn theo giới hạn Wi-Fi riêng", async () => {
+    // SC: CLK-UC01-SC18 — bán kính QR 100 m, giới hạn Wi-Fi 200 m, cách 150 m
+    const { service } = setup({ setting: { ...enforced, wifi_clocking_enabled: true, wifi_max_distance_meters: 200 } });
+    const result = await service.check(USER, wifiBody({ latitude: north(150), accuracy: 0 }), { ip: STORE_IP });
+    assert.equal(result.history.method, CLOCKING_METHOD.WIFI);
+  });
+});

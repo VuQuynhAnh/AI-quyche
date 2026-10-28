@@ -54,6 +54,7 @@ export function serializeSetting(s) {
     latitude: s.latitude,
     longitude: s.longitude,
     checkInRadiusMeters: s.check_in_radius_meters,
+    checkInRadiusEnforced: s.check_in_radius_enforced,
     wifiClockingEnabled: s.wifi_clocking_enabled,
     wifiMaxDistanceMeters: s.wifi_max_distance_meters,
     updatedAt: s.updated_at,

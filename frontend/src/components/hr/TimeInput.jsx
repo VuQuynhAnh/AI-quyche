@@ -7,12 +7,14 @@ import { createPortal } from "react-dom";
 // ngôn ngữ máy) không chỉnh giao diện được.
 // Bảng chọn render qua Portal + vị trí fixed để không bị khung cuộn của modal cắt mất.
 // value / onChange: chuỗi "HH:MM", hoặc "" khi chưa chọn (chỉ khi không required).
+// block: cỡ thường + rộng hết cột (để thẳng hàng với các ô nhập khác trong form);
+// mặc định là ô nhỏ vừa nội dung (dùng trong bảng / hộp thoại sửa giờ).
 const pad = (n) => String(n).padStart(2, "0");
 const HOURS = Array.from({ length: 24 }, (_, i) => pad(i));
 const MINUTES = Array.from({ length: 60 }, (_, i) => pad(i));
 const PANEL_HEIGHT = 248; // phải khớp .time-panel trong custom.css
 
-export default function TimeInput({ value, onChange, required = false, disabled = false, label }) {
+export default function TimeInput({ value, onChange, required = false, disabled = false, label, block = false }) {
   const [hour = "", minute = ""] = value ? value.split(":") : [];
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
@@ -63,7 +65,7 @@ export default function TimeInput({ value, onChange, required = false, disabled 
       <button
         ref={triggerRef}
         type="button"
-        className={`form-control form-control-sm w-auto d-inline-flex align-items-center gap-1 fw-semibold ${value ? "" : "text-body-tertiary"} ${open ? "border-primary" : ""} tabular-nums`}
+        className={`form-control ${block ? "w-100 d-flex" : "form-control-sm w-auto d-inline-flex"} align-items-center gap-1 fw-semibold ${value ? "" : "text-body-tertiary"} ${open ? "border-primary" : ""} tabular-nums`}
         disabled={disabled}
         aria-label={label ? `${label}: ${value || "chưa chọn"}` : value || "Chọn giờ"}
         aria-haspopup="dialog"
