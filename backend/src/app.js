@@ -14,7 +14,7 @@ export function createApp({ routers, accountAccessGuard }) {
   const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS || (process.env.RENDER ? 1 : 0));
   if (trustProxyHops > 0) app.set("trust proxy", trustProxyHops);
 
-  app.use(cors({ origin: process.env.CORS_ORIGIN || "*" }));
+  app.use(cors({ origin: parseCorsOrigin(process.env.CORS_ORIGIN) }));
   app.use(express.json({ limit: "2mb" }));
 
   app.get("/api/health", (req, res) => res.json({ ok: true }));
@@ -34,4 +34,20 @@ export function createApp({ routers, accountAccessGuard }) {
   app.use(errorHandler);
 
   return app;
+}
+
+// CORS_ORIGIN: bỏ trống = cho phép tất cả; nhiều domain cách nhau dấu phẩy;
+// "*" khớp 1 đoạn bất kỳ — VD "https://ai-quyche*.vercel.app" cho cả các bản
+// preview của Vercel (mỗi lần deploy 1 domain khác).
+function parseCorsOrigin(value) {
+  const entries = (value || "")
+    .split(",")
+    .map((s) => s.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+  if (entries.length === 0) return "*";
+  return entries.map((entry) =>
+    entry.includes("*")
+      ? new RegExp(`^${entry.split("*").map((p) => p.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join("[^/]*")}$`)
+      : entry
+  );
 }
