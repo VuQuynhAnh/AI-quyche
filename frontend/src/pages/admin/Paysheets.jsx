@@ -156,7 +156,40 @@ export default function Paysheets() {
             <Stat label="Tổng thực nhận" value={fmtMoney(paysheet.totalNetSalary)} strong />
           </div>
 
-          <div className="card">
+          {/* Điện thoại: mỗi người 1 dòng (thực nhận nổi bật), bấm để xem từng ngày.
+              Bảng 8 cột chỉ dùng từ tablet trở lên. */}
+          <div className="card d-md-none">
+            <div className="list-group list-group-flush">
+              {data.details.map((d) => (
+                <button key={d.id} type="button" className="list-group-item list-group-item-action py-3" onClick={() => setDetail(d)}>
+                  <div className="d-flex justify-content-between align-items-start gap-2">
+                    <div className="min-w-0">
+                      <div className="fw-semibold text-truncate">{d.fullName}</div>
+                      <div className="small text-muted text-truncate">{d.jobTitle || "—"}</div>
+                    </div>
+                    <div className="fw-bold text-nowrap">{fmtMoney(d.netSalary)}</div>
+                  </div>
+                  <div className="small text-muted mt-1">
+                    {d.workedDays} ngày · {fmtMinutes(d.workedMinutes)} · muộn/sớm {d.lateMinutes + d.earlyLeaveMinutes}p
+                    {d.penaltyAmount > 0 && <span className="text-danger text-nowrap"> · phạt −{fmtMoney(d.penaltyAmount)}</span>}
+                  </div>
+                  {d.missingCheckOutDays > 0 && (
+                    <span className="badge text-bg-danger mt-1">{d.missingCheckOutDays} ngày thiếu ra</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            {data.details.length > 0 ? (
+              <div className="card-footer d-flex justify-content-between fw-bold bg-white">
+                <span>Tổng thực nhận</span>
+                <span>{fmtMoney(paysheet.totalNetSalary)}</span>
+              </div>
+            ) : (
+              <p className="text-muted p-3 mb-0">Không có nhân viên nào.</p>
+            )}
+          </div>
+
+          <div className="card d-none d-md-block">
             <div className="table-responsive">
               <table className="table table-sm table-hover align-middle mb-0">
                 <thead>
@@ -277,7 +310,26 @@ export default function Paysheets() {
             </>
           }
         >
-          <div className="table-responsive">
+          {/* Điện thoại: từng ngày 1 dòng thay cho bảng 9 cột */}
+          <ul className="list-group list-group-flush d-sm-none mb-2">
+            {detail.dailyBreakdown.map((d) => (
+              <li key={d.workDate} className="list-group-item px-0">
+                <div className="d-flex justify-content-between gap-2">
+                  <span className="fw-semibold">{fmtDateLong(d.workDate).replace(/^[^,]+, /, "")}</span>
+                  <span className="fw-semibold text-nowrap">{fmtMoney(d.netSalary)}</span>
+                </div>
+                <div className="small text-muted">
+                  {fmtTime(d.checkInTime)}–{d.isMissingCheckOut ? <span className="text-danger">thiếu ra</span> : fmtTime(d.checkOutTime)}
+                  {" · "}{fmtMinutes(d.workedMinutes)}
+                  {d.lateMinutes > 0 && ` · muộn ${d.lateMinutes}p`}
+                  {d.earlyLeaveMinutes > 0 && ` · sớm ${d.earlyLeaveMinutes}p`}
+                  {d.penaltyAmount > 0 && <span className="text-danger text-nowrap"> · phạt −{fmtMoney(d.penaltyAmount)}</span>}
+                </div>
+              </li>
+            ))}
+            {detail.dailyBreakdown.length === 0 && <li className="list-group-item px-0 text-muted">Không có ngày công.</li>}
+          </ul>
+          <div className="table-responsive d-none d-sm-block">
             <table className="table table-sm align-middle">
               <thead>
                 <tr>

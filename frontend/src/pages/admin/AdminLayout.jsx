@@ -1,9 +1,12 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
 
 // Layout dùng chung cho các trang admin.
-//   - Màn hình NHỎ (< lg / 992px, điện thoại + máy tính bảng): thanh tab nằm
-//     ngang, cố định dưới cùng — giữ đúng trải nghiệm mobile như trước.
+//   - Màn hình NHỎ (< lg / 992px, điện thoại + máy tính bảng): thanh tab cố
+//     định dưới cùng kiểu app di động — 4 mục dùng nhiều nhất (icon + nhãn) và
+//     "Thêm" mở ngăn kéo từ dưới lên chứa các mục còn lại + chấm công của tôi +
+//     đăng xuất (7 mục chữ cuộn ngang trước đây bị khuất, khó bấm).
 //   - Màn hình LỚN (>= lg, máy tính): sidebar cố định bên trái với logo, icon
 //     + nhãn cho từng mục, trạng thái đang chọn rõ ràng, và khu vực người
 //     dùng/đăng xuất ghim ở cuối — đúng bố cục quen thuộc của các trang quản
@@ -37,6 +40,16 @@ const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
 const PAGE_TITLES = Object.fromEntries(NAV_ITEMS.map((i) => [i.to, i.label]));
 
+// Điện thoại: 4 mục trên thanh đáy (nhãn ngắn cho vừa), còn lại nằm trong "Thêm"
+const MOBILE_TABS = [
+  { to: "/admin/clockings", label: "Chấm công", icon: ClockIcon },
+  { to: "/admin/employees", label: "Nhân viên", icon: UsersIcon },
+  { to: "/admin/paysheets", label: "Bảng lương", icon: MoneyIcon },
+  { to: "/admin/logs", label: "Hội thoại", icon: ChatIcon },
+];
+const MOBILE_TAB_PATHS = new Set(MOBILE_TABS.map((t) => t.to));
+const MORE_ITEMS = NAV_ITEMS.filter((i) => !MOBILE_TAB_PATHS.has(i.to));
+
 // Trang nhiều cột dữ liệu: dùng hết chiều ngang, không giới hạn 1240px
 const FULL_WIDTH_PAGES = new Set(["/admin/clockings"]);
 
@@ -44,6 +57,18 @@ export default function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  // Chuyển trang thì đóng ngăn "Thêm"
+  useEffect(() => setMoreOpen(false), [location.pathname]);
+
+  // Esc đóng ngăn "Thêm"
+  useEffect(() => {
+    if (!moreOpen) return undefined;
+    const onKey = (e) => e.key === "Escape" && setMoreOpen(false);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [moreOpen]);
 
   function handleLogout() {
     logout();
@@ -51,6 +76,8 @@ export default function AdminLayout() {
   }
 
   const pageTitle = PAGE_TITLES[location.pathname] || "Trang quản trị";
+  // Đang ở 1 trang thuộc "Thêm" -> tô sáng tab "Thêm"
+  const inMore = MORE_ITEMS.some((i) => i.to === location.pathname);
 
   return (
     <div className="admin-shell d-flex">
@@ -98,20 +125,15 @@ export default function AdminLayout() {
       </aside>
 
       <div className="admin-content with-bottom-tabs flex-grow-1 min-w-0">
-        {/* Thanh tiêu đề trên cùng — hiện ở MỌI kích thước màn hình; nút đăng
-            xuất chỉ hiện ở đây trên mobile/tablet (desktop đã có ở sidebar). */}
-        <div className="sticky-top d-flex justify-content-between align-items-center px-3 px-lg-4 py-3 border-bottom bg-white">
-          <div className="d-flex align-items-center gap-2">
-            <img src="/logo.svg" alt="" className="rounded-3 d-lg-none" width={30} height={30} />
-            <h1 className="h5 mb-0">{pageTitle}</h1>
+        {/* Thanh tiêu đề trên cùng — hiện ở MỌI kích thước màn hình. Điện thoại/
+            tablet chỉ còn logo + tiêu đề (chấm công của tôi, đăng xuất nằm trong
+            "Thêm") để tiêu đề dài không bị xuống dòng. */}
+        <div className="sticky-top d-flex justify-content-between align-items-center gap-2 px-3 px-lg-4 py-2 py-lg-3 border-bottom bg-white">
+          <div className="d-flex align-items-center gap-2 min-w-0">
+            <img src="/logo.svg" alt="" className="rounded-3 d-lg-none flex-shrink-0" width={30} height={30} />
+            <h1 className="h5 mb-0 text-truncate">{pageTitle}</h1>
           </div>
-          <div className="d-flex align-items-center gap-2">
-            <span className="text-muted small d-none d-sm-inline">Xin chào, {user?.fullName}</span>
-            <NavLink to="/work" className="btn btn-primary btn-sm d-lg-none text-nowrap">Chấm công</NavLink>
-            <button className="btn btn-outline-secondary btn-sm d-lg-none" onClick={handleLogout}>
-              Đăng xuất
-            </button>
-          </div>
+          <span className="text-muted small d-none d-lg-inline text-nowrap">Xin chào, {user?.fullName}</span>
         </div>
 
         <div className={`admin-page-wrap p-3 p-lg-4 ${FULL_WIDTH_PAGES.has(location.pathname) ? "mw-100" : ""}`}>
@@ -120,20 +142,74 @@ export default function AdminLayout() {
       </div>
 
       {/* Thanh tab dưới cùng — CHỈ hiện ở điện thoại/máy tính bảng (< lg) */}
-      <nav className="bottom-tabs fixed-bottom bg-white border-top d-flex d-lg-none flex-nowrap overflow-x-auto">
-        {NAV_ITEMS.map(({ to, label }) => (
+      <nav className="bottom-tabs fixed-bottom bg-white border-top d-flex d-lg-none" aria-label="Điều hướng quản trị">
+        {MOBILE_TABS.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
-            className={({ isActive }) =>
-              `nav-link text-center text-nowrap flex-fill px-3 ${isActive ? "text-primary fw-semibold" : "text-body-secondary"}`
-            }
+            className={({ isActive }) => `bottom-tab nav-link ${isActive ? "text-primary fw-semibold" : "text-body-secondary"}`}
           >
-            {label}
+            <Icon />
+            <span>{label}</span>
           </NavLink>
         ))}
+        <button
+          type="button"
+          className={`bottom-tab nav-link border-0 bg-transparent ${moreOpen || inMore ? "text-primary fw-semibold" : "text-body-secondary"}`}
+          aria-expanded={moreOpen}
+          onClick={() => setMoreOpen((o) => !o)}
+        >
+          <MoreIcon />
+          <span>Thêm</span>
+        </button>
       </nav>
+
+      {/* Ngăn "Thêm" (điện thoại/tablet): các mục còn lại + tài khoản. Hiện tĩnh
+          bằng markup offcanvas của Bootstrap, không dùng JS của Bootstrap. */}
+      {moreOpen && (
+        <>
+          <div className="offcanvas-backdrop fade show d-lg-none" onClick={() => setMoreOpen(false)} />
+          <div className="offcanvas offcanvas-bottom show h-auto d-lg-none more-sheet" role="dialog" aria-modal="true" aria-label="Thêm">
+            <div className="offcanvas-body p-2">
+              <nav className="nav flex-column">
+                {MORE_ITEMS.map(({ to, label, icon: Icon }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    className={({ isActive }) =>
+                      `nav-link d-flex align-items-center gap-3 rounded-3 py-3 ${isActive ? "active bg-primary-subtle text-primary fw-semibold" : "text-body"}`
+                    }
+                  >
+                    <Icon />
+                    <span>{label}</span>
+                  </NavLink>
+                ))}
+              </nav>
+              <div className="border-top mt-2 pt-3 px-2 pb-2">
+                <div className="small text-muted text-truncate mb-2">{user?.fullName}</div>
+                <div className="d-flex gap-2">
+                  {/* Admin cũng chấm công như nhân viên */}
+                  <NavLink to="/work" className="btn btn-primary flex-fill">Chấm công của tôi</NavLink>
+                  <button type="button" className="btn btn-outline-secondary flex-fill" onClick={handleLogout}>
+                    Đăng xuất
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="5" cy="12" r="1.5" />
+      <circle cx="12" cy="12" r="1.5" />
+      <circle cx="19" cy="12" r="1.5" />
+    </svg>
   );
 }
 

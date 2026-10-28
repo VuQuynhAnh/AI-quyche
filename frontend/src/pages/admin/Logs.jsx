@@ -151,6 +151,8 @@ export default function Logs() {
     setReplyWarning("");
     setSelectedId(id);
     setReplyText("");
+    // Điện thoại/tablet: chi tiết thay chỗ danh sách -> đưa về đầu trang
+    if (window.matchMedia("(max-width: 991.98px)").matches) window.scrollTo(0, 0);
     try {
       const data = await api.get(`/admin/conversations/${id}/messages`);
       pendingScrollAction.current = "bottom";
@@ -301,7 +303,9 @@ export default function Logs() {
           1 danh sách DUY NHẤT (xem sortedConversations phía trên) — hội thoại
           đang cần trả lời luôn ở trên, chờ lâu nhất trước; số lượng theo từng
           trạng thái đã có ở chú giải đầu trang nên không cần lặp lại ở đây. */}
-      <div className="logs-list-col d-flex flex-column gap-4">
+      {/* Điện thoại/tablet: đang mở 1 hội thoại thì ẩn danh sách (xem từng màn,
+          có nút quay lại) — xếp chồng thì phải cuộn qua cả danh sách mới thấy */}
+      <div className={`logs-list-col flex-column gap-4 ${selectedId ? "d-none d-lg-flex" : "d-flex"}`}>
         <div>
           <h2 className="h6 mb-3">Hội thoại ({allConversations.length})</h2>
           {renderList(sortedConversations, "Chưa có hội thoại nào.")}
@@ -309,7 +313,20 @@ export default function Logs() {
       </div>
 
       {/* Cột chi tiết — nội dung hội thoại + khung trả lời, chiếm phần còn lại */}
-      <div className="logs-detail-col flex-grow-1 min-w-0">
+      {/* Vẫn hiện khi có lỗi (VD tải danh sách lỗi) để điện thoại thấy được thông báo */}
+      <div className={`logs-detail-col flex-grow-1 min-w-0 ${selectedId || error ? "" : "d-none d-lg-block"}`}>
+        {selectedId && (
+          <button
+            type="button"
+            className="btn btn-link px-0 mb-2 d-lg-none"
+            onClick={() => {
+              setSelectedId(null);
+              setConversation(null);
+            }}
+          >
+            ← Danh sách hội thoại
+          </button>
+        )}
         {error && <div className="alert alert-danger">{error}</div>}
 
         {conversation ? (

@@ -87,7 +87,7 @@ export default function Clockings() {
           </div>
           {isWeek ? <WeekNav week={week} onChange={setWeek} /> : <MonthNav month={month} onChange={setMonth} />}
         </div>
-        <div className="d-flex flex-wrap align-items-center gap-3 small text-muted">
+        <div className="d-flex flex-wrap align-items-center gap-2 gap-md-3 small text-muted">
           {lockedMonths.length > 0 && (
             <span className="badge text-bg-secondary">
               Tháng {lockedMonths.map(fmtMonth).join(", ")} đã chốt lương — không sửa được
@@ -103,8 +103,27 @@ export default function Clockings() {
 
       {error && <div className="alert alert-danger">{error}</div>}
 
+      {/* Điện thoại: mỗi người 1 thẻ với lưới ngày 7 cột (bảng nhiều cột chỉ
+          hiện được 1 ngày trên màn hẹp). Tablet trở lên giữ bảng. */}
       {data && (
-        <div className="card">
+        <div className="d-md-none d-flex flex-column gap-2">
+          {data.rows.map((r) => (
+            <AttendanceCard
+              key={r.employeeId}
+              row={r}
+              dates={data.dates}
+              isWeek={isWeek}
+              todayKey={todayKey}
+              cellClass={cellClass}
+              onOpen={(date) => setDetail({ employeeId: r.employeeId, fullName: r.fullName, date })}
+            />
+          ))}
+          {data.rows.length === 0 && <p className="text-muted mb-0">Chưa có nhân viên nào.</p>}
+        </div>
+      )}
+
+      {data && (
+        <div className="card d-none d-md-block">
           <div className="table-responsive att-table-wrap">
             <table className="att-table w-100">
               <thead>
@@ -184,6 +203,62 @@ export default function Clockings() {
           onChanged={() => setReloadKey((k) => k + 1)}
         />
       )}
+    </div>
+  );
+}
+
+// Thẻ chấm công 1 người (điện thoại): tổng giờ + muộn/sớm, lưới ngày bấm được.
+// Tuần: 7 ô (thứ + ngày). Tháng: lưới lịch bắt đầu từ thứ Hai, có ô trống đầu tháng.
+function AttendanceCard({ row, dates, isWeek, todayKey, cellClass, onOpen }) {
+  const byDate = new Map(row.days.map((d) => [d.workDate, d]));
+  const offMinutes = row.totals.lateMinutes + row.totals.earlyLeaveMinutes;
+  // Số ô trống trước ngày 1 để ngày rơi đúng cột thứ (T2 = cột đầu)
+  const leadingBlanks = isWeek ? 0 : (dowOf(dates[0]) + 6) % 7;
+  const cellValue = (key, info) => {
+    if (!info) return "·";
+    if (info.isMissingCheckOut) return key === todayKey ? "…" : "!";
+    return (info.workedMinutes / 60).toFixed(1);
+  };
+
+  return (
+    <div className="card">
+      <div className="card-body p-3">
+        <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
+          <div className="min-w-0">
+            <div className={`fw-semibold text-truncate ${row.isActive ? "" : "text-muted"}`}>{row.fullName}</div>
+            <div className="text-muted fs-xs text-truncate">{row.jobTitle || "—"}</div>
+          </div>
+          <div className="text-end flex-shrink-0">
+            <div className="fw-semibold">{fmtMinutes(row.totals.workedMinutes)}</div>
+            <div className={`fs-xs ${offMinutes > 0 ? "text-warning-emphasis fw-semibold" : "text-muted"}`}>Muộn/sớm {offMinutes}p</div>
+          </div>
+        </div>
+        {!isWeek && (
+          <div className="att-grid att-grid-head">
+            {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((d) => <span key={d}>{d}</span>)}
+          </div>
+        )}
+        <div className="att-grid">
+          {Array.from({ length: leadingBlanks }, (_, i) => <span key={`blank-${i}`} />)}
+          {dates.map((key) => {
+            const info = byDate.get(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                className={`att-chip ${cellClass(info)} ${key === todayKey ? "att-chip-today" : ""}`}
+                onClick={() => onOpen(key)}
+                aria-label={`${row.fullName} ${fmtDayMonth(key)}`}
+              >
+                <span className={`att-chip-label ${dowOf(key) === 0 ? "text-danger" : ""}`}>
+                  {isWeek ? `${DOW_LABEL[dowOf(key)]} ${Number(key.slice(8))}` : Number(key.slice(8))}
+                </span>
+                <span className="att-chip-value">{cellValue(key, info)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

@@ -72,6 +72,25 @@
 .bottom-tabs .nav-link {
   font-size: 12px;
 }
+/* Admin: mỗi tab = icon trên, nhãn dưới, chia đều chiều ngang */
+.bottom-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 2px 6px;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+/* Ngăn "Thêm" nằm trên thanh tab, chừa vùng an toàn của máy có tai thỏ */
+.more-sheet {
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  padding-bottom: var(--safe-bottom);
+}
 .with-bottom-tabs {
   padding-bottom: calc(64px + var(--safe-bottom));
 }
@@ -349,6 +368,43 @@
   outline: 2px solid #93c5fd;
 }
 
+/* Bảng công trên điện thoại (Clockings.jsx > AttendanceCard): lưới 7 cột */
+.att-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.att-grid-head {
+  font-size: 10px;
+  text-align: center;
+  color: var(--bs-secondary-color);
+  margin-bottom: 2px;
+}
+.att-chip {
+  border: 0;
+  border-radius: 8px;
+  min-height: 42px;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+  font-size: 12px;
+  font-weight: 600;
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+}
+.att-chip-label {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--bs-secondary-color);
+}
+.att-chip-today {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}
+
 /* Nút viền có nền trắng (đứng trên nền xám) mà vẫn đổi màu khi rê chuột:
    đổi biến nền mặc định của Bootstrap thay vì dùng .bg-body (có !important,
    làm nút trắng xoá khi hover vì chữ cũng chuyển sang trắng). */
@@ -405,6 +461,12 @@
 /* ---------- Modal (hr/Modal.jsx): độ rộng truyền qua --modal-width ---------- */
 .modal-dialog-sized {
   max-width: min(var(--modal-width, 500px), calc(100% - 1rem));
+}
+/* Điện thoại: hộp thoại toàn màn hình (Modal.jsx) — bỏ giới hạn chiều rộng ở trên */
+@media (max-width: 575.98px) {
+  .modal-dialog-sized.modal-fullscreen-sm-down {
+    max-width: none;
+  }
 }
 /* Hộp xác nhận (NotificationContext.jsx) */
 .confirm-dialog { max-width: 400px; }

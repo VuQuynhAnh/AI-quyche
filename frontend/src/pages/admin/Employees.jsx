@@ -218,7 +218,38 @@ export default function Employees() {
         </button>
       </div>
 
-      <div className="card">
+      {/* Điện thoại: mỗi người 1 dòng bấm được để mở hồ sơ (bảng 6 cột đẩy nút
+          "Sửa" ra ngoài màn hình). Tablet trở lên giữ bảng. */}
+      <div className="card d-md-none">
+        <div className="list-group list-group-flush">
+          {shownEmployees.map((e) => (
+            <button
+              key={e.id}
+              type="button"
+              className={`list-group-item list-group-item-action d-flex align-items-center gap-3 py-3 ${e.isActive ? "" : "text-muted"}`}
+              onClick={() => openEdit(e)}
+            >
+              <Avatar name={e.fullName} src={assetUrl(e.avatarUrl)} size={40} />
+              <div className="min-w-0 flex-grow-1">
+                <div className="fw-semibold text-truncate">
+                  {e.fullName}
+                  {e.role === ROLE.ADMIN && <span className="badge text-bg-primary ms-2 fw-normal">Admin</span>}
+                </div>
+                <div className="small text-muted text-truncate">{[e.jobTitle, e.phoneNumber].filter(Boolean).join(" · ") || e.email}</div>
+              </div>
+              <div className="text-end flex-shrink-0">
+                <div className="small fw-semibold">{fmtMoney(e.hourlyWage ?? 0)}</div>
+                <div className="fs-xs text-muted">/ giờ</div>
+              </div>
+            </button>
+          ))}
+        </div>
+        {!loading && shownEmployees.length === 0 && (
+          <p className="text-muted p-3 mb-0">{showActive ? "Chưa có nhân viên nào đang làm." : "Không có ai đã nghỉ việc."}</p>
+        )}
+      </div>
+
+      <div className="card d-none d-md-block">
         <div className="table-responsive">
           <table className="table table-sm table-hover align-middle mb-0">
             <thead>

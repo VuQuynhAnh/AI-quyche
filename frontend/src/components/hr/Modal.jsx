@@ -8,6 +8,7 @@ const openModals = [];
 // Hộp thoại chung (markup modal Bootstrap, hiện tĩnh — không dùng JS của
 // Bootstrap). Đóng bằng Esc hoặc bấm ra ngoài; render qua Portal để không bị
 // overflow cắt. z-index trên cửa sổ chat nổi, dưới hộp xác nhận/toast.
+// Điện thoại (< sm): toàn màn hình — hộp thoại nhiều nội dung không bị ép hẹp.
 export default function Modal({ title, onClose, children, footer, width = 560 }) {
   const id = useRef(Symbol("modal")).current;
 
@@ -31,7 +32,7 @@ export default function Modal({ title, onClose, children, footer, width = 560 })
         aria-modal="true"
         onMouseDown={(e) => e.target === e.currentTarget && onClose()}
       >
-        <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-dialog-sized" style={{ "--modal-width": `${width}px` }}>
+        <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-dialog-sized modal-fullscreen-sm-down" style={{ "--modal-width": `${width}px` }}>
           <div className="modal-content border-0 shadow">
             <div className="modal-header py-2">
               <h2 className="modal-title h6">{title}</h2>

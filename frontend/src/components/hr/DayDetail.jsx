@@ -170,8 +170,34 @@ export default function DayDetail({ employeeId, fullName, date, onClose, onChang
           )}
 
           {data.histories.length === 0 && <p className="text-muted small mt-2">Chưa có lần chấm công nào.</p>}
+          {/* Điện thoại: mỗi lần ghi nhận 1 khối (bảng 4 cột bị ép chữ gãy dòng) */}
           {data.histories.length > 0 && (
-            <div className="table-responsive mt-2">
+            <ul className="list-group list-group-flush mt-2 d-sm-none">
+              {buildChangeLog(data.histories, clocking).map((row) => (
+                <li key={row.key} className={`list-group-item px-0 ${row.isReset ? "list-group-item-danger px-2" : ""}`}>
+                  <div className="d-flex justify-content-between gap-2">
+                    <span className="fw-semibold">{row.status}</span>
+                    <span className="small text-muted text-nowrap">{fmtLogTime(row.createdAt)}</span>
+                  </div>
+                  <div className="small text-muted">
+                    {row.method}
+                    {row.byName && ` · ${row.byName}`}
+                    {row.location && (
+                      <>
+                        {" · "}
+                        <button type="button" className="btn btn-link btn-sm p-0 align-baseline small" onClick={() => setLocationRow(row)}>
+                          Vị trí{row.location.isOutOfRange && <span className="text-danger"> (ngoài phạm vi)</span>}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <div className="small mt-1">{row.content}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {data.histories.length > 0 && (
+            <div className="table-responsive mt-2 d-none d-sm-block">
               <table className="table table-sm table-hover align-middle small mb-0">
                 <thead className="table-light">
                   <tr>
